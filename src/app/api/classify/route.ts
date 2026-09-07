@@ -20,7 +20,9 @@ const CATEGORIES = [
 
 async function classifyWithGemini(merchantRaw: string, amount: number) {
   const apiKey = process.env.GEMINI_API_KEY;
+  
   if (!apiKey) {
+    console.error("ПОМИЛКА: GEMINI_API_KEY відсутній у змінних оточення Vercel!");
     return { cleanMerchant: merchantRaw, category: "Інше" };
   }
 
@@ -29,10 +31,10 @@ async function classifyWithGemini(merchantRaw: string, amount: number) {
 Сума: ${amount} UAH
 
 Завдання:
-1. Очисти назву мерчанта від технічних префіксів, адрес шлюзів (send.monobank.ua -> Monobank, Liqpay*biplan_charity -> БФ Біплан, Blyzenko -> Близенько, Silpo -> Сільпо, Uklon -> Uklon).
-2. Обери рівно одну категорію виключно з цього списку: ${CATEGORIES.join(", ")}.
+1. Очисти назву мерчанта від технічних кодів, транслітерації (наприклад: Blyzenko -> Близенько, Silpo -> Сільпо, Uklon -> Uklon, Ресторан -> Ресторан).
+2. Обери одну категорію виключно з цього списку: ${CATEGORIES.join(", ")}.
 
-Формат відповіді (чистий JSON без блоків коду):
+Відповідь надай виключно у валідному JSON без markdown-форматування:
 {"cleanMerchant": "Назва", "category": "Категорія"}`;
 
   try {
@@ -48,17 +50,25 @@ async function classifyWithGemini(merchantRaw: string, amount: number) {
       }
     );
 
+    if (!res.ok) {
+      const errorBody = await res.text();
+      console.error(`ПОМИЛКА Gemini API [HTTP ${res.status}]:`, errorBody);
+      return { cleanMerchant: merchantRaw, category: "Інше" };
+    }
+
     const data = await res.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
     if (rawText) {
       const parsed = JSON.parse(rawText);
+      console.log("УСПІШНА КЛАСИФІКАЦІЯ:", parsed);
       return {
         cleanMerchant: parsed.cleanMerchant || merchantRaw,
         category: CATEGORIES.includes(parsed.category) ? parsed.category : "Інше",
       };
     }
   } catch (err) {
-    console.error("Gemini classification failed:", err);
+    console.error("Збій обробки Gemini:", err);
   }
 
   return { cleanMerchant: merchantRaw, category: "Інше" };
