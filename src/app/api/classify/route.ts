@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Примусово вказуємо Next.js не оцінювати роут під час статичної збірки
+export const dynamic = "force-dynamic";
 
 const CATEGORIES = [
   "Продукти",
@@ -17,6 +15,16 @@ const CATEGORIES = [
   "Благодійність",
   "Інше",
 ];
+
+// Безпечна ініціалізація клієнта
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error("Supabase environment variables are missing");
+  }
+  return createClient(url, key);
+}
 
 async function classifyWithGemini(merchantRaw: string, amount: number) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -90,6 +98,7 @@ export async function POST(req: NextRequest) {
     const { cleanMerchant, category } = await classifyWithGemini(rawName, numericAmount);
 
     // Збереження в Supabase
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from("transactions")
       .insert([
