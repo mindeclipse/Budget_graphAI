@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { GoogleGenAI, Type } from "@google/genai";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 const CATEGORIES = [
   "Продукти",
@@ -18,64 +15,90 @@ const CATEGORIES = [
   "Дім та побут",
   "Одяг та взуття",
   "Благодійність",
-  "Інше"
-] as const;
+  "Інше",
+];
+
+async function classifyWithGemini(merchantRaw: string, amount: number) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return { cleanMerchant: merchantRaw, category: "Інше" };
+  }
+
+  const prompt = `Проаналізуй транзакцію витрат:
+Мерчант: "${merchantRaw}"
+Сума: ${amount} UAH
+
+Завдання:
+1. Очисти назву мерчанта від технічних префіксів, адрес шлюзів (send.monobank.ua -> Monobank, Liqpay*biplan_charity -> БФ Біплан, Blyzenko -> Близенько, Silpo -> Сільпо, Uklon -> Uklon).
+2. Обери рівно одну категорію виключно з цього списку: ${CATEGORIES.join(", ")}.
+
+Формат відповіді (чистий JSON без блоків коду):
+{"cleanMerchant": "Назва", "category": "Категорія"}`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" },
+        }),
+      }
+    );
+
+    const data = await res.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (rawText) {
+      const parsed = JSON.parse(rawText);
+      return {
+        cleanMerchant: parsed.cleanMerchant || merchantRaw,
+        category: CATEGORIES.includes(parsed.category) ? parsed.category : "Інше",
+      };
+    }
+  } catch (err) {
+    console.error("Gemini classification failed:", err);
+  }
+
+  return { cleanMerchant: merchantRaw, category: "Інше" };
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = await req.json();
-    
-    // Supabase Webhook передає новий рядок у payload.record
-    const record = payload.record || payload;
-    const { id, merchant_raw, amount } = record;
+    const body = await req.json();
+    const { amount, currency = "UAH", merchant_raw, source = "apple_pay", type = "expense" } = body;
 
-    if (!id || !merchant_raw) {
-      return NextResponse.json({ message: "No data to classify" }, { status: 400 });
+    if (!amount) {
+      return NextResponse.json({ error: "Amount is required" }, { status: 400 });
     }
 
-    // Запит до Gemini для категоризації та очищення
-    const prompt = `Проаналізуй транзакцію витрат:
-- Сира назва мерчанта: "${merchant_raw}"
-- Сума: ${amount} UAH
+    const rawName = merchant_raw || "Невідомий мерчант";
+    const numericAmount = parseFloat(amount);
 
-Твоє завдання:
-1. Очисти назву мерчанта від технічних кодів, адрес, систем транслітерації (наприклад: "Liqpay*biplan_charity" -> "БФ Біплан", "Blyzenko" -> "Близенько", "send.monobank.ua" -> "Monobank").
-2. Обери найбільш точну категорію зі списку: ${CATEGORIES.join(", ")}.`;
+    // AI-нормалізація
+    const { cleanMerchant, category } = await classifyWithGemini(rawName, numericAmount);
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            clean_merchant: { type: Type.STRING, description: "Нормалізована назва українською або брендовою назвою" },
-            category: { type: Type.STRING, enum: CATEGORIES as unknown as string[] }
-          },
-          required: ["clean_merchant", "category"]
-        }
-      }
-    });
-
-    const result = JSON.parse(response.text || "{}");
-
-    // Оновлення запису в Supabase
-    const { error: updateError } = await supabase
+    // Збереження в Supabase
+    const { data, error } = await supabase
       .from("transactions")
-      .update({
-        merchant_raw: result.clean_merchant || merchant_raw,
-        category_name: result.category || "Інше"
-      })
-      .eq("id", id);
+      .insert([
+        {
+          amount: numericAmount,
+          currency,
+          merchant_raw: cleanMerchant,
+          category_name: category,
+          source,
+          type,
+        },
+      ])
+      .select()
+      .single();
 
-    if (updateError) {
-      throw updateError;
-    }
+    if (error) throw error;
 
-    return NextResponse.json({ success: true, updated: result });
+    return NextResponse.json({ success: true, transaction: data });
   } catch (error: any) {
-    console.error("Classification error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
