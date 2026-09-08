@@ -1,10 +1,11 @@
-// src/app/api/transactions/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { cleanMerchantRaw } from "@/lib/normalize";
 
 export async function PATCH(req: NextRequest) {
   try {
+    // Використовуємо Admin-клієнт із правами на запис у БД
+    const supabase = getSupabaseAdmin();
     const body = await req.json();
     const { id, category_name, merchant_raw, clean_title, save_as_rule } = body;
 
@@ -15,24 +16,35 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // 1. Оновлюємо саму транзакцію
-    const updateData: any = {};
+    // 1. Формуємо дані для оновлення
+    const updateData: Record<string, any> = {};
     if (category_name) updateData.category_name = category_name;
     if (clean_title) updateData.merchant_raw = clean_title;
-    if (body.tags) updateData.tags = body.tags;
+    if (body.tags !== undefined) updateData.tags = body.tags;
 
-    const { error: txError } = await supabase
+    // .select() повертає оновлений рядок для перевірки фактичного запису
+    const { data: updatedRows, error: txError } = await supabase
       .from("transactions")
       .update(updateData)
-      .eq("id", id);
+      .eq("id", id)
+      .select();
 
-    if (txError) throw txError;
+    if (txError) {
+      console.error("[API transactions PATCH] DB error:", txError);
+      throw txError;
+    }
 
-    // 2. Якщо користувач зазначив "Запам'ятати правило для цього мерчанта"
+    if (!updatedRows || updatedRows.length === 0) {
+      console.warn(
+        `[API transactions PATCH] Транзакцію з id ${id} не знайдено`
+      );
+    }
+
+    // 2. Якщо обрано збереження правила для наступних покупок
     if (save_as_rule && merchant_raw && category_name) {
       const pattern = cleanMerchantRaw(merchant_raw);
 
-      await supabase.from("merchant_rules").upsert(
+      const { error: ruleError } = await supabase.from("merchant_rules").upsert(
         {
           pattern,
           normalized_name: clean_title || pattern,
@@ -40,9 +52,16 @@ export async function PATCH(req: NextRequest) {
         },
         { onConflict: "pattern" }
       );
+
+      if (ruleError) {
+        console.error(
+          "[API transactions PATCH] Rules upsert error:",
+          ruleError
+        );
+      }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, updated: updatedRows?.[0] });
   } catch (err: any) {
     console.error("Transaction PATCH error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
