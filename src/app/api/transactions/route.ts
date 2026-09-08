@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // Допоміжна перевірка сесії
@@ -49,6 +50,66 @@ export async function PATCH(req: Request) {
     if (error) throw error;
 
     return NextResponse.json({ success: true, transaction: data });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// CREATE: додавання нової транзакції з перевіркою денного ліміту
+export async function POST(req: Request) {
+  try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const {
+      amount,
+      merchant_raw,
+      category_name = "Інше",
+      type = "expense",
+      currency = "UAH",
+      tags = [],
+      created_at,
+    } = body;
+
+    if (!amount || isNaN(Number(amount))) {
+      return NextResponse.json(
+        { error: "Valid amount is required" },
+        { status: 400 }
+      );
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: newTransaction, error } = await supabaseAdmin
+      .from("transactions")
+      .insert({
+        amount: Number(amount),
+        merchant_raw: merchant_raw || "Невідомий мерчант",
+        category_name,
+        type,
+        currency,
+        tags,
+        ...(created_at ? { created_at } : {}),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Перевіряємо ліміт лише для витрат
+    if (type === "expense") {
+      // Використовуємо await з перехопленням помилки, щоб Vercel Serverless
+      // не вбив фоновий процес до відправки HTTP-запиту в Telegram
+      await checkDailyBudgetThreshold().catch((err) => {
+        console.error("Budget alert error:", err);
+      });
+    }
+
+    return NextResponse.json(
+      { success: true, transaction: newTransaction },
+      { status: 201 }
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
