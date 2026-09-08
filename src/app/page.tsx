@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useBudgetMetrics } from "@/hooks/useBudgetMetrics";
 import { BurnRateChart } from "@/components/BurnRateChart";
@@ -104,34 +104,34 @@ export default function Dashboard() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
   // Збір усіх унікальних тегів із транзакцій поточного місяця
-  const availableTags = useMemo(() => {
+  const availableTags = useMemo<string[]>(() => {
     const tagsSet = new Set<string>();
     filteredTransactions.forEach((tx) => {
-      tx.tags?.forEach((tag) => tagsSet.add(tag));
+      tx.tags?.forEach((tag: string) => tagsSet.add(tag));
     });
     return Array.from(tagsSet);
   }, [filteredTransactions]);
 
   // Транзакції для відображення у списку (місяць + активний тег + текст пошуку)
-  const displayedTransactions = useMemo(() => {
-    return filteredTransactions.filter((t) => {
-      // Фільтр за активним тегом (якщо обрано)
+  const displayedTransactions = useMemo<Transaction[]>(() => {
+    return filteredTransactions.filter((t: Transaction) => {
       if (activeTag && (!t.tags || !t.tags.includes(activeTag))) {
         return false;
       }
 
-      // Якщо пошуковий рядок порожній — показуємо все
       if (!searchQuery.trim()) return true;
 
       const query = searchQuery.toLowerCase().trim();
       const merchantMatch = t.merchant_raw?.toLowerCase().includes(query);
       const categoryMatch = t.category_name?.toLowerCase().includes(query);
       const amountMatch = String(t.amount).includes(query);
-      const tagsMatch = t.tags?.some((tag) =>
+      const tagsMatch = t.tags?.some((tag: string) =>
         tag.toLowerCase().includes(query.replace(/^#/, ""))
       );
 
-      return merchantMatch || categoryMatch || amountMatch || tagsMatch;
+      return Boolean(
+        merchantMatch || categoryMatch || amountMatch || tagsMatch
+      );
     });
   }, [filteredTransactions, activeTag, searchQuery]);
 
@@ -1149,7 +1149,7 @@ export default function Dashboard() {
                   <span className="mr-1 text-[11px] font-medium text-zinc-500">
                     Теги:
                   </span>
-                  {availableTags.map((tag) => {
+                  {availableTags.map((tag: string) => {
                     const isActive = activeTag === tag;
                     return (
                       <button
@@ -1208,7 +1208,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="max-h-[500px] space-y-2.5 overflow-y-auto pr-1">
-                {displayedTransactions.map((t) => {
+                {displayedTransactions.map((t: Transaction) => {
                   const IconComponent =
                     CATEGORY_ICONS[t.category_name] || HelpCircle;
                   const iconColor =
@@ -1248,7 +1248,7 @@ export default function Dashboard() {
                           {/* 👇 БЛОК ТЕГІВ: вставляємо тут, перед закриваючим </div> */}
                           {t.tags && t.tags.length > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">
-                              {t.tags.map((tag) => (
+                              {t.tags.map((tag: string) => (
                                 <span
                                   key={tag}
                                   className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400"
