@@ -52,7 +52,9 @@ export function useFinanceQueries(isAuthenticated: boolean | null) {
   };
 
   return {
-    transactions: transactionsQuery.data || [],
+    transactions: (transactionsQuery.data || []).filter(
+      (t: any) => !t.exclude_from_budget
+    ),
     isLoadingTransactions: transactionsQuery.isLoading,
     recurring: recurringQuery.data || [],
     isLoadingRecurring: recurringQuery.isLoading,
