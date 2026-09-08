@@ -192,18 +192,20 @@ export default function Dashboard() {
 
   // Транзакції для відображення у списку
   const displayedTransactions = useMemo(() => {
-    return monthTransactions.filter((t) => {
+    return filteredTransactions.filter((t) => {
+      const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
-        searchQuery === "" ||
-        t.merchant_raw.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.category_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(t.amount).includes(searchQuery);
+        q === "" ||
+        t.merchant_raw?.toLowerCase().includes(q) ||
+        t.category_name?.toLowerCase().includes(q) ||
+        String(t.amount).includes(q) ||
+        t.tags?.some((tag) => tag.toLowerCase().includes(q));
 
       const matchesTag = !activeTag || (t.tags && t.tags.includes(activeTag));
 
       return matchesSearch && matchesTag;
     });
-  }, [monthTransactions, searchQuery, activeTag]);
+  }, [filteredTransactions, searchQuery, activeTag]);
 
   // Стани модальних вікон
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
