@@ -1,11 +1,13 @@
 export interface Transaction {
   id: number;
+  created_at: string;
   amount: number;
   currency: string;
   merchant_raw: string;
   category_name: string;
   source: string;
-  created_at: string;
+  type: "expense" | "income";
+  tags?: string[];
 }
 
 export interface RecurringItem {

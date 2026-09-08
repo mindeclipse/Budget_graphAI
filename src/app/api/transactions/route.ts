@@ -10,17 +10,30 @@ async function checkAuthSession() {
   return Boolean(correctPin && session === correctPin);
 }
 
-// UPDATE: зміна категорії транзакції
+// UPDATE: зміна категорії та/або тегів транзакції
 export async function PATCH(req: Request) {
   try {
     if (!(await checkAuthSession())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id, category_name } = await req.json();
-    if (!id || !category_name) {
+    const { id, category_name, tags } = await req.json();
+
+    if (!id) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Transaction ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Формуємо об'єкт оновлення тільки з тих полів, які передано в запиті
+    const updates: Record<string, any> = {};
+    if (category_name !== undefined) updates.category_name = category_name;
+    if (tags !== undefined) updates.tags = tags;
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: "No fields to update" },
         { status: 400 }
       );
     }
@@ -28,7 +41,7 @@ export async function PATCH(req: Request) {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("transactions")
-      .update({ category_name })
+      .update(updates)
       .eq("id", id)
       .select()
       .single();

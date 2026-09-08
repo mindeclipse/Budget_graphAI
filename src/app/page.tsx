@@ -433,6 +433,16 @@ export default function Dashboard() {
     invalidateTransactions();
   };
 
+  // Оновлення списку тегів транзакції
+  const handleUpdateTags = async (txId: number, newTags: string[]) => {
+    await fetch("/api/transactions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: txId, tags: newTags }),
+    });
+    invalidateTransactions();
+  };
+
   // Видалення транзакції
   const handleDeleteTransaction = async (txId: number) => {
     setSelectedTx(null);
@@ -1118,6 +1128,19 @@ export default function Dashboard() {
                               minute: "2-digit",
                             })}
                           </p>
+                          {/* 👇 БЛОК ТЕГІВ: вставляємо тут, перед закриваючим </div> */}
+                          {t.tags && t.tags.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {t.tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400"
+                                >
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span className="ml-2 text-sm font-bold tracking-tight whitespace-nowrap text-white">
@@ -1156,6 +1179,7 @@ export default function Dashboard() {
         transaction={selectedTx}
         onClose={() => setSelectedTx(null)}
         onUpdateCategory={handleUpdateCategory}
+        onUpdateTags={handleUpdateTags}
         onDelete={handleDeleteTransaction}
       />
     </main>
