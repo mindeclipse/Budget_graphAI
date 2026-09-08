@@ -10,6 +10,11 @@ import { TransactionActionSheet } from "@/components/TransactionActionSheet";
 import { Transaction, RecurringItem, AIInsightData } from "@/types/finance";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
 import {
+  startAuthentication,
+  startRegistration,
+  browserSupportsWebAuthn,
+} from "@simplewebauthn/browser";
+import {
   BarChart,
   Bar,
   XAxis,
@@ -37,10 +42,11 @@ import {
   Zap,
   Lock,
   HelpCircle,
+  Fingerprint,
 } from "lucide-react";
 
 /** Резервний курс для ручного списання USD, якщо API банку тимчасово недоступне */
-const DEFAULT_USD_RATE = 41.8;
+const DEFAULT_USD_RATE = 44.5;
 
 export default function Dashboard() {
   // Сесія користувача та аутентифікація
@@ -131,6 +137,70 @@ export default function Dashboard() {
       setPinError("Помилка підключення");
     } finally {
       setIsVerifyingPin(false);
+    }
+  };
+
+  // Виклик Face ID для розблокування
+  const handleBiometricLogin = async () => {
+    setPinError("");
+    setIsVerifyingPin(true);
+
+    try {
+      const optsRes = await fetch("/api/auth/webauthn/login");
+      if (!optsRes.ok) {
+        const err = await optsRes.json();
+        throw new Error(err.error || "Біометрія недоступна");
+      }
+      const options = await optsRes.json();
+
+      // Запуск системного вікна Face ID / Touch ID
+      const authResp = await startAuthentication({ optionsJSON: options });
+
+      const verifyRes = await fetch("/api/auth/webauthn/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(authResp),
+      });
+
+      if (verifyRes.ok) {
+        setIsAuthenticated(true);
+      } else {
+        const err = await verifyRes.json();
+        setPinError(err.error || "Не вдалося розпізнати");
+      }
+    } catch (err: any) {
+      if (err.name !== "NotAllowedError") {
+        setPinError(err.message || "Помилка Face ID");
+      }
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  };
+
+  // Прив'язка поточного пристрою (викликається один раз після входу)
+  const handleRegisterDevice = async () => {
+    try {
+      const optsRes = await fetch("/api/auth/webauthn/register");
+      if (!optsRes.ok) throw new Error("Помилка отримання параметрів");
+      const options = await optsRes.json();
+
+      const regResp = await startRegistration({ optionsJSON: options });
+
+      const verifyRes = await fetch("/api/auth/webauthn/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(regResp),
+      });
+
+      if (verifyRes.ok) {
+        alert("✅ Face ID / Touch ID успішно прив'язано до цього пристрою!");
+      } else {
+        alert("Помилка прив'язки пристрою");
+      }
+    } catch (err: any) {
+      if (err.name !== "NotAllowedError") {
+        alert(err.message || "Не вдалося налаштувати біометрію");
+      }
     }
   };
 
@@ -436,13 +506,24 @@ export default function Dashboard() {
               <p className="text-xs font-medium text-rose-400">{pinError}</p>
             )}
 
-            <button
-              type="submit"
-              disabled={isVerifyingPin || !pinInput}
-              className="w-full rounded-2xl bg-white py-3 text-xs font-bold text-black transition-all hover:bg-zinc-200 disabled:opacity-40"
-            >
-              {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleBiometricLogin}
+                disabled={isVerifyingPin}
+                className="flex items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-300 transition-all hover:border-zinc-700 hover:text-white disabled:opacity-40"
+                title="Увійти за допомогою Face ID / Touch ID"
+              >
+                <Fingerprint size={18} />
+              </button>
+              <button
+                type="submit"
+                disabled={isVerifyingPin || !pinInput}
+                className="flex-1 rounded-2xl bg-white py-3 text-xs font-bold text-black transition-all hover:bg-zinc-200 disabled:opacity-40"
+              >
+                {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
+              </button>
+            </div>
           </form>
         </div>
       </main>
@@ -499,6 +580,15 @@ export default function Dashboard() {
               {filteredTransactions.length}
             </span>
           </div>
+          {/* Кнопка прив'язки біометрії поточного пристрою */}
+          <button
+            onClick={handleRegisterDevice}
+            title="Налаштувати Face ID / Touch ID для цього пристрою"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-zinc-400 transition-all hover:border-zinc-700 hover:text-white"
+          >
+            <Fingerprint size={14} />
+            <span className="hidden sm:inline">Face ID</span>
+          </button>
         </div>
       </header>
 
