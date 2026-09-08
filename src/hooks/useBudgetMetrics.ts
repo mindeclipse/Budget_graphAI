@@ -60,9 +60,10 @@ export function useBudgetMetrics({
     });
   }, [selectedDate]);
 
-  // Фільтрація транзакцій за активний місяць
+  // Фільтрація транзакцій за активний місяць (з урахуванням виключення з бюджету)
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
+      if (t.exclude_from_budget) return false; // 👈 Захист від виключених транзакцій
       const d = new Date(t.created_at);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       return key === selectedMonthKey;

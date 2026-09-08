@@ -65,11 +65,16 @@ export default function Dashboard() {
   // Сховище фінансових даних
   // Кешовані дані через React Query
   const {
-    transactions,
+    transactions: rawTransactions,
     recurring,
     invalidateTransactions,
     invalidateRecurring,
   } = useFinanceQueries(isAuthenticated);
+
+  // Відсікаємо транзакції, які позначені як виключені з поточного бюджету
+  const transactions = useMemo(() => {
+    return rawTransactions.filter((t: Transaction) => !t.exclude_from_budget);
+  }, [rawTransactions]);
   const [activeTab, setActiveTab] = useState<
     "overview" | "history" | "recurring"
   >("overview");

@@ -7,6 +7,7 @@ export interface Transaction {
   category_name: string;
   source: string;
   type: "expense" | "income";
+  exclude_from_budget?: boolean;
   tags?: string[];
 }
 
