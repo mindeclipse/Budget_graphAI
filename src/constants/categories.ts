@@ -14,6 +14,10 @@ import {
   Briefcase,
   HelpCircle,
   Cigarette,
+  Landmark,
+  CreditCard,
+  Tv,
+  Wrench,
   LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +42,7 @@ export const CATEGORIES = [
 export type CategoryType = (typeof CATEGORIES)[number];
 
 export const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  // Актуальні категорії (для вибору в UI)
   Продукти: ShoppingCart,
   "Кафе та ресторани": Utensils,
   Куріння: Cigarette,
@@ -53,9 +58,22 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Інвестиції: TrendingUp,
   "Зарплата/ФОП": Briefcase,
   Інше: HelpCircle,
+
+  // Архівні категорії з минулих місяців / виписок Привату
+  "Платежі за реквізитами": Landmark,
+  АЗС: Fuel,
+  "Здоров'я та догляд": HeartPulse,
+  "Оплата частинами / Кредити": CreditCard,
+  "Побутова техніка": Tv,
+  "Дім та ремонт": Wrench,
+  Розваги: Sparkles,
+  Краса: Sparkles,
+  Послуги: Wrench,
+  "Цифрові товари": Package,
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
+  // Актуальні категорії
   Продукти: "#10B981", // Смарагдовий
   "Кафе та ресторани": "#F59E0B", // Бурштиновий
   Куріння: "#EF4444", // Червоний
@@ -71,4 +89,16 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Інвестиції: "#22C55E", // Зелений
   "Зарплата/ФОП": "#34D399", // М'ятний
   Інше: "#71717A", // Сірий
+
+  // Архівні категорії з минулих місяців
+  "Платежі за реквізитами": "#818CF8", // Світлий індиго
+  АЗС: "#F97316", // Помаранчевий
+  "Здоров'я та догляд": "#14B8A6", // Бірюзовий
+  "Оплата частинами / Кредити": "#FB7185", // Кораловий
+  "Побутова техніка": "#38BDF8", // Небесно-блакитний
+  "Дім та ремонт": "#D97706", // Теплий бурштиновий
+  Розваги: "#F43F5E", // Рожево-червоний
+  Краса: "#EC4899", // Рожевий
+  Послуги: "#94A3B8", // Слейт
+  "Цифрові товари": "#06B6D4", // Циан
 };
