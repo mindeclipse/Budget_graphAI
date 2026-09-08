@@ -29,6 +29,8 @@ import {
   AlertTriangle,
   X,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface Transaction {
@@ -81,18 +83,35 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
 
-  // Бюджет
+  // Обраний місяць для перегляду (за замовчуванням поточний)
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+
+  const selectedMonthKey = useMemo(() => {
+    return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}`;
+  }, [selectedDate]);
+
+  const monthLabel = useMemo(() => {
+    return selectedDate.toLocaleDateString("uk-UA", {
+      month: "long",
+      year: "numeric",
+    });
+  }, [selectedDate]);
+
+  // Бюджет під обраний місяць
   const [budgetLimit, setBudgetLimit] = useState<number>(30000);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
 
-  // Стан вибору транзакції для редагування
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
-  const currentMonthKey = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
+  // Навігація по місяцях
+  const handlePrevMonth = () => {
+    setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -104,24 +123,8 @@ export default function Dashboard() {
       if (data) setTransactions(data);
     };
 
-    const fetchBudget = async () => {
-      const { data } = await supabase
-        .from("budgets")
-        .select("amount")
-        .eq("month", currentMonthKey)
-        .maybeSingle();
-
-      if (data?.amount) {
-        const val = Number(data.amount);
-        setBudgetLimit(val);
-        setTempBudgetInput(val.toString());
-      }
-    };
-
     fetchTransactions();
-    fetchBudget();
 
-    // Слухаємо всі події (INSERT, UPDATE, DELETE)
     const txChannel = supabase
       .channel("realtime-transactions")
       .on(
@@ -141,14 +144,40 @@ export default function Dashboard() {
       )
       .subscribe();
 
+    return () => {
+      supabase.removeChannel(txChannel);
+    };
+  }, []);
+
+  // Підвантаження бюджету саме для обраного місяця
+  useEffect(() => {
+    const fetchBudget = async () => {
+      const { data } = await supabase
+        .from("budgets")
+        .select("amount")
+        .eq("month", selectedMonthKey)
+        .maybeSingle();
+
+      if (data?.amount) {
+        const val = Number(data.amount);
+        setBudgetLimit(val);
+        setTempBudgetInput(val.toString());
+      } else {
+        setBudgetLimit(30000);
+        setTempBudgetInput("30000");
+      }
+    };
+
+    fetchBudget();
+
     const budgetChannel = supabase
-      .channel("realtime-budgets")
+      .channel(`realtime-budgets-${selectedMonthKey}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "budgets" },
         (payload) => {
           const updated = payload.new as { month: string; amount: number };
-          if (updated && updated.month === currentMonthKey) {
+          if (updated && updated.month === selectedMonthKey) {
             setBudgetLimit(Number(updated.amount));
             setTempBudgetInput(updated.amount.toString());
           }
@@ -157,12 +186,34 @@ export default function Dashboard() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(txChannel);
       supabase.removeChannel(budgetChannel);
     };
-  }, [currentMonthKey]);
+  }, [selectedMonthKey]);
 
-  // Дії з транзакціями
+  // Фільтрація транзакцій за обраним місяцем
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      const d = new Date(t.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return key === selectedMonthKey;
+    });
+  }, [transactions, selectedMonthKey]);
+
+  // Збереження бюджету для обраного місяця
+  const handleSaveBudget = async () => {
+    const parsed = parseFloat(tempBudgetInput);
+    if (!isNaN(parsed) && parsed > 0) {
+      setBudgetLimit(parsed);
+      await supabase
+        .from("budgets")
+        .upsert(
+          { month: selectedMonthKey, amount: parsed, updated_at: new Date().toISOString() },
+          { onConflict: "month" }
+        );
+    }
+    setIsEditingBudget(false);
+  };
+
   const handleUpdateCategory = async (txId: number, newCategory: string) => {
     setTransactions((prev) =>
       prev.map((t) => (t.id === txId ? { ...t, category_name: newCategory } : t))
@@ -182,43 +233,37 @@ export default function Dashboard() {
     await supabase.from("transactions").delete().eq("id", txId);
   };
 
-  const handleSaveBudget = async () => {
-    const parsed = parseFloat(tempBudgetInput);
-    if (!isNaN(parsed) && parsed > 0) {
-      setBudgetLimit(parsed);
-      await supabase
-        .from("budgets")
-        .upsert(
-          { month: currentMonthKey, amount: parsed, updated_at: new Date().toISOString() },
-          { onConflict: "month" }
-        );
-    }
-    setIsEditingBudget(false);
-  };
-
   const totalSpent = useMemo(() => {
-    return transactions.reduce((acc, t) => acc + Number(t.amount), 0);
-  }, [transactions]);
+    return filteredTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
+  }, [filteredTransactions]);
 
   const budgetMetrics = useMemo(() => {
     const now = new Date();
+    const isCurrentMonth =
+      now.getFullYear() === selectedDate.getFullYear() &&
+      now.getMonth() === selectedDate.getMonth();
+
     const totalDaysInMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
       0
     ).getDate();
-    const currentDay = now.getDate();
-    const daysRemaining = Math.max(1, totalDaysInMonth - currentDay + 1);
+
+    let daysRemaining = 0;
+    if (isCurrentMonth) {
+      daysRemaining = Math.max(1, totalDaysInMonth - now.getDate() + 1);
+    }
 
     const remaining = budgetLimit - totalSpent;
     const spentPercent = budgetLimit > 0 ? (totalSpent / budgetLimit) * 100 : 0;
-    const safeDailySpend = remaining > 0 ? remaining / daysRemaining : 0;
+    const safeDailySpend = daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
 
     let barColor = "#10B981";
     if (spentPercent > 95) barColor = "#EF4444";
     else if (spentPercent > 75) barColor = "#F59E0B";
 
     return {
+      isCurrentMonth,
       remaining,
       spentPercent: Math.min(100, spentPercent),
       exactPercent: spentPercent,
@@ -226,11 +271,11 @@ export default function Dashboard() {
       daysRemaining,
       barColor,
     };
-  }, [totalSpent, budgetLimit]);
+  }, [totalSpent, budgetLimit, selectedDate]);
 
   const categoryStats = useMemo(() => {
     const stats: Record<string, number> = {};
-    transactions.forEach((t) => {
+    filteredTransactions.forEach((t) => {
       const cat = t.category_name || "Інше";
       stats[cat] = (stats[cat] || 0) + Number(t.amount);
     });
@@ -243,11 +288,11 @@ export default function Dashboard() {
         color: CATEGORY_COLORS[name] || "#6B7280",
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [transactions, totalSpent]);
+  }, [filteredTransactions, totalSpent]);
 
   const dailyStats = useMemo(() => {
     const daysMap: Record<string, number> = {};
-    transactions.forEach((t) => {
+    filteredTransactions.forEach((t) => {
       const date = new Date(t.created_at);
       const key = `${String(date.getDate()).padStart(2, "0")}.${String(
         date.getMonth() + 1
@@ -258,15 +303,36 @@ export default function Dashboard() {
     return Object.entries(daysMap)
       .map(([date, amount]) => ({ date, amount }))
       .reverse();
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   return (
     <main className="min-h-screen bg-black text-white px-4 sm:px-8 lg:px-12 pt-28 pb-24 md:pt-10 max-w-7xl mx-auto font-sans antialiased">
-      {/* Верхня панель */}
+      {/* Навігатор по місяцях та шапка */}
+      <div className="flex items-center justify-between mb-4 bg-zinc-950 border border-zinc-900 px-3.5 py-2 rounded-xl">
+        <button
+          onClick={handlePrevMonth}
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-zinc-500" />
+          <span className="text-sm font-semibold capitalize text-zinc-200">
+            {monthLabel}
+          </span>
+        </div>
+        <button
+          onClick={handleNextMonth}
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+
       <header className="mb-6 flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-800/80 pb-6 gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold mb-1 flex items-center gap-1.5">
-            <TrendingUp size={14} className="text-emerald-400" /> Витрачено цього місяця
+            <TrendingUp size={14} className="text-emerald-400" /> Витрачено за період
           </p>
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
             {totalSpent.toLocaleString("uk-UA", { minimumFractionDigits: 2 })}{" "}
@@ -276,7 +342,7 @@ export default function Dashboard() {
 
         <div className="flex items-center gap-3 text-xs text-zinc-400">
           <div className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg">
-            Всього транзакцій: <span className="text-white font-semibold">{transactions.length}</span>
+            Транзакцій: <span className="text-white font-semibold">{filteredTransactions.length}</span>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg">
             Категорій: <span className="text-white font-semibold">{categoryStats.length}</span>
@@ -289,7 +355,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
-              Місячний ліміт
+              Бюджет на місяць
             </span>
             {budgetMetrics.exactPercent > 100 && (
               <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-400 bg-rose-950/50 border border-rose-800/50 px-2 py-0.5 rounded-full">
@@ -339,7 +405,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1 border-t border-zinc-900 text-xs">
           <div>
-            <p className="text-zinc-500 mb-0.5">Залишок бюджету</p>
+            <p className="text-zinc-500 mb-0.5">Залишок</p>
             <p
               className={`font-bold text-sm ${
                 budgetMetrics.remaining < 0 ? "text-rose-400" : "text-white"
@@ -355,14 +421,20 @@ export default function Dashboard() {
           <div>
             <p className="text-zinc-500 mb-0.5">Безпечно на день</p>
             <p className="font-bold text-sm text-zinc-200">
-              ~{Math.round(budgetMetrics.safeDailySpend).toLocaleString("uk-UA")} ₴/д
+              {budgetMetrics.isCurrentMonth
+                ? `~${Math.round(budgetMetrics.safeDailySpend).toLocaleString("uk-UA")} ₴/д`
+                : "Період минув"}
             </p>
           </div>
 
           <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5 text-zinc-400">
             <Calendar size={13} className="text-zinc-500 shrink-0" />
             <span>
-              Залишилось <strong className="text-zinc-200">{budgetMetrics.daysRemaining}</strong> дн.
+              {budgetMetrics.isCurrentMonth ? (
+                <>Залишилось <strong className="text-zinc-200">{budgetMetrics.daysRemaining}</strong> дн.</>
+              ) : (
+                "Архівний період"
+              )}
             </span>
           </div>
         </div>
@@ -388,13 +460,12 @@ export default function Dashboard() {
               : "text-zinc-400 hover:text-white"
           }`}
         >
-          Історія ({transactions.length})
+          Історія ({filteredTransactions.length})
         </button>
       </div>
 
       {/* Основна сітка */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-        {/* Ліва колонка */}
         <section
           className={`md:col-span-7 space-y-6 ${
             activeTab === "overview" ? "block" : "hidden md:block"
@@ -450,7 +521,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="h-40 flex items-center justify-center text-xs text-zinc-600">
-                Немає даних за поточний період
+                Немає даних за цей місяць
               </div>
             )}
           </div>
@@ -517,20 +588,20 @@ export default function Dashboard() {
           <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-900 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
-                <Receipt size={14} className="text-zinc-500" /> Останні транзакції
+                <Receipt size={14} className="text-zinc-500" /> Транзакції за місяць
               </h2>
-              <span className="text-xs text-zinc-500">{transactions.length} оп.</span>
+              <span className="text-xs text-zinc-500">{filteredTransactions.length} оп.</span>
             </div>
 
-            {transactions.length === 0 ? (
+            {filteredTransactions.length === 0 ? (
               <div className="text-center py-16 text-zinc-600">
                 <Receipt size={32} className="mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Транзакцій поки немає</p>
-                <p className="text-xs mt-1 text-zinc-700">Витрати з'являться тут автоматично</p>
+                <p className="text-sm">Транзакцій немає</p>
+                <p className="text-xs mt-1 text-zinc-700">У цьому місяці витрат не зафіксовано</p>
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[700px] overflow-y-auto pr-1">
-                {transactions.map((t) => {
+                {filteredTransactions.map((t) => {
                   const IconComponent = CATEGORY_ICONS[t.category_name] || HelpCircle;
                   const iconColor = CATEGORY_COLORS[t.category_name] || "#6B7280";
 
@@ -576,17 +647,15 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* QUICK ACTION SHEET / МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ */}
+      {/* QUICK ACTION SHEET */}
       {selectedTx && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
           <div
             className="w-full sm:max-w-md bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Смужка-хендл для мобільних пристроїв */}
             <div className="w-10 h-1 bg-zinc-700/80 rounded-full mx-auto mb-4 sm:hidden" />
 
-            {/* Шапка модалки з деталями чека */}
             <div className="flex items-start justify-between mb-5 border-b border-zinc-800/80 pb-4">
               <div>
                 <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
@@ -615,7 +684,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Вибір категорії */}
             <div className="mb-6">
               <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2.5">
                 Оберіть правильну категорію
@@ -649,7 +717,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Видалення транзакції */}
             <button
               onClick={() => handleDeleteTransaction(selectedTx.id)}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-950/30 hover:bg-rose-950/60 border border-rose-900/50 hover:border-rose-700/80 text-rose-400 text-xs font-semibold transition-all"
