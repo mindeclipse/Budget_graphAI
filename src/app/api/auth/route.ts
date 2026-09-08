@@ -65,3 +65,9 @@ export async function GET() {
   const isAuthenticated = Boolean(correctPin && session === correctPin);
   return NextResponse.json({ authenticated: isAuthenticated });
 }
+
+export async function DELETE() {
+  const cookieStore = await cookies();
+  cookieStore.delete("finance_session");
+  return NextResponse.json({ success: true });
+}

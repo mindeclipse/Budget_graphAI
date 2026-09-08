@@ -9,6 +9,7 @@ import { RecurringModal } from "@/components/RecurringModal";
 import { TransactionActionSheet } from "@/components/TransactionActionSheet";
 import { Transaction, RecurringItem, AIInsightData } from "@/types/finance";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
+import { useAutoLock } from "@/hooks/useAutoLock";
 import {
   startAuthentication,
   startRegistration,
@@ -43,6 +44,7 @@ import {
   Lock,
   HelpCircle,
   Fingerprint,
+  LogOut,
 } from "lucide-react";
 
 /** Резервний курс для ручного списання USD, якщо API банку тимчасово недоступне */
@@ -217,6 +219,25 @@ export default function Dashboard() {
     );
     setAiInsight(null);
   };
+
+  // Повне блокування та очищення сесії
+  const handleLogout = async () => {
+    setIsAuthenticated(false);
+    setPinInput("");
+    setPinError("");
+    await fetch("/api/auth", { method: "DELETE" }).catch(() => null);
+  };
+
+  // Автоблокування при неактивності або згортанні PWA
+  useAutoLock({
+    isAuthenticated,
+    onLock: () => {
+      setIsAuthenticated(false);
+      setPinInput("");
+    },
+    inactivityTimeoutMs: 7 * 60 * 1000, // 5 хвилин відсутності дій
+    maxBackgroundTimeMs: 5 * 60 * 1000, // 2 хвилини у згорнутому стані
+  });
 
   // Початкове завантаження даних та підписка на Realtime
   useEffect(() => {
@@ -522,6 +543,15 @@ export default function Dashboard() {
                 className="flex-1 rounded-2xl bg-white py-3 text-xs font-bold text-black transition-all hover:bg-zinc-200 disabled:opacity-40"
               >
                 {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
+              </button>
+              {/* Кнопка ручного блокування екрана */}
+              <button
+                onClick={handleLogout}
+                title="Заблокувати додаток"
+                className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-zinc-400 transition-all hover:border-rose-900/60 hover:bg-rose-950/30 hover:text-rose-400"
+              >
+                <LogOut size={14} />
+                <span className="hidden sm:inline">Вийти</span>
               </button>
             </div>
           </form>
