@@ -544,15 +544,6 @@ export default function Dashboard() {
               >
                 {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
               </button>
-              {/* Кнопка ручного блокування екрана */}
-              <button
-                onClick={handleLogout}
-                title="Заблокувати додаток"
-                className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-zinc-400 transition-all hover:border-rose-900/60 hover:bg-rose-950/30 hover:text-rose-400"
-              >
-                <LogOut size={14} />
-                <span className="hidden sm:inline">Вийти</span>
-              </button>
             </div>
           </form>
         </div>
@@ -618,6 +609,15 @@ export default function Dashboard() {
           >
             <Fingerprint size={14} />
             <span className="hidden sm:inline">Face ID</span>
+          </button>
+          {/* Кнопка ручного блокування екрана */}
+          <button
+            onClick={handleLogout}
+            title="Заблокувати додаток"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-zinc-400 transition-all hover:border-rose-900/60 hover:bg-rose-950/30 hover:text-rose-400"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Вийти</span>
           </button>
         </div>
       </header>
