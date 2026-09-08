@@ -3,10 +3,11 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
-function parsePrivatDate(rawDate: string, rawTime?: string): string {
-  // Обробка форматів "DD.MM.YYYY", "DD.MM.YYYY HH:mm:ss" або розділених колонок
-  const fullStr = rawTime ? `${rawDate} ${rawTime}` : rawDate;
-  const parts = fullStr.trim().split(/[\s,]+/);
+function parsePrivatDate(rawStr: string): string {
+  if (!rawStr) return new Date().toISOString();
+
+  // Очікуваний формат: "DD.MM.YYYY HH:mm:ss" або "DD.MM.YYYY HH:mm"
+  const parts = rawStr.trim().split(/[\s,]+/);
   const datePart = parts[0];
   const timePart = parts[1] || "00:00:00";
 
@@ -26,6 +27,29 @@ function parsePrivatDate(rawDate: string, rawTime?: string): string {
     : parsed.toISOString();
 }
 
+function normalizePrivatCategory(rawCategory: string): string {
+  const cat = rawCategory.toLowerCase();
+  if (cat.includes("продукт") || cat.includes("супермаркет")) return "Продукти";
+  if (cat.includes("ресторан") || cat.includes("кафе") || cat.includes("бар"))
+    return "Кафе та ресторани";
+  if (
+    cat.includes("транспорт") ||
+    cat.includes("таксі") ||
+    cat.includes("пальне")
+  )
+    return "Транспорт";
+  if (cat.includes("здоров") || cat.includes("аптек") || cat.includes("догляд"))
+    return "Здоров'я та догляд";
+  if (
+    cat.includes("підписк") ||
+    cat.includes("комунал") ||
+    cat.includes("зв'язок")
+  )
+    return "Підписки та сервіси";
+  if (cat.includes("розваг") || cat.includes("кіно")) return "Розваги";
+  return rawCategory || "Інше";
+}
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -41,75 +65,100 @@ export async function POST(req: Request) {
       .map((l) => l.trim())
       .filter(Boolean);
 
-    if (lines.length < 2) {
+    if (lines.length < 3) {
       return NextResponse.json(
-        { error: "Файл порожній або некоректний" },
+        { error: "Файл містить замало рядків для аналізу" },
         { status: 400 }
       );
     }
 
-    // Визначення роздільника (кома або крапка з комою)
-    const delimiter = lines[0].includes(";") ? ";" : ",";
-    const headers = lines[0]
-      .split(delimiter)
-      .map((h) => h.replace(/["']/g, "").trim().toLowerCase());
+    // 1. Визначення роздільника (кома чи крапка з комою)
+    let delimiter = ",";
+    for (const l of lines.slice(0, 5)) {
+      if (l.includes(";")) {
+        delimiter = ";";
+        break;
+      }
+    }
 
-    // Пошук індексів колонок
+    const parseLine = (line: string, delim: string): string[] => {
+      return line
+        .split(new RegExp(`${delim}(?=(?:(?:[^"]*"){2})*[^"]*$)`))
+        .map((cell) => cell.replace(/^["']|["']$/g, "").trim());
+    };
+
+    // 2. Динамічний пошук рядка заголовків серед перших 10 рядків файлу
+    let headerRowIdx = -1;
+    let headers: string[] = [];
+
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      const candidateCells = parseLine(lines[i], delimiter).map((c) =>
+        c.toLowerCase()
+      );
+      const hasDate = candidateCells.some(
+        (c) => c.includes("дата") || c.includes("date")
+      );
+      const hasAmount = candidateCells.some(
+        (c) => c.includes("сума") || c.includes("amount")
+      );
+
+      if (hasDate && hasAmount) {
+        headerRowIdx = i;
+        headers = candidateCells;
+        break;
+      }
+    }
+
+    if (headerRowIdx === -1) {
+      return NextResponse.json(
+        { error: "Не вдалося знайти рядок колонок (Дата, Сума) у файлі" },
+        { status: 400 }
+      );
+    }
+
+    // 3. Визначення індексів ключових колонок
     const dateIdx = headers.findIndex(
       (h) => h.includes("дата") || h.includes("date")
-    );
-    const timeIdx = headers.findIndex(
-      (h) => h.includes("час") || h.includes("time")
-    );
-    const descIdx = headers.findIndex(
-      (h) =>
-        h.includes("опис") ||
-        h.includes("деталі") ||
-        h.includes("призначення") ||
-        h.includes("контрагент")
-    );
-    const amountIdx = headers.findIndex(
-      (h) => h.includes("сума") || h.includes("amount")
     );
     const catIdx = headers.findIndex(
       (h) => h.includes("категорія") || h.includes("category")
     );
+    const descIdx = headers.findIndex(
+      (h) =>
+        h.includes("опис") || h.includes("деталі") || h.includes("контрагент")
+    );
 
-    if (dateIdx === -1 || amountIdx === -1) {
-      return NextResponse.json(
-        { error: "Не вдалося знайти обов'язкові колонки (Дата, Сума) у CSV" },
-        { status: 400 }
+    // Шукаємо саме «сума в валюті картки», де є знак мінуса для витрат
+    let amountIdx = headers.findIndex((h) =>
+      h.includes("сума в валюті картки")
+    );
+    if (amountIdx === -1) {
+      amountIdx = headers.findIndex(
+        (h) => h.includes("сума") || h.includes("amount")
       );
     }
 
     const transactionsToInsert: any[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      // Регулярний вираз враховує можливі лапки навколо значень
-      const row = lines[i]
-        .split(new RegExp(`${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`))
-        .map((cell) => cell.replace(/^["']|["']$/g, "").trim());
-
+    // 4. Парсинг операцій
+    for (let i = headerRowIdx + 1; i < lines.length; i++) {
+      const row = parseLine(lines[i], delimiter);
       if (row.length <= amountIdx) continue;
 
       const rawAmountStr = row[amountIdx].replace(/\s/g, "").replace(",", ".");
       const rawAmount = parseFloat(rawAmountStr);
       if (isNaN(rawAmount) || rawAmount === 0) continue;
 
-      const dateStr = row[dateIdx];
-      const timeStr = timeIdx !== -1 ? row[timeIdx] : undefined;
-      const createdAt = parsePrivatDate(dateStr, timeStr);
-
-      const merchant =
+      const createdAt = parsePrivatDate(row[dateIdx]);
+      const rawMerchant =
         descIdx !== -1 && row[descIdx] ? row[descIdx] : "ПриватБанк операція";
-      const category = catIdx !== -1 && row[catIdx] ? row[catIdx] : "Інше";
+      const rawCategory = catIdx !== -1 && row[catIdx] ? row[catIdx] : "Інше";
 
       const isExpense = rawAmount < 0;
       const finalAmount = Math.abs(rawAmount);
       const type = isExpense ? "expense" : "income";
 
-      // Створення унікального ID на основі дати, суми та мерчанта для запобігання дублікатам
-      const merchantSlug = merchant
+      const merchantSlug = rawMerchant
         .slice(0, 16)
         .replace(/[^a-zA-Z0-9а-яА-Яіїєґ]/gi, "");
       const externalId = `pb_${new Date(createdAt).getTime()}_${finalAmount}_${merchantSlug}`;
@@ -118,8 +167,8 @@ export async function POST(req: Request) {
         external_id: externalId,
         amount: finalAmount,
         currency: "UAH",
-        merchant_raw: merchant,
-        category_name: category,
+        merchant_raw: rawMerchant,
+        category_name: normalizePrivatCategory(rawCategory),
         source: "privatbank_csv",
         type,
         created_at: createdAt,
@@ -128,11 +177,12 @@ export async function POST(req: Request) {
 
     if (transactionsToInsert.length === 0) {
       return NextResponse.json(
-        { error: "У файлі не знайдено валідних рядків для імпорту" },
+        { error: "У файлі не знайдено валідних операцій" },
         { status: 400 }
       );
     }
 
+    // 5. Запис у базу без дублювання наявних чеків
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("transactions")
@@ -150,7 +200,7 @@ export async function POST(req: Request) {
       imported_count: data?.length || 0,
     });
   } catch (err: any) {
-    console.error("[CSV Import Error]:", err);
+    console.error("[PrivatBank CSV Import Error]:", err);
     return NextResponse.json(
       { error: err.message || "Помилка обробки файлу" },
       { status: 500 }
