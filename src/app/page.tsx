@@ -78,9 +78,9 @@ export default function Dashboard() {
     return rawTransactions.filter((t: Transaction) => !t.exclude_from_budget);
   }, [rawTransactions]);
 
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "history" | "recurring"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history">(
+    "overview"
+  );
 
   // Активний період перегляду
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -771,16 +771,6 @@ export default function Dashboard() {
         >
           Історія ({filteredTransactions.length})
         </button>
-        <button
-          onClick={() => setActiveTab("recurring")}
-          className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all ${
-            activeTab === "recurring"
-              ? "bg-zinc-800 text-white shadow"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Постійні ({recurring.length})
-        </button>
       </div>
 
       {/* Основна сітка */}
@@ -949,9 +939,7 @@ export default function Dashboard() {
         {/* Права колонка */}
         <section
           className={`space-y-6 md:col-span-5 ${
-            activeTab === "history" || activeTab === "recurring"
-              ? "block"
-              : "hidden md:block"
+            activeTab === "history" ? "block" : "hidden md:block"
           }`}
         >
           {/* 1. Журнал операцій */}
