@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // Отримати активний цикл та історію останніх
 export async function GET() {
   try {
+    const supabase = getSupabaseAdmin();
+
     const { data: cycles, error } = await supabase
       .from("budget_cycles")
       .select("*")
       .order("start_date", { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error("[API cycles GET] Error fetching cycles:", error);
+      throw error;
+    }
 
     const activeCycle = cycles?.find((c) => c.is_active) || null;
 
@@ -28,6 +27,7 @@ export async function GET() {
 // Почати новий цикл
 export async function POST(req: Request) {
   try {
+    const supabase = getSupabaseAdmin();
     const body = await req.json();
     const { name, budget_limit, start_date } = body;
 
@@ -35,8 +35,8 @@ export async function POST(req: Request) {
       ? new Date(start_date).toISOString()
       : new Date().toISOString();
 
-    // 1. Закриваємо попередній активний цикл
-    await supabase
+    // 1. Закриваємо попередній активний цикл із обов'язковою перевіркою результату
+    const { error: closeError } = await supabase
       .from("budget_cycles")
       .update({
         is_active: false,
@@ -44,12 +44,20 @@ export async function POST(req: Request) {
       })
       .eq("is_active", true);
 
+    if (closeError) {
+      console.error(
+        "[API cycles POST] Error closing previous cycle:",
+        closeError
+      );
+      throw closeError;
+    }
+
     // 2. Створюємо новий активний цикл
-    const { data: newCycle, error } = await supabase
+    const { data: newCycle, error: insertError } = await supabase
       .from("budget_cycles")
       .insert([
         {
-          name: name || "Новий цикл",
+          name: name?.trim() || "Новий цикл",
           budget_limit: Number(budget_limit) || 35000,
           start_date: cycleStart,
           is_active: true,
@@ -58,7 +66,13 @@ export async function POST(req: Request) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (insertError) {
+      console.error(
+        "[API cycles POST] Error inserting new cycle:",
+        insertError
+      );
+      throw insertError;
+    }
 
     return NextResponse.json({ success: true, cycle: newCycle });
   } catch (err: any) {

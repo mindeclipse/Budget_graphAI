@@ -516,8 +516,18 @@ export default function Dashboard() {
 
   const handleDeleteTransaction = async (txId: number) => {
     setSelectedTx(null);
-    await fetch(`/api/transactions?id=${txId}`, { method: "DELETE" });
-    invalidateTransactions();
+    try {
+      const res = await fetch(`/api/transactions?id=${txId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Не вдалося видалити транзакцію");
+      }
+      invalidateTransactions();
+    } catch (err) {
+      console.error("Error deleting transaction:", err);
+    }
   };
 
   if (isAuthenticated === null) {

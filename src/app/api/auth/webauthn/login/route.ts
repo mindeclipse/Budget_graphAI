@@ -4,7 +4,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 function getRpInfo(req: Request) {
   const host =
@@ -21,10 +21,19 @@ function getRpInfo(req: Request) {
 // GET: запит параметрів для виклику сканера Face ID / Touch ID
 export async function GET(req: Request) {
   const { rpID } = getRpInfo(req);
+  const supabase = getSupabaseAdmin();
 
-  const { data: credentials } = await supabase
+  const { data: credentials, error } = await supabase
     .from("webauthn_credentials")
     .select("id, transports");
+
+  if (error) {
+    console.error("[WebAuthn Login GET] DB error:", error);
+    return NextResponse.json(
+      { error: "Помилка завантаження ключів" },
+      { status: 500 }
+    );
+  }
 
   if (!credentials || credentials.length === 0) {
     return NextResponse.json(
@@ -65,12 +74,21 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const { rpID, expectedOrigin } = getRpInfo(req);
+  const supabase = getSupabaseAdmin();
 
-  const { data: dbCredential } = await supabase
+  const { data: dbCredential, error: fetchError } = await supabase
     .from("webauthn_credentials")
     .select("*")
     .eq("id", body.id)
     .maybeSingle();
+
+  if (fetchError) {
+    console.error("[WebAuthn Login POST] Fetch DB error:", fetchError);
+    return NextResponse.json(
+      { error: "Помилка перевірки пристрою" },
+      { status: 500 }
+    );
+  }
 
   if (!dbCredential) {
     return NextResponse.json(
@@ -100,22 +118,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // Оновлюємо лічильник для захисту від повторних атак (replay attacks)
-    await supabase
+    // Оновлюємо лічильник для захисту від replay attacks через адмін-клієнт
+    const { error: updateError } = await supabase
       .from("webauthn_credentials")
       .update({ counter: verification.authenticationInfo.newCounter })
       .eq("id", dbCredential.id);
 
+    if (updateError) {
+      console.error("[WebAuthn Login POST] Counter update error:", updateError);
+    }
+
     cookieStore.delete("webauthn_auth_challenge");
 
-    // Виставляємо ту саму сесійну куку, що й при введенні PIN-коду
+    // Виставляємо сесійну куку на 30 днів
     const correctPin = process.env.APP_ACCESS_PIN;
     if (correctPin) {
       cookieStore.set("finance_session", correctPin, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 60 * 60 * 24 * 30, // 30 днів
+        maxAge: 60 * 60 * 24 * 30,
         path: "/",
       });
     }

@@ -4,7 +4,7 @@ import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 function getRpInfo(req: Request) {
   const host =
@@ -30,11 +30,20 @@ export async function GET(req: Request) {
   }
 
   const { rpID } = getRpInfo(req);
+  const supabase = getSupabaseAdmin();
 
-  // Отримуємо вже зареєстровані ключі, щоб не створювати дублікатів
-  const { data: existing } = await supabase
+  // Отримуємо вже зареєстровані ключі через адмін-клієнт
+  const { data: existing, error: fetchError } = await supabase
     .from("webauthn_credentials")
     .select("id, transports");
+
+  if (fetchError) {
+    console.error("[WebAuthn Register GET] DB error:", fetchError);
+    return NextResponse.json(
+      { error: "Не вдалося отримати збережені ключі" },
+      { status: 500 }
+    );
+  }
 
   const excludeCredentials =
     existing?.map((c) => ({
@@ -98,19 +107,26 @@ export async function POST(req: Request) {
     const { credential, credentialDeviceType, credentialBackedUp } =
       verification.registrationInfo;
 
-    // Публічний ключ конвертуємо в base64 для зручного збереження в Supabase
     const publicKeyBase64 = Buffer.from(credential.publicKey).toString(
       "base64url"
     );
+    const supabase = getSupabaseAdmin();
 
-    await supabase.from("webauthn_credentials").insert({
-      id: credential.id,
-      public_key: publicKeyBase64,
-      counter: credential.counter,
-      device_type: credentialDeviceType,
-      backed_up: credentialBackedUp,
-      transports: credential.transports || [],
-    });
+    const { error: insertError } = await supabase
+      .from("webauthn_credentials")
+      .insert({
+        id: credential.id,
+        public_key: publicKeyBase64,
+        counter: credential.counter,
+        device_type: credentialDeviceType,
+        backed_up: credentialBackedUp,
+        transports: credential.transports || [],
+      });
+
+    if (insertError) {
+      console.error("[WebAuthn Register POST] DB insert error:", insertError);
+      throw insertError;
+    }
 
     cookieStore.delete("webauthn_reg_challenge");
 

@@ -67,3 +67,29 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+export async function DELETE(req: NextRequest) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Transaction ID required" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabase.from("transactions").delete().eq("id", id);
+
+    if (error) {
+      console.error("[API transactions DELETE] Error:", error);
+      throw error;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("Transaction DELETE error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
