@@ -31,6 +31,9 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Repeat,
+  Plus,
+  CheckCircle2,
 } from "lucide-react";
 
 interface Transaction {
@@ -41,6 +44,15 @@ interface Transaction {
   category_name: string;
   source: string;
   created_at: string;
+}
+
+interface RecurringItem {
+  id: number;
+  title: string;
+  amount: number;
+  category_name: string;
+  day_of_month: number;
+  is_active: boolean;
 }
 
 const CATEGORIES = [
@@ -81,9 +93,9 @@ const CATEGORY_ICONS: Record<string, any> = {
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
+  const [recurring, setRecurring] = useState<RecurringItem[]>([]);
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "recurring">("overview");
 
-  // Обраний місяць для перегляду (за замовчуванням поточний)
   const [selectedDate, setSelectedDate] = useState(() => new Date());
 
   const selectedMonthKey = useMemo(() => {
@@ -97,14 +109,22 @@ export default function Dashboard() {
     });
   }, [selectedDate]);
 
-  // Бюджет під обраний місяць
+  // Бюджет
   const [budgetLimit, setBudgetLimit] = useState<number>(30000);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
-  // Навігація по місяцях
+  // Стан для додавання / редагування постійної витрати
+  const [isAddingRecurring, setIsAddingRecurring] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringItem | null>(null);
+
+  const [recTitleInput, setRecTitleInput] = useState("");
+  const [recAmountInput, setRecAmountInput] = useState("");
+  const [recCategoryInput, setRecCategoryInput] = useState<string>("Підписки та сервіси");
+  const [recDayInput, setRecDayInput] = useState("1");
+
   const handlePrevMonth = () => {
     setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
@@ -114,34 +134,31 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const fetchTransactions = async () => {
-      const { data } = await supabase
-        .from("transactions")
-        .select("*")
-        .order("created_at", { ascending: false });
+    const fetchData = async () => {
+      const [txRes, recRes] = await Promise.all([
+        supabase.from("transactions").select("*").order("created_at", { ascending: false }),
+        supabase.from("recurring_templates").select("*").order("day_of_month", { ascending: true }),
+      ]);
 
-      if (data) setTransactions(data);
+      if (txRes.data) setTransactions(txRes.data);
+      if (recRes.data) setRecurring(recRes.data as RecurringItem[]);
     };
 
-    fetchTransactions();
+    fetchData();
 
     const txChannel = supabase
       .channel("realtime-transactions")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setTransactions((prev) => [payload.new as Transaction, ...prev]);
-          } else if (payload.eventType === "UPDATE") {
-            setTransactions((prev) =>
-              prev.map((t) => (t.id === payload.new.id ? (payload.new as Transaction) : t))
-            );
-          } else if (payload.eventType === "DELETE") {
-            setTransactions((prev) => prev.filter((t) => t.id === payload.old.id));
-          }
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, (payload) => {
+        if (payload.eventType === "INSERT") {
+          setTransactions((prev) => [payload.new as Transaction, ...prev]);
+        } else if (payload.eventType === "UPDATE") {
+          setTransactions((prev) =>
+            prev.map((t) => (t.id === payload.new.id ? (payload.new as Transaction) : t))
+          );
+        } else if (payload.eventType === "DELETE") {
+          setTransactions((prev) => prev.filter((t) => t.id === payload.old.id));
         }
-      )
+      })
       .subscribe();
 
     return () => {
@@ -149,7 +166,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Підвантаження бюджету саме для обраного місяця
+  // Бюджет під місяць
   useEffect(() => {
     const fetchBudget = async () => {
       const { data } = await supabase
@@ -169,28 +186,8 @@ export default function Dashboard() {
     };
 
     fetchBudget();
-
-    const budgetChannel = supabase
-      .channel(`realtime-budgets-${selectedMonthKey}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "budgets" },
-        (payload) => {
-          const updated = payload.new as { month: string; amount: number };
-          if (updated && updated.month === selectedMonthKey) {
-            setBudgetLimit(Number(updated.amount));
-            setTempBudgetInput(updated.amount.toString());
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(budgetChannel);
-    };
   }, [selectedMonthKey]);
 
-  // Фільтрація транзакцій за обраним місяцем
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
       const d = new Date(t.created_at);
@@ -199,39 +196,9 @@ export default function Dashboard() {
     });
   }, [transactions, selectedMonthKey]);
 
-  // Збереження бюджету для обраного місяця
-  const handleSaveBudget = async () => {
-    const parsed = parseFloat(tempBudgetInput);
-    if (!isNaN(parsed) && parsed > 0) {
-      setBudgetLimit(parsed);
-      await supabase
-        .from("budgets")
-        .upsert(
-          { month: selectedMonthKey, amount: parsed, updated_at: new Date().toISOString() },
-          { onConflict: "month" }
-        );
-    }
-    setIsEditingBudget(false);
-  };
-
-  const handleUpdateCategory = async (txId: number, newCategory: string) => {
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, category_name: newCategory } : t))
-    );
-    setSelectedTx(null);
-
-    await supabase
-      .from("transactions")
-      .update({ category_name: newCategory })
-      .eq("id", txId);
-  };
-
-  const handleDeleteTransaction = async (txId: number) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== txId));
-    setSelectedTx(null);
-
-    await supabase.from("transactions").delete().eq("id", txId);
-  };
+  const recurringTotal = useMemo(() => {
+    return recurring.filter((r) => r.is_active).reduce((acc, r) => acc + Number(r.amount), 0);
+  }, [recurring]);
 
   const totalSpent = useMemo(() => {
     return filteredTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
@@ -273,6 +240,118 @@ export default function Dashboard() {
     };
   }, [totalSpent, budgetLimit, selectedDate]);
 
+  // Відкриття форми додавання
+  const handleOpenAddRecurring = () => {
+    setEditingRecurring(null);
+    setRecTitleInput("");
+    setRecAmountInput("");
+    setRecCategoryInput("Підписки та сервіси");
+    setRecDayInput("1");
+    setIsAddingRecurring(true);
+  };
+
+  // Відкриття форми редагування
+  const handleOpenEditRecurring = (item: RecurringItem) => {
+    setEditingRecurring(item);
+    setRecTitleInput(item.title);
+    setRecAmountInput(item.amount.toString());
+    setRecCategoryInput(item.category_name);
+    setRecDayInput(item.day_of_month.toString());
+    setIsAddingRecurring(true);
+  };
+
+  // Збереження (нове або редагування)
+  const handleSaveRecurring = async () => {
+    const amt = parseFloat(recAmountInput);
+    if (!recTitleInput || isNaN(amt) || amt <= 0) return;
+
+    if (editingRecurring) {
+      // Редагування існуючого
+      const updatedPayload = {
+        title: recTitleInput,
+        amount: amt,
+        category_name: recCategoryInput,
+        day_of_month: parseInt(recDayInput) || 1,
+      };
+
+      setRecurring((prev) =>
+        prev.map((r) => (r.id === editingRecurring.id ? { ...r, ...updatedPayload } : r))
+      );
+      setIsAddingRecurring(false);
+
+      await supabase
+        .from("recurring_templates")
+        .update(updatedPayload)
+        .eq("id", editingRecurring.id);
+    } else {
+      // Створення нового
+      const newItem = {
+        title: recTitleInput,
+        amount: amt,
+        category_name: recCategoryInput,
+        day_of_month: parseInt(recDayInput) || 1,
+        is_active: true,
+      };
+
+      const { data } = await supabase.from("recurring_templates").insert(newItem).select().single();
+      if (data) {
+        setRecurring((prev) => [...prev, data as RecurringItem]);
+      }
+      setIsAddingRecurring(false);
+    }
+  };
+
+  const handleDeleteRecurring = async (id: number) => {
+    setRecurring((prev) => prev.filter((r) => r.id !== id));
+    setIsAddingRecurring(false);
+    await supabase.from("recurring_templates").delete().eq("id", id);
+  };
+
+  const handleExecuteRecurring = async (item: RecurringItem) => {
+    const newTx = {
+      amount: item.amount,
+      currency: "UAH",
+      merchant_raw: item.title,
+      category_name: item.category_name,
+      source: "recurring",
+    };
+
+    const { data } = await supabase.from("transactions").insert(newTx).select().single();
+    if (data) {
+      setTransactions((prev) => [data as Transaction, ...prev]);
+    }
+  };
+
+  const handleSaveBudget = async () => {
+    const parsed = parseFloat(tempBudgetInput);
+    if (!isNaN(parsed) && parsed > 0) {
+      setBudgetLimit(parsed);
+      await supabase
+        .from("budgets")
+        .upsert(
+          { month: selectedMonthKey, amount: parsed, updated_at: new Date().toISOString() },
+          { onConflict: "month" }
+        );
+    }
+    setIsEditingBudget(false);
+  };
+
+  const handleUpdateCategory = async (txId: number, newCategory: string) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, category_name: newCategory } : t))
+    );
+    setSelectedTx(null);
+
+    await supabase.from("transactions").update({ category_name: newCategory }).eq("id", txId);
+  };
+
+  const handleDeleteTransaction = async (txId: number) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== txId));
+    setSelectedTx(null);
+
+    await supabase.from("transactions").delete().eq("id", txId);
+  };
+
   const categoryStats = useMemo(() => {
     const stats: Record<string, number> = {};
     filteredTransactions.forEach((t) => {
@@ -307,7 +386,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-black text-white px-4 sm:px-8 lg:px-12 pt-28 pb-24 md:pt-10 max-w-7xl mx-auto font-sans antialiased">
-      {/* Навігатор по місяцях та шапка */}
+      {/* Навігатор місяців */}
       <div className="flex items-center justify-between mb-4 bg-zinc-950 border border-zinc-900 px-3.5 py-2 rounded-xl">
         <button
           onClick={handlePrevMonth}
@@ -342,15 +421,15 @@ export default function Dashboard() {
 
         <div className="flex items-center gap-3 text-xs text-zinc-400">
           <div className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg">
-            Транзакцій: <span className="text-white font-semibold">{filteredTransactions.length}</span>
+            Постійні: <span className="text-white font-semibold">{recurringTotal.toLocaleString("uk-UA")} ₴</span>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg">
-            Категорій: <span className="text-white font-semibold">{categoryStats.length}</span>
+            Транзакцій: <span className="text-white font-semibold">{filteredTransactions.length}</span>
           </div>
         </div>
       </header>
 
-      {/* КАРТКА МІСЯЧНОГО БЮДЖЕТУ */}
+      {/* КАРТКА БЮДЖЕТУ */}
       <section className="mb-8 bg-zinc-950 border border-zinc-900 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -445,9 +524,7 @@ export default function Dashboard() {
         <button
           onClick={() => setActiveTab("overview")}
           className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-            activeTab === "overview"
-              ? "bg-zinc-800 text-white shadow"
-              : "text-zinc-400 hover:text-white"
+            activeTab === "overview" ? "bg-zinc-800 text-white shadow" : "text-zinc-400 hover:text-white"
           }`}
         >
           Аналітика
@@ -455,17 +532,24 @@ export default function Dashboard() {
         <button
           onClick={() => setActiveTab("history")}
           className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-            activeTab === "history"
-              ? "bg-zinc-800 text-white shadow"
-              : "text-zinc-400 hover:text-white"
+            activeTab === "history" ? "bg-zinc-800 text-white shadow" : "text-zinc-400 hover:text-white"
           }`}
         >
           Історія ({filteredTransactions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("recurring")}
+          className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+            activeTab === "recurring" ? "bg-zinc-800 text-white shadow" : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Постійні ({recurring.length})
         </button>
       </div>
 
       {/* Основна сітка */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+        {/* Ліва колонка */}
         <section
           className={`md:col-span-7 space-y-6 ${
             activeTab === "overview" ? "block" : "hidden md:block"
@@ -483,20 +567,8 @@ export default function Dashboard() {
               <div className="h-48 md:h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dailyStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <XAxis
-                      dataKey="date"
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(val) => `${val}₴`}
-                    />
+                    <XAxis dataKey="date" stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#71717a" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}₴`} />
                     <Tooltip
                       cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
                       content={({ active, payload }) => {
@@ -544,10 +616,7 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center justify-between mb-2.5">
                         <div className="flex items-center space-x-3">
-                          <div
-                            className="p-2 rounded-lg"
-                            style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
-                          >
+                          <div className="p-2 rounded-lg" style={{ backgroundColor: `${cat.color}20`, color: cat.color }}>
                             <IconComponent size={16} />
                           </div>
                           <span className="text-sm font-medium text-zinc-200">{cat.name}</span>
@@ -565,10 +634,7 @@ export default function Dashboard() {
                       <div className="h-1.5 w-full bg-zinc-800/80 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700 ease-out"
-                          style={{
-                            width: `${cat.percentage}%`,
-                            backgroundColor: cat.color,
-                          }}
+                          style={{ width: `${cat.percentage}%`, backgroundColor: cat.color }}
                         />
                       </div>
                     </div>
@@ -581,10 +647,74 @@ export default function Dashboard() {
 
         {/* Права колонка */}
         <section
-          className={`md:col-span-5 ${
-            activeTab === "history" ? "block" : "hidden md:block"
+          className={`md:col-span-5 space-y-6 ${
+            activeTab === "history" || activeTab === "recurring" ? "block" : "hidden md:block"
           }`}
         >
+          {/* БЛОК ПОСТІЙНИХ ВИТРАТ */}
+          <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-900 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Repeat size={15} className="text-violet-400" />
+                <h2 className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
+                  Постійні витрати
+                </h2>
+              </div>
+              <button
+                onClick={handleOpenAddRecurring}
+                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 px-2.5 py-1 rounded-lg transition-all"
+              >
+                <Plus size={13} /> Додати
+              </button>
+            </div>
+
+            {recurring.length === 0 ? (
+              <p className="text-xs text-zinc-600 py-3">Немає запланованих платежів</p>
+            ) : (
+              <div className="space-y-2">
+                {recurring.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group flex items-center justify-between p-2.5 bg-zinc-900/40 hover:bg-zinc-900/80 border border-zinc-850 hover:border-zinc-700 rounded-xl transition-all"
+                  >
+                    {/* Клік по назві/деталях відкриває редагування */}
+                    <div
+                      onClick={() => handleOpenEditRecurring(item)}
+                      className="cursor-pointer flex-1 min-w-0 pr-2"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-semibold text-zinc-200 group-hover:text-white truncate">
+                          {item.title}
+                        </p>
+                        <Pencil size={11} className="text-zinc-600 group-hover:text-zinc-400 shrink-0" />
+                      </div>
+                      <p className="text-[11px] text-zinc-500 truncate">
+                        {item.day_of_month}-е число • {item.category_name}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        onClick={() => handleOpenEditRecurring(item)}
+                        className="text-xs font-bold text-white cursor-pointer hover:underline"
+                      >
+                        {Number(item.amount).toLocaleString("uk-UA")} ₴
+                      </span>
+                      <button
+                        onClick={() => handleExecuteRecurring(item)}
+                        title="Провести платіж зараз"
+                        className="p-1.5 rounded-lg bg-zinc-850 hover:bg-emerald-950/60 border border-zinc-800 hover:border-emerald-700/60 text-zinc-400 hover:text-emerald-400 transition-all"
+                      >
+                        <CheckCircle2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* СПИСОК ОПЕРАЦІЙ */}
           <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-900 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xs uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
@@ -600,7 +730,7 @@ export default function Dashboard() {
                 <p className="text-xs mt-1 text-zinc-700">У цьому місяці витрат не зафіксовано</p>
               </div>
             ) : (
-              <div className="space-y-2.5 max-h-[700px] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                 {filteredTransactions.map((t) => {
                   const IconComponent = CATEGORY_ICONS[t.category_name] || HelpCircle;
                   const iconColor = CATEGORY_COLORS[t.category_name] || "#6B7280";
@@ -647,7 +777,99 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* QUICK ACTION SHEET */}
+      {/* МОДАЛКА ДОДАВАННЯ ТА РЕДАГУВАННЯ ПОСТІЙНОЇ ВИТРАТИ */}
+      {isAddingRecurring && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <h3 className="text-sm font-bold text-white">
+                {editingRecurring ? "Редагування постійної витрати" : "Новий постійний платіж"}
+              </h3>
+              <button onClick={() => setIsAddingRecurring(false)} className="text-zinc-500 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[11px] text-zinc-400 font-semibold block mb-1">Назва</label>
+                <input
+                  type="text"
+                  placeholder="Оренда, зв'язок, підписка"
+                  value={recTitleInput}
+                  onChange={(e) => setRecTitleInput(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] text-zinc-400 font-semibold block mb-1">Сума (UAH)</label>
+                  <input
+                    type="number"
+                    placeholder="15000"
+                    value={recAmountInput}
+                    onChange={(e) => setRecAmountInput(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-400 font-semibold block mb-1">День місяця</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={recDayInput}
+                    onChange={(e) => setRecDayInput(e.target.value)}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-zinc-400 font-semibold block mb-1">Категорія</label>
+                <select
+                  value={recCategoryInput}
+                  onChange={(e) => setRecCategoryInput(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              {editingRecurring && (
+                <button
+                  onClick={() => handleDeleteRecurring(editingRecurring.id)}
+                  className="p-2 rounded-xl bg-rose-950/30 hover:bg-rose-950/60 border border-rose-900/50 text-rose-400 transition-all"
+                  title="Видалити цей регулярний платіж"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+              <button
+                onClick={() => setIsAddingRecurring(false)}
+                className="flex-1 py-2 text-xs rounded-xl bg-zinc-900 hover:bg-zinc-850 text-zinc-400 transition-all"
+              >
+                Скасувати
+              </button>
+              <button
+                onClick={handleSaveRecurring}
+                className="flex-1 py-2 text-xs font-semibold rounded-xl bg-white hover:bg-zinc-200 text-black transition-all"
+              >
+                {editingRecurring ? "Оновити" : "Зберегти"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUICK ACTION SHEET ДЛЯ ТРАНЗАКЦІЙ */}
       {selectedTx && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
           <div
@@ -661,9 +883,7 @@ export default function Dashboard() {
                 <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
                   Редагування операції
                 </span>
-                <h3 className="text-lg font-bold text-white mt-0.5">
-                  {selectedTx.merchant_raw}
-                </h3>
+                <h3 className="text-lg font-bold text-white mt-0.5">{selectedTx.merchant_raw}</h3>
                 <p className="text-xs text-zinc-500">
                   {new Date(selectedTx.created_at).toLocaleString("uk-UA", {
                     dateStyle: "medium",
@@ -704,10 +924,7 @@ export default function Dashboard() {
                           : "bg-zinc-900/40 border-zinc-800/80 hover:bg-zinc-900 text-zinc-300 hover:text-white"
                       }`}
                     >
-                      <div
-                        className="p-1.5 rounded-lg shrink-0"
-                        style={{ backgroundColor: `${color}20`, color: color }}
-                      >
+                      <div className="p-1.5 rounded-lg shrink-0" style={{ backgroundColor: `${color}20`, color: color }}>
                         <Icon size={14} />
                       </div>
                       <span className="truncate">{catName}</span>
