@@ -407,19 +407,30 @@ export default function Dashboard() {
     category_name: string;
     day_of_month: number;
   }) => {
-    if (formData.id) {
-      await fetch("/api/recurring", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-    } else {
-      const newItem = { ...formData, is_active: true };
-      await supabase.from("recurring_templates").insert(newItem);
+    try {
+      if (formData.id) {
+        const res = await fetch("/api/recurring", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+        if (!res.ok) throw new Error("Помилка оновлення шаблону");
+      } else {
+        const newItem = { ...formData, is_active: true };
+        const res = await fetch("/api/recurring", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newItem),
+        });
+        if (!res.ok) throw new Error("Помилка створення шаблону");
+      }
+
+      invalidateRecurring();
+      setIsAddingRecurring(false);
+      setEditingRecurring(null);
+    } catch (err) {
+      console.error("Помилка збереження регулярного платежу:", err);
     }
-    invalidateRecurring();
-    setIsAddingRecurring(false);
-    setEditingRecurring(null);
   };
 
   const handleDeleteRecurring = async (id: number) => {
@@ -456,8 +467,16 @@ export default function Dashboard() {
         type: "expense",
       };
 
-      const { error } = await supabase.from("transactions").insert([newTx]);
-      if (error) throw error;
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTx),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Помилка додавання транзакції");
+      }
 
       invalidateTransactions();
     } catch (err) {

@@ -1,17 +1,37 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCategoryByMcc } from "@/lib/mcc-mapper";
 import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 
 export const dynamic = "force-dynamic";
 
+// Валідація секретного токена вебхука
+function validateWebhookSecret(req: NextRequest): boolean {
+  const webhookSecret = process.env.MONOBANK_WEBHOOK_SECRET;
+  // Якщо секрет ще не налаштовано в змінних оточення, пропускаємо (для сумісності)
+  if (!webhookSecret) return true;
+
+  const { searchParams } = new URL(req.url);
+  const secretParam = searchParams.get("secret");
+
+  return secretParam === webhookSecret;
+}
+
 // 1. Необхідно для успішної реєстрації вебхука в Monobank API
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!validateWebhookSecret(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   return NextResponse.json({ status: "ok" });
 }
 
 // 2. Обробка вхідних транзакцій від банку
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  if (!validateWebhookSecret(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
 
@@ -21,9 +41,6 @@ export async function POST(req: Request) {
     }
 
     const item = body.data.statementItem;
-    const accountId = body.data.account;
-
-    // Фільтрація за карткою (за потреби можна обмежити конкретним accountId)
     const rawAmount = Number(item.amount);
     if (!rawAmount || isNaN(rawAmount)) {
       return NextResponse.json({ received: true });
@@ -76,7 +93,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("[Monobank Webhook] Handling error:", error);
-    // Завжди повертаємо 200, щоб Monobank не повторював запит циклічно
+    // Повертаємо 200 лише для розпарсених повідомлень банку, щоб не блокувати чергу
     return NextResponse.json({ received: true });
   }
 }

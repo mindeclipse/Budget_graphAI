@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
 import { Transaction, RecurringItem } from "@/types/finance";
 
 // Ключі для кешу
@@ -12,55 +11,30 @@ export const FINANCE_KEYS = {
 export function useFinanceQueries(isAuthenticated: boolean | null) {
   const queryClient = useQueryClient();
 
-  // Кешований запит транзакцій з автоматичним викачуванням усіх сторінок
+  // Запит транзакцій через внутрішній захищений API
   const transactionsQuery = useQuery({
     queryKey: FINANCE_KEYS.transactions,
     queryFn: async () => {
-      const PAGE_SIZE = 1000;
-      let allTransactions: Transaction[] = [];
-      let page = 0;
-      const MAX_PAGES = 10; // Захист від нескінченного циклу (до 10 000 транзакцій)
-
-      while (page < MAX_PAGES) {
-        const from = page * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        const { data, error } = await supabase
-          .from("transactions")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-
-        allTransactions.push(...(data as Transaction[]));
-
-        // Якщо прийшло менше ніж розмір сторінки — це був останній шматок даних
-        if (data.length < PAGE_SIZE) break;
-
-        page++;
+      const res = await fetch("/api/transactions");
+      if (!res.ok) {
+        throw new Error("Не вдалося завантажити транзакції");
       }
-
-      console.log(
-        `✅ Успішно завантажено транзакцій: ${allTransactions.length} (сторінок: ${page + 1})`
-      );
-      return allTransactions;
+      const data = await res.json();
+      return (data.transactions || []) as Transaction[];
     },
     enabled: Boolean(isAuthenticated),
   });
 
-  // Кешований запит постійних платежів
+  // Запит постійних платежів через API
   const recurringQuery = useQuery({
     queryKey: FINANCE_KEYS.recurring,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("recurring_templates")
-        .select("*")
-        .order("day_of_month", { ascending: true });
-
-      if (error) throw error;
-      return (data || []) as RecurringItem[];
+      const res = await fetch("/api/recurring");
+      if (!res.ok) {
+        throw new Error("Не вдалося завантажити шаблони витрат");
+      }
+      const data = await res.json();
+      return (data.items || []) as RecurringItem[];
     },
     enabled: Boolean(isAuthenticated),
   });
