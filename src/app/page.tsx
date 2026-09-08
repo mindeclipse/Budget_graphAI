@@ -8,16 +8,21 @@ import { MoMComparison } from "@/components/MoMComparison";
 import { RecurringModal } from "@/components/RecurringModal";
 import { TransactionActionSheet } from "@/components/TransactionActionSheet";
 import { CategoryDetailModal } from "@/components/CategoryDetailModal";
-import { Transaction, RecurringItem, AIInsightData } from "@/types/finance";
+import { Transaction, RecurringItem } from "@/types/finance";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
 import { useAutoLock } from "@/hooks/useAutoLock";
 import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import { CsvImportModal } from "@/components/CsvImportModal";
 import { NewCycleModal } from "@/components/NewCycleModal";
+import { AIAnalysisDrawer } from "@/components/AIAnalysisDrawer";
+import {
+  AIAnalysisResponse,
+  SupportedGeminiModel,
+  AIAnalysisRequest,
+} from "@/types/ai";
 import {
   startAuthentication,
   startRegistration,
-  browserSupportsWebAuthn,
 } from "@simplewebauthn/browser";
 import {
   BarChart,
@@ -41,10 +46,6 @@ import {
   Plus,
   CheckCircle2,
   Sparkles,
-  RefreshCw,
-  Lightbulb,
-  ShieldCheck,
-  Zap,
   Lock,
   HelpCircle,
   Fingerprint,
@@ -64,7 +65,6 @@ export default function Dashboard() {
   const [pinError, setPinError] = useState("");
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
 
-  // Сховище фінансових даних
   // Кешовані дані через React Query
   const {
     transactions: rawTransactions,
@@ -77,6 +77,7 @@ export default function Dashboard() {
   const transactions = useMemo(() => {
     return rawTransactions.filter((t: Transaction) => !t.exclude_from_budget);
   }, [rawTransactions]);
+
   const [activeTab, setActiveTab] = useState<
     "overview" | "history" | "recurring"
   >("overview");
@@ -91,7 +92,7 @@ export default function Dashboard() {
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [activeCycle, setActiveCycle] = useState<any>(null);
 
-  // Функція завантаження активного циклу
+  // Завантаження активного циклу
   const loadCycles = async () => {
     try {
       const res = await fetch("/api/cycles");
@@ -129,6 +130,53 @@ export default function Dashboard() {
     activeCycle,
   });
 
+  // Керування AI-аналізом (Шторка)
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [selectedAiModel, setSelectedAiModel] =
+    useState<SupportedGeminiModel>("gemini-3.5-flash");
+
+  const handleRunAiAnalysis = async (modelToUse = selectedAiModel) => {
+    setIsAiDrawerOpen(true);
+    setIsAiLoading(true);
+
+    try {
+      const payload: AIAnalysisRequest = {
+        cycleName: activeCycle?.name,
+        budgetLimit: effectiveLimit,
+        variableBudget: Math.max(0, effectiveLimit - recurringTotal),
+        recurringTotal,
+        totalSpent,
+        remaining: budgetMetrics.remaining,
+        safeDailySpend: budgetMetrics.safeDailySpend,
+        daysRemaining: budgetMetrics.daysRemaining,
+        spentPercent: budgetMetrics.exactPercent,
+        topCategories: categoryStats.slice(0, 4).map((c) => ({
+          name: c.name,
+          amount: c.amount,
+          percentage: c.percentage,
+        })),
+        preferredModel: modelToUse,
+      };
+
+      const res = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Не вдалося отримати аналіз");
+
+      const data: AIAnalysisResponse = await res.json();
+      setAiAnalysis(data);
+    } catch (err) {
+      console.error("AI Analysis error:", err);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   // Стани для рядка пошуку та обраного тегу
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -142,7 +190,7 @@ export default function Dashboard() {
     return Array.from(tagsSet);
   }, [filteredTransactions]);
 
-  // Транзакції для відображення у списку (місяць + активний тег + текст пошуку)
+  // Транзакції для відображення у списку
   const displayedTransactions = useMemo(() => {
     return monthTransactions.filter((t) => {
       const matchesSearch =
@@ -167,11 +215,7 @@ export default function Dashboard() {
   >(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Gemini AI аналітика
-  const [aiInsight, setAiInsight] = useState<AIInsightData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  // Перевірка активної HTTP-only cookie сесії
+  // Перевірка активної сесії
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -210,7 +254,7 @@ export default function Dashboard() {
     }
   };
 
-  // Виклик Face ID для розблокування
+  // Face ID розблокування
   const handleBiometricLogin = async () => {
     setPinError("");
     setIsVerifyingPin(true);
@@ -223,7 +267,6 @@ export default function Dashboard() {
       }
       const options = await optsRes.json();
 
-      // Запуск системного вікна Face ID / Touch ID
       const authResp = await startAuthentication({ optionsJSON: options });
 
       const verifyRes = await fetch("/api/auth/webauthn/login", {
@@ -247,7 +290,7 @@ export default function Dashboard() {
     }
   };
 
-  // Прив'язка поточного пристрою (викликається один раз після входу)
+  // Прив'язка Face ID пристрою
   const handleRegisterDevice = async () => {
     try {
       const optsRes = await fetch("/api/auth/webauthn/register");
@@ -278,17 +321,15 @@ export default function Dashboard() {
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
     );
-    setAiInsight(null);
   };
 
   const handleNextMonth = () => {
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
     );
-    setAiInsight(null);
   };
 
-  // Повне блокування та очищення сесії
+  // Вихід із системи
   const handleLogout = async () => {
     setIsAuthenticated(false);
     setPinInput("");
@@ -296,18 +337,18 @@ export default function Dashboard() {
     await fetch("/api/auth", { method: "DELETE" }).catch(() => null);
   };
 
-  // Автоблокування при неактивності або згортанні PWA
+  // Автоблокування
   useAutoLock({
     isAuthenticated,
     onLock: () => {
       setIsAuthenticated(false);
       setPinInput("");
     },
-    inactivityTimeoutMs: 7 * 60 * 1000, // 5 хвилин відсутності дій
-    maxBackgroundTimeMs: 5 * 60 * 1000, // 2 хвилини у згорнутому стані
+    inactivityTimeoutMs: 7 * 60 * 1000,
+    maxBackgroundTimeMs: 5 * 60 * 1000,
   });
 
-  // Початкове завантаження даних та підписка на Realtime
+  // Realtime оновлення транзакцій
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -327,7 +368,7 @@ export default function Dashboard() {
     };
   }, [isAuthenticated, invalidateTransactions]);
 
-  // Завантаження ліміту бюджету для обраного періоду
+  // Завантаження ліміту бюджету
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -351,49 +392,7 @@ export default function Dashboard() {
     fetchBudget();
   }, [selectedMonthKey, isAuthenticated]);
 
-  // Запит аналітичного звіту від Gemini AI
-  const handleGenerateInsight = async () => {
-    setIsAnalyzing(true);
-    try {
-      const topTransactions = [...filteredTransactions]
-        .sort((a, b) => Number(b.amount) - Number(a.amount))
-        .slice(0, 5)
-        .map((t) => ({
-          merchant: t.merchant_raw,
-          amount: t.amount,
-          category: t.category_name,
-        }));
-
-      const payload = {
-        month: monthLabel,
-        budgetLimit,
-        totalSpent,
-        remaining: budgetMetrics.remaining,
-        daysRemaining: budgetMetrics.daysRemaining,
-        safeDailySpend: budgetMetrics.safeDailySpend,
-        categories: categoryStats,
-        recurringTotal,
-        topTransactions,
-      };
-
-      const res = await fetch("/api/ai-insights", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setAiInsight(data);
-      }
-    } catch (err) {
-      console.error("Failed to generate AI insights", err);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  // Створення / оновлення підписки через відокремлений RecurringModal
+  // Керування регулярними платежами
   const handleSaveRecurring = async (formData: {
     id?: number;
     title: string;
@@ -417,7 +416,6 @@ export default function Dashboard() {
     setEditingRecurring(null);
   };
 
-  // Видалення шаблону підписки
   const handleDeleteRecurring = async (id: number) => {
     await fetch(`/api/recurring?id=${id}`, { method: "DELETE" });
     invalidateRecurring();
@@ -425,7 +423,6 @@ export default function Dashboard() {
     setEditingRecurring(null);
   };
 
-  // Позачергове ручне проведення підписки
   const handleExecuteRecurring = async (item: RecurringItem) => {
     if (isExecutingRecurring === item.id) return;
     setIsExecutingRecurring(item.id);
@@ -454,7 +451,6 @@ export default function Dashboard() {
       };
 
       const { error } = await supabase.from("transactions").insert([newTx]);
-
       if (error) throw error;
 
       invalidateTransactions();
@@ -465,7 +461,6 @@ export default function Dashboard() {
     }
   };
 
-  // Збереження місячного ліміту бюджету
   const handleSaveBudget = async () => {
     const parsed = parseFloat(tempBudgetInput);
     if (!isNaN(parsed) && parsed > 0) {
@@ -482,7 +477,6 @@ export default function Dashboard() {
     setIsEditingBudget(false);
   };
 
-  // Оновлення категорії операції
   const handleUpdateCategory = async (txId: number, newCategory: string) => {
     setSelectedTx(null);
     await fetch("/api/transactions", {
@@ -493,7 +487,6 @@ export default function Dashboard() {
     invalidateTransactions();
   };
 
-  // Оновлення списку тегів транзакції
   const handleUpdateTags = async (txId: number, newTags: string[]) => {
     await fetch("/api/transactions", {
       method: "PATCH",
@@ -503,14 +496,12 @@ export default function Dashboard() {
     invalidateTransactions();
   };
 
-  // Видалення транзакції
   const handleDeleteTransaction = async (txId: number) => {
     setSelectedTx(null);
     await fetch(`/api/transactions?id=${txId}`, { method: "DELETE" });
     invalidateTransactions();
   };
 
-  // Екран перевірки наявності сесії
   if (isAuthenticated === null) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black">
@@ -519,7 +510,6 @@ export default function Dashboard() {
     );
   }
 
-  // Екран введення PIN-коду
   if (!isAuthenticated) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black p-4 text-white">
@@ -624,9 +614,7 @@ export default function Dashboard() {
               {filteredTransactions.length}
             </span>
           </div>
-          {/* 👇 Кнопка імпорту виписки Приват24 */}
           <CsvImportModal onSuccess={() => window.location.reload()} />
-          {/* Кнопка прив'язки біометрії поточного пристрою */}
           <button
             onClick={handleRegisterDevice}
             title="Налаштувати Face ID / Touch ID для цього пристрою"
@@ -635,7 +623,6 @@ export default function Dashboard() {
             <Fingerprint size={14} />
             <span className="hidden sm:inline">Face ID</span>
           </button>
-          {/* Кнопка відкриття циклу ЗП*/}
           <button
             onClick={() => setIsCycleModalOpen(true)}
             className="flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-400 transition-all hover:bg-sky-500/20 active:scale-95"
@@ -643,7 +630,6 @@ export default function Dashboard() {
             <Wallet size={14} />
             <span>Новий цикл</span>
           </button>
-          {/* Кнопка ручного блокування екрана */}
           <button
             onClick={handleLogout}
             title="Заблокувати додаток"
@@ -787,7 +773,7 @@ export default function Dashboard() {
 
       {/* Основна сітка */}
       <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-12">
-        {/* Ліва колонка (Операційні діаграми + AI аналітика внизу) */}
+        {/* Ліва колонка */}
         <section
           className={`space-y-6 md:col-span-7 ${
             activeTab === "overview" ? "block" : "hidden md:block"
@@ -917,124 +903,38 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* 3. Рекомендації від Gemini AI (перенесено нижче) */}
-          <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-zinc-950 p-5 shadow-lg">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-indigo-500/20 p-1.5 text-indigo-400">
-                  <Sparkles size={16} />
+          {/* 3. Очищена картка AI Фінансового Аналітика */}
+          <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-950 p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-2 text-purple-400">
+                  <Sparkles size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold tracking-wider text-zinc-300 uppercase">
+                  <h3 className="text-xs font-bold tracking-wider text-zinc-200 uppercase">
                     AI Фінансовий Аналітик
                   </h3>
                   <p className="text-[11px] text-zinc-500">
-                    Аналіз витрат та стратегія оптимізації
+                    {aiAnalysis
+                      ? `Останній аналіз: ${aiAnalysis.status === "on_track" ? "В нормі" : "Потребує уваги"}`
+                      : "Аналіз темпу витрат та оптимізація бюджету"}
                   </p>
                 </div>
               </div>
 
               <button
-                onClick={handleGenerateInsight}
-                disabled={isAnalyzing || filteredTransactions.length === 0}
-                className="flex items-center gap-1.5 rounded-xl border border-zinc-700/60 bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-zinc-700 disabled:opacity-50"
+                type="button"
+                onClick={() => handleRunAiAnalysis()}
+                className="flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3.5 py-2 text-xs font-medium text-purple-300 transition-all hover:bg-purple-500/20 active:scale-95"
               >
-                <RefreshCw
-                  size={12}
-                  className={isAnalyzing ? "animate-spin" : ""}
-                />
-                {isAnalyzing
-                  ? "Аналізую..."
-                  : aiInsight
-                    ? "Оновити"
-                    : "Аналізувати"}
+                <Sparkles size={13} />
+                {aiAnalysis ? "Переглянути" : "Аналізувати"}
               </button>
             </div>
-
-            {aiInsight ? (
-              <div className="animate-in fade-in space-y-4 text-xs duration-300">
-                <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
-                  <div className="flex items-center gap-2">
-                    {aiInsight.status === "safe" ? (
-                      <ShieldCheck size={16} className="text-emerald-400" />
-                    ) : aiInsight.status === "warning" ? (
-                      <Zap size={16} className="text-amber-400" />
-                    ) : (
-                      <AlertTriangle size={16} className="text-rose-400" />
-                    )}
-                    <span className="font-semibold text-zinc-200">
-                      {aiInsight.summary}
-                    </span>
-                  </div>
-                </div>
-
-                {aiInsight.anomalies?.length > 0 && (
-                  <div>
-                    <p className="mb-1.5 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase">
-                      Виявлені аномалії
-                    </p>
-                    <ul className="space-y-1">
-                      {aiInsight.anomalies.map((item, idx) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-2 text-zinc-300"
-                        >
-                          <span className="mt-0.5 text-zinc-600">•</span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {aiInsight.saving_tactics?.length > 0 && (
-                  <div className="border-zinc-850 rounded-xl border bg-zinc-900/40 p-3">
-                    <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-emerald-400 uppercase">
-                      <Lightbulb size={13} /> Як заощадити кошти
-                    </p>
-                    <div className="space-y-1.5">
-                      {aiInsight.saving_tactics.map((tactic, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-start gap-2 text-zinc-300"
-                        >
-                          <span className="mt-0.5 font-mono text-[10px] text-zinc-500">
-                            {idx + 1}.
-                          </span>
-                          <span>{tactic}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {aiInsight.forecast && (
-                  <p className="border-t border-zinc-900 pt-1 text-[11px] text-zinc-500 italic">
-                    <strong className="text-zinc-400 not-italic">
-                      Прогноз:
-                    </strong>{" "}
-                    {aiInsight.forecast}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="py-6 text-center text-xs text-zinc-500">
-                {filteredTransactions.length === 0 ? (
-                  "Немає транзакцій за цей місяць для формування аналітики"
-                ) : (
-                  <>
-                    Натисніть{" "}
-                    <strong className="text-zinc-300">«Аналізувати»</strong>,
-                    щоб отримати структурований аналіз структури витрат та план
-                    заощадження від Gemini AI.
-                  </>
-                )}
-              </div>
-            )}
           </div>
         </section>
 
-        {/* Права колонка (Стрічка транзакцій нагорі + Постійні + Аналітика) */}
+        {/* Права колонка */}
         <section
           className={`space-y-6 md:col-span-5 ${
             activeTab === "history" || activeTab === "recurring"
@@ -1042,7 +942,7 @@ export default function Dashboard() {
               : "hidden md:block"
           }`}
         >
-          {/* 1. Журнал останніх операцій (піднято нагору зі зручним скролом) */}
+          {/* 1. Журнал операцій */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -1305,7 +1205,7 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* Деталізація витрат по вибраній категорії */}
+      {/* Модальні вікна */}
       <CategoryDetailModal
         categoryName={selectedCategory}
         transactions={filteredTransactions}
@@ -1315,7 +1215,6 @@ export default function Dashboard() {
         }}
       />
 
-      {/* Відокремлена модалка підписок */}
       <RecurringModal
         isOpen={isAddingRecurring}
         item={editingRecurring}
@@ -1324,7 +1223,6 @@ export default function Dashboard() {
         onDelete={handleDeleteRecurring}
       />
 
-      {/* Відокремлена панель дій транзакції */}
       <TransactionActionSheet
         transaction={selectedTx}
         onClose={() => setSelectedTx(null)}
@@ -1332,15 +1230,27 @@ export default function Dashboard() {
         onUpdateTags={handleUpdateTags}
         onDelete={handleDeleteTransaction}
       />
-      {/* Модальне вікно старту нового зарплатного циклу */}
+
       <NewCycleModal
         isOpen={isCycleModalOpen}
         onClose={() => setIsCycleModalOpen(false)}
         defaultLimit={activeCycle?.budget_limit || budgetLimit}
         onCycleStarted={() => {
           loadCycles();
-          // Оновлюємо транзакції, якщо є функція інвалідації або refetch
         }}
+      />
+
+      <AIAnalysisDrawer
+        isOpen={isAiDrawerOpen}
+        onClose={() => setIsAiDrawerOpen(false)}
+        analysis={aiAnalysis}
+        isLoading={isAiLoading}
+        selectedModel={selectedAiModel}
+        onModelChange={(model) => {
+          setSelectedAiModel(model);
+          handleRunAiAnalysis(model);
+        }}
+        onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
       />
     </main>
   );
