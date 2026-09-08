@@ -12,6 +12,7 @@ import { Transaction, RecurringItem, AIInsightData } from "@/types/finance";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
 import { useAutoLock } from "@/hooks/useAutoLock";
 import { useFinanceQueries } from "@/hooks/useFinanceQueries";
+import { CsvImportModal } from "@/components/CsvImportModal";
 import {
   startAuthentication,
   startRegistration,
@@ -602,6 +603,8 @@ export default function Dashboard() {
               {filteredTransactions.length}
             </span>
           </div>
+          {/* 👇 Кнопка імпорту виписки Приват24 */}
+          <CsvImportModal onSuccess={() => window.location.reload()} />
           {/* Кнопка прив'язки біометрії поточного пристрою */}
           <button
             onClick={handleRegisterDevice}
