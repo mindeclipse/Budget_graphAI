@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { getUsdRate } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -62,18 +63,29 @@ export async function GET(req: NextRequest) {
       (existingTransactions || []).map((t) => t.merchant_raw.toLowerCase())
     );
 
+    // Отримуємо курс, якщо хоча б одна підписка на сьогодні у USD
+    const hasUsd = templates.some((t) => t.currency === "USD");
+    const usdRate = hasUsd ? await getUsdRate() : 1;
+
     const toInsert = templates
       .filter(
         (tmpl) => !existingMerchantsThisMonth.has(tmpl.title.toLowerCase())
       )
-      .map((tmpl) => ({
-        amount: tmpl.amount,
-        currency: "UAH",
-        merchant_raw: tmpl.title,
-        category_name: tmpl.category_name,
-        source: "recurring",
-        type: "expense",
-      }));
+      .map((tmpl) => {
+        const isUsd = tmpl.currency === "USD";
+        const finalAmount = isUsd
+          ? Math.round(Number(tmpl.amount) * usdRate)
+          : Number(tmpl.amount);
+
+        return {
+          amount: finalAmount,
+          currency: "UAH",
+          merchant_raw: isUsd ? `${tmpl.title} ($${tmpl.amount})` : tmpl.title,
+          category_name: tmpl.category_name,
+          source: "recurring",
+          type: "expense",
+        };
+      });
 
     if (toInsert.length === 0) {
       return NextResponse.json({
@@ -92,6 +104,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       processed: inserted.length,
+      usdRate: hasUsd ? usdRate : null,
       inserted,
     });
   } catch (error: any) {
