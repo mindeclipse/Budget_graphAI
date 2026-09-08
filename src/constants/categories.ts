@@ -109,3 +109,4 @@ export const CATEGORY_COLORS: Record<string, string> = {
   "Кешбек та бонуси": "#10B981",
   "Дивіденди та купони": "#14B8A6",
 };
+export const CATEGORIES = Object.keys(CATEGORY_ICONS);
