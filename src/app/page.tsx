@@ -13,6 +13,7 @@ import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
 import { useAutoLock } from "@/hooks/useAutoLock";
 import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import { CsvImportModal } from "@/components/CsvImportModal";
+import { NewCycleModal } from "@/components/NewCycleModal";
 import {
   startAuthentication,
   startRegistration,
@@ -50,6 +51,7 @@ import {
   LogOut,
   Search,
   X,
+  Wallet,
 } from "lucide-react";
 
 /** Резервний курс для ручного списання USD, якщо API банку тимчасово недоступне */
@@ -86,6 +88,25 @@ export default function Dashboard() {
   const [budgetLimit, setBudgetLimit] = useState<number>(30000);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
+  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+  const [activeCycle, setActiveCycle] = useState<any>(null);
+
+  // Функція завантаження активного циклу
+  const loadCycles = async () => {
+    try {
+      const res = await fetch("/api/cycles");
+      const data = await res.json();
+      if (data.activeCycle) {
+        setActiveCycle(data.activeCycle);
+      }
+    } catch (e) {
+      console.error("Failed to load active cycle:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadCycles();
+  }, []);
 
   // Обчислення аналітичних показників через кастомний хук
   const {
@@ -98,11 +119,13 @@ export default function Dashboard() {
     budgetMetrics,
     categoryStats,
     dailyStats,
+    effectiveLimit,
   } = useBudgetMetrics({
     transactions,
     recurring,
     budgetLimit,
     selectedDate,
+    activeCycle,
   });
 
   // Стани для рядка пошуку та обраного тегу
@@ -618,6 +641,14 @@ export default function Dashboard() {
           >
             <Fingerprint size={14} />
             <span className="hidden sm:inline">Face ID</span>
+          </button>
+          {/* Кнопка відкриття циклу ЗП*/}
+          <button
+            onClick={() => setIsCycleModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-400 transition-all hover:bg-sky-500/20 active:scale-95"
+          >
+            <Wallet size={14} />
+            <span>Новий цикл</span>
           </button>
           {/* Кнопка ручного блокування екрана */}
           <button
@@ -1262,7 +1293,7 @@ export default function Dashboard() {
           <div className="mb-6">
             <BurnRateChart
               transactions={filteredTransactions}
-              budgetLimit={budgetLimit}
+              budgetLimit={effectiveLimit || budgetLimit}
               recurringTotal={recurringTotal}
               selectedMonthKey={selectedMonthKey}
               recurring={recurring}
@@ -1307,6 +1338,16 @@ export default function Dashboard() {
         onUpdateCategory={handleUpdateCategory}
         onUpdateTags={handleUpdateTags}
         onDelete={handleDeleteTransaction}
+      />
+      {/* Модальне вікно старту нового зарплатного циклу */}
+      <NewCycleModal
+        isOpen={isCycleModalOpen}
+        onClose={() => setIsCycleModalOpen(false)}
+        defaultLimit={activeCycle?.budget_limit || budgetLimit}
+        onCycleStarted={() => {
+          loadCycles();
+          // Оновлюємо транзакції, якщо є функція інвалідації або refetch
+        }}
       />
     </main>
   );

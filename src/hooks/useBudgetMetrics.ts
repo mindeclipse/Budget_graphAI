@@ -12,11 +12,21 @@ function getPreviousMonthKey(monthKey: string): string {
   return `${prevYear}-${prevMonth}`;
 }
 
+export interface BudgetCycle {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date?: string | null;
+  budget_limit: number;
+  is_active: boolean;
+}
+
 export interface BudgetMetricsParams {
   transactions: Transaction[];
   recurring: RecurringItem[];
   budgetLimit: number;
   selectedDate: Date;
+  activeCycle?: BudgetCycle | null; // 👈 Додано типізацію активного циклу
 }
 
 export interface CategoryStatItem {
@@ -46,7 +56,15 @@ export function useBudgetMetrics({
   recurring,
   budgetLimit,
   selectedDate,
+  activeCycle,
 }: BudgetMetricsParams) {
+  // Пріоритет ліміту: з активного циклу, або стандартний дефолт
+  const effectiveLimit = useMemo(() => {
+    return activeCycle?.budget_limit
+      ? Number(activeCycle.budget_limit)
+      : budgetLimit;
+  }, [activeCycle, budgetLimit]);
+
   // Ключ активного місяця ("YYYY-MM")
   const selectedMonthKey = useMemo(() => {
     return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}`;
@@ -60,15 +78,36 @@ export function useBudgetMetrics({
     });
   }, [selectedDate]);
 
-  // Фільтрація транзакцій за активний місяць (з урахуванням виключення з бюджету)
+  // Фільтрація транзакцій: за діапазоном циклу або календарним місяцем
   const filteredTransactions = useMemo(() => {
+    if (!activeCycle) {
+      // Фолбек на старий календарний місяць, якщо цикл не створено
+      return transactions.filter((t) => {
+        const d = new Date(t.created_at);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        return (
+          key === selectedMonthKey &&
+          !t.exclude_from_budget &&
+          t.type === "expense"
+        );
+      });
+    }
+
+    const cycleStart = new Date(activeCycle.start_date).getTime();
+    const cycleEnd = activeCycle.end_date
+      ? new Date(activeCycle.end_date).getTime()
+      : Infinity;
+
     return transactions.filter((t) => {
-      if (t.exclude_from_budget) return false; // 👈 Жорстко відсікаємо виключені транзакції
-      const d = new Date(t.created_at);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      return key === selectedMonthKey;
+      const txTime = new Date(t.created_at).getTime();
+      return (
+        txTime >= cycleStart &&
+        txTime <= cycleEnd &&
+        !t.exclude_from_budget &&
+        t.type === "expense"
+      );
     });
-  }, [transactions, selectedMonthKey]);
+  }, [transactions, activeCycle, selectedMonthKey]);
 
   // Ключ та вибірка попереднього місяця (для блоку MoM)
   const prevMonthKey = useMemo(
@@ -94,7 +133,7 @@ export function useBudgetMetrics({
       }, 0);
   }, [recurring]);
 
-  // Фактична сума витрат за місяць
+  // Фактична сума витрат за поточний цикл/місяць
   const totalSpent = useMemo(() => {
     return filteredTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
   }, [filteredTransactions]);
@@ -117,17 +156,17 @@ export function useBudgetMetrics({
       daysRemaining = Math.max(1, totalDaysInMonth - now.getDate() + 1);
     }
 
-    // 1. Вільний бюджет на місяць за вирахуванням зарезервованих постійних витрат
-    const variableBudget = Math.max(0, budgetLimit - recurringTotal);
+    // 1. Вільний бюджет на цикл за вирахуванням зарезервованих підписок
+    const variableBudget = Math.max(0, effectiveLimit - recurringTotal);
 
     // 2. Реальний залишок вільних коштів
     const remaining = variableBudget - totalSpent;
 
-    // 3. Відсоток вичерпання саме вільного бюджету
+    // 3. Відсоток вичерпання вільного бюджету
     const spentPercent =
       variableBudget > 0 ? (totalSpent / variableBudget) * 100 : 100;
 
-    // 4. Денний ліміт ділиться тільки з реально залишених коштів
+    // 4. Безпечна денна норма
     const safeDailySpend =
       daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
 
@@ -144,7 +183,7 @@ export function useBudgetMetrics({
       daysRemaining,
       barColor,
     };
-  }, [totalSpent, budgetLimit, recurringTotal, selectedDate]);
+  }, [totalSpent, effectiveLimit, recurringTotal, selectedDate]);
 
   // Агрегація витрат за категоріями
   const categoryStats = useMemo<CategoryStatItem[]>(() => {
@@ -192,5 +231,6 @@ export function useBudgetMetrics({
     budgetMetrics,
     categoryStats,
     dailyStats,
+    effectiveLimit,
   };
 }
