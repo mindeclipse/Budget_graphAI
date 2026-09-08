@@ -1,8 +1,26 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { z } from "zod";
 import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
+
+// Обмеження: макс 5 МБ для виписки
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+// Розмір чанка для вставки в базу
+const BATCH_SIZE = 500;
+
+// Схема валідації рядка перед записом
+const importedRowSchema = z.object({
+  external_id: z.string().min(1).max(255),
+  amount: z.number().positive(),
+  currency: z.literal("UAH"),
+  merchant_raw: z.string().min(1).max(255),
+  category_name: z.string().min(1).max(100),
+  source: z.literal("privatbank_statement"),
+  type: z.enum(["expense", "income"]),
+  created_at: z.string().datetime(),
+});
 
 function parsePrivatDate(rawVal: any): string {
   if (!rawVal) return new Date().toISOString();
@@ -61,16 +79,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Файл не надано" }, { status: 400 });
     }
 
-    // Читаємо бінарний буфер файлу
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      return NextResponse.json(
+        { error: "Розмір файлу перевищує ліміт (максимум 5 МБ)" },
+        { status: 400 }
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // XLSX.read автоматично визначає формат (HTML, XML, XLS, XLSX, CSV)
     const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
-    // raw: false повертає відформатовані текстові значення клітинок
     const rows = XLSX.utils.sheet_to_json(sheet, {
       header: 1,
       raw: false,
@@ -83,7 +105,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Пошук рядка із заголовками колонок
+    // 1. Пошук рядка заголовків
     let headerRowIdx = -1;
     let headers: string[] = [];
 
@@ -135,9 +157,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const transactionsToInsert: any[] = [];
+    const validatedTransactions: z.infer<typeof importedRowSchema>[] = [];
 
-    // 3. Збір транзакцій
+    // 3. Збір та валідація рядків через Zod
     for (let i = headerRowIdx + 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length <= amountIdx) continue;
@@ -165,41 +187,51 @@ export async function POST(req: Request) {
         .replace(/[^a-zA-Z0-9а-яА-Яіїєґ]/gi, "");
       const externalId = `pb_${new Date(createdAt).getTime()}_${finalAmount}_${merchantSlug}`;
 
-      transactionsToInsert.push({
+      const parseResult = importedRowSchema.safeParse({
         external_id: externalId,
         amount: finalAmount,
         currency: "UAH",
-        merchant_raw: rawMerchant,
-        category_name: normalizePrivatCategory(rawCategory),
+        merchant_raw: rawMerchant.slice(0, 255),
+        category_name: normalizePrivatCategory(rawCategory).slice(0, 100),
         source: "privatbank_statement",
         type,
         created_at: createdAt,
       });
+
+      if (parseResult.success) {
+        validatedTransactions.push(parseResult.data);
+      }
     }
 
-    if (transactionsToInsert.length === 0) {
+    if (validatedTransactions.length === 0) {
       return NextResponse.json(
         { error: "У файлі не знайдено валідних операцій" },
         { status: 400 }
       );
     }
 
-    // 4. Запис у базу
+    // 4. Пакетний запис (Chunking) для запобігання перевантаженню PostgREST
     const supabaseAdmin = getSupabaseAdmin();
-    const { data, error } = await supabaseAdmin
-      .from("transactions")
-      .upsert(transactionsToInsert, {
-        onConflict: "external_id",
-        ignoreDuplicates: true,
-      })
-      .select("id");
+    let totalInserted = 0;
 
-    if (error) throw error;
+    for (let i = 0; i < validatedTransactions.length; i += BATCH_SIZE) {
+      const chunk = validatedTransactions.slice(i, i + BATCH_SIZE);
+      const { data, error } = await supabaseAdmin
+        .from("transactions")
+        .upsert(chunk, {
+          onConflict: "external_id",
+          ignoreDuplicates: true,
+        })
+        .select("id");
+
+      if (error) throw error;
+      totalInserted += data?.length || 0;
+    }
 
     return NextResponse.json({
       success: true,
-      total_rows: transactionsToInsert.length,
-      imported_count: data?.length || 0,
+      total_rows: validatedTransactions.length,
+      imported_count: totalInserted,
     });
   } catch (err: any) {
     console.error("[PrivatBank Import Error]:", err);

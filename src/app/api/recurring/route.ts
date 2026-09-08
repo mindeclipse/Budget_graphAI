@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import {
+  recurringTemplateSchema,
+  recurringUpdateSchema,
+} from "@/lib/validations";
 
 async function checkAuthSession() {
   const cookieStore = await cookies();
@@ -9,52 +13,6 @@ async function checkAuthSession() {
   return Boolean(correctPin && session === correctPin);
 }
 
-// CREATE: створення нового регулярного платежу
-export async function POST(req: Request) {
-  try {
-    if (!(await checkAuthSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json();
-    const { title, amount, currency, category_name, day_of_month, is_active } =
-      body;
-
-    if (!title || amount === undefined || !day_of_month) {
-      return NextResponse.json(
-        { error: "Title, amount, and day_of_month are required" },
-        { status: 400 }
-      );
-    }
-
-    const supabaseAdmin = getSupabaseAdmin();
-    const { data, error } = await supabaseAdmin
-      .from("recurring_templates")
-      .insert([
-        {
-          title: title.trim(),
-          amount: Number(amount),
-          currency: currency || "UAH",
-          category_name: category_name || "Інше",
-          day_of_month: Number(day_of_month),
-          is_active: is_active ?? true,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("[API recurring POST] DB error:", error);
-      throw error;
-    }
-
-    return NextResponse.json({ success: true, item: data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// Отримати список постійних витрат
 export async function GET() {
   try {
     const supabaseAdmin = getSupabaseAdmin();
@@ -64,35 +22,61 @@ export async function GET() {
       .order("day_of_month", { ascending: true });
 
     if (error) throw error;
-
     return NextResponse.json({ items: data || [] });
   } catch (error: any) {
-    console.error("[API recurring GET] DB error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// UPDATE: зміна параметрів постійної витрати
+export async function POST(req: Request) {
+  try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rawBody = await req.json();
+    const parsed = recurringTemplateSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data, error } = await supabaseAdmin
+      .from("recurring_templates")
+      .insert([parsed.data])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, item: data });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: Request) {
   try {
     if (!(await checkAuthSession())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id, title, amount, currency, category_name, day_of_month } =
-      await req.json();
-    if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    const rawBody = await req.json();
+    const parsed = recurringUpdateSchema.safeParse(rawBody);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.format() },
+        { status: 400 }
+      );
     }
 
+    const { id, ...updateData } = parsed.data;
     const supabaseAdmin = getSupabaseAdmin();
-    const updateData: Record<string, any> = {
-      title: title?.trim(),
-      amount: Number(amount),
-      category_name,
-      day_of_month: Number(day_of_month),
-    };
-    if (currency) updateData.currency = currency;
 
     const { error } = await supabaseAdmin
       .from("recurring_templates")
@@ -107,7 +91,6 @@ export async function PATCH(req: Request) {
   }
 }
 
-// DELETE: видалення постійної витрати
 export async function DELETE(req: Request) {
   try {
     if (!(await checkAuthSession())) {
@@ -125,7 +108,7 @@ export async function DELETE(req: Request) {
     const { error } = await supabaseAdmin
       .from("recurring_templates")
       .delete()
-      .eq("id", id);
+      .eq("id", Number(id));
 
     if (error) throw error;
 

@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { cleanMerchantRaw } from "@/lib/normalize";
+import {
+  transactionCreateSchema,
+  transactionUpdateSchema,
+} from "@/lib/validations";
 
-// GET: вибірка транзакцій з пагінацією через сервісний клієнт
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
     const PAGE_SIZE = 1000;
     let allTransactions: any[] = [];
     let page = 0;
-    const MAX_PAGES = 10; // Ліміт до 10 000 записів
+    const MAX_PAGES = 10;
 
     while (page < MAX_PAGES) {
       const from = page * PAGE_SIZE;
@@ -21,15 +24,10 @@ export async function GET() {
         .order("created_at", { ascending: false })
         .range(from, to);
 
-      if (error) {
-        console.error("[API transactions GET] DB error:", error);
-        throw error;
-      }
-
+      if (error) throw error;
       if (!data || data.length === 0) break;
 
       allTransactions.push(...data);
-
       if (data.length < PAGE_SIZE) break;
       page++;
     }
@@ -43,12 +41,20 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const supabase = getSupabaseAdmin();
+    const rawBody = await req.json();
+    const parsed = transactionCreateSchema.safeParse(rawBody);
 
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("transactions")
-      .insert(Array.isArray(body) ? body : [body])
+      .insert([parsed.data])
       .select()
       .single();
 
@@ -65,22 +71,25 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
-    const body = await req.json();
-    const { id, category_name, merchant_raw, clean_title, save_as_rule } = body;
+    const rawBody = await req.json();
+    const parsed = transactionUpdateSchema.safeParse(rawBody);
 
-    if (!id) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Transaction ID required" },
+        { error: "Validation failed", details: parsed.error.format() },
         { status: 400 }
       );
     }
 
-    // 1. Формуємо дані для оновлення
+    const { id, category_name, merchant_raw, clean_title, tags, save_as_rule } =
+      parsed.data;
+    const supabase = getSupabaseAdmin();
+
     const updateData: Record<string, any> = {};
     if (category_name) updateData.category_name = category_name;
-    if (clean_title) updateData.merchant_raw = clean_title;
-    if (body.tags !== undefined) updateData.tags = body.tags;
+    if (clean_title || merchant_raw)
+      updateData.merchant_raw = clean_title || merchant_raw;
+    if (tags !== undefined) updateData.tags = tags;
 
     const { data: updatedRows, error: txError } = await supabase
       .from("transactions")
@@ -88,22 +97,11 @@ export async function PATCH(req: NextRequest) {
       .eq("id", id)
       .select();
 
-    if (txError) {
-      console.error("[API transactions PATCH] DB error:", txError);
-      throw txError;
-    }
+    if (txError) throw txError;
 
-    if (!updatedRows || updatedRows.length === 0) {
-      console.warn(
-        `[API transactions PATCH] Транзакцію з id ${id} не знайдено`
-      );
-    }
-
-    // 2. Збереження правила авто-категоризації
     if (save_as_rule && merchant_raw && category_name) {
       const pattern = cleanMerchantRaw(merchant_raw);
-
-      const { error: ruleError } = await supabase.from("merchant_rules").upsert(
+      await supabase.from("merchant_rules").upsert(
         {
           pattern,
           normalized_name: clean_title || pattern,
@@ -111,13 +109,6 @@ export async function PATCH(req: NextRequest) {
         },
         { onConflict: "pattern" }
       );
-
-      if (ruleError) {
-        console.error(
-          "[API transactions PATCH] Rules upsert error:",
-          ruleError
-        );
-      }
     }
 
     return NextResponse.json({ success: true, updated: updatedRows?.[0] });
@@ -141,11 +132,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const { error } = await supabase.from("transactions").delete().eq("id", id);
-
-    if (error) {
-      console.error("[API transactions DELETE] Error:", error);
-      throw error;
-    }
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
