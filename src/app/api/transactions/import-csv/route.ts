@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { readSheet } from "read-excel-file/node";
 
 export const dynamic = "force-dynamic";
 
-function parsePrivatDate(rawStr: string): string {
-  if (!rawStr) return new Date().toISOString();
+function parsePrivatDate(rawVal: any): string {
+  if (!rawVal) return new Date().toISOString();
+  if (rawVal instanceof Date) return rawVal.toISOString();
 
-  // Очікуваний формат: "DD.MM.YYYY HH:mm:ss" або "DD.MM.YYYY HH:mm"
-  const parts = rawStr.trim().split(/[\s,]+/);
+  const str = String(rawVal).trim();
+  const parts = str.split(/[\s,]+/);
   const datePart = parts[0];
   const timePart = parts[1] || "00:00:00";
 
@@ -59,41 +61,54 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Файл не надано" }, { status: 400 });
     }
 
-    const text = await file.text();
-    const lines = text
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const fileName = file.name.toLowerCase();
+    const isExcel = fileName.endsWith(".xlsx");
+    let rows: any[][] = [];
 
-    if (lines.length < 3) {
+    if (isExcel) {
+      // Безпечний парсинг XLSX через Buffer напряму в рядки таблиці
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const parsedRows = await readSheet(buffer);
+      rows = parsedRows as any[][];
+    } else {
+      // Парсинг звичайного CSV
+      const text = await file.text();
+      const lines = text
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      let delimiter = ",";
+      for (const l of lines.slice(0, 5)) {
+        if (l.includes(";")) {
+          delimiter = ";";
+          break;
+        }
+      }
+
+      rows = lines.map((line) =>
+        line
+          .split(new RegExp(`${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`))
+          .map((c) => c.replace(/^["']|["']$/g, "").trim())
+      );
+    }
+
+    if (rows.length < 3) {
       return NextResponse.json(
-        { error: "Файл містить замало рядків для аналізу" },
+        { error: "Таблиця містить замало рядків для аналізу" },
         { status: 400 }
       );
     }
 
-    // 1. Визначення роздільника (кома чи крапка з комою)
-    let delimiter = ",";
-    for (const l of lines.slice(0, 5)) {
-      if (l.includes(";")) {
-        delimiter = ";";
-        break;
-      }
-    }
-
-    const parseLine = (line: string, delim: string): string[] => {
-      return line
-        .split(new RegExp(`${delim}(?=(?:(?:[^"]*"){2})*[^"]*$)`))
-        .map((cell) => cell.replace(/^["']|["']$/g, "").trim());
-    };
-
-    // 2. Динамічний пошук рядка заголовків серед перших 10 рядків файлу
+    // 1. Пошук рядка заголовків
     let headerRowIdx = -1;
     let headers: string[] = [];
 
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
-      const candidateCells = parseLine(lines[i], delimiter).map((c) =>
-        c.toLowerCase()
+    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+      const candidateCells = (rows[i] || []).map((c) =>
+        String(c || "")
+          .trim()
+          .toLowerCase()
       );
       const hasDate = candidateCells.some(
         (c) => c.includes("дата") || c.includes("date")
@@ -116,7 +131,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Визначення індексів ключових колонок
+    // 2. Індекси колонок
     const dateIdx = headers.findIndex(
       (h) => h.includes("дата") || h.includes("date")
     );
@@ -128,7 +143,6 @@ export async function POST(req: Request) {
         h.includes("опис") || h.includes("деталі") || h.includes("контрагент")
     );
 
-    // Шукаємо саме «сума в валюті картки», де є знак мінуса для витрат
     let amountIdx = headers.findIndex((h) =>
       h.includes("сума в валюті картки")
     );
@@ -140,19 +154,24 @@ export async function POST(req: Request) {
 
     const transactionsToInsert: any[] = [];
 
-    // 4. Парсинг операцій
-    for (let i = headerRowIdx + 1; i < lines.length; i++) {
-      const row = parseLine(lines[i], delimiter);
-      if (row.length <= amountIdx) continue;
+    // 3. Формування транзакцій
+    for (let i = headerRowIdx + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.length <= amountIdx) continue;
 
-      const rawAmountStr = row[amountIdx].replace(/\s/g, "").replace(",", ".");
+      const rawAmountStr = String(row[amountIdx] || "")
+        .replace(/\s/g, "")
+        .replace(",", ".");
       const rawAmount = parseFloat(rawAmountStr);
       if (isNaN(rawAmount) || rawAmount === 0) continue;
 
       const createdAt = parsePrivatDate(row[dateIdx]);
       const rawMerchant =
-        descIdx !== -1 && row[descIdx] ? row[descIdx] : "ПриватБанк операція";
-      const rawCategory = catIdx !== -1 && row[catIdx] ? row[catIdx] : "Інше";
+        descIdx !== -1 && row[descIdx]
+          ? String(row[descIdx]).trim()
+          : "ПриватБанк операція";
+      const rawCategory =
+        catIdx !== -1 && row[catIdx] ? String(row[catIdx]).trim() : "Інше";
 
       const isExpense = rawAmount < 0;
       const finalAmount = Math.abs(rawAmount);
@@ -169,7 +188,7 @@ export async function POST(req: Request) {
         currency: "UAH",
         merchant_raw: rawMerchant,
         category_name: normalizePrivatCategory(rawCategory),
-        source: "privatbank_csv",
+        source: isExcel ? "privatbank_xlsx" : "privatbank_csv",
         type,
         created_at: createdAt,
       });
@@ -182,7 +201,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5. Запис у базу без дублювання наявних чеків
+    // 4. Запис у базу з дедуплікацією
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("transactions")
@@ -200,7 +219,7 @@ export async function POST(req: Request) {
       imported_count: data?.length || 0,
     });
   } catch (err: any) {
-    console.error("[PrivatBank CSV Import Error]:", err);
+    console.error("[PrivatBank Import Error]:", err);
     return NextResponse.json(
       { error: err.message || "Помилка обробки файлу" },
       { status: 500 }
