@@ -10,6 +10,7 @@ import { TransactionActionSheet } from "@/components/TransactionActionSheet";
 import { Transaction, RecurringItem, AIInsightData } from "@/types/finance";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
 import { useAutoLock } from "@/hooks/useAutoLock";
+import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import {
   startAuthentication,
   startRegistration,
@@ -58,8 +59,13 @@ export default function Dashboard() {
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
 
   // Сховище фінансових даних
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [recurring, setRecurring] = useState<RecurringItem[]>([]);
+  // Кешовані дані через React Query
+  const {
+    transactions,
+    recurring,
+    invalidateTransactions,
+    invalidateRecurring,
+  } = useFinanceQueries(isAuthenticated);
   const [activeTab, setActiveTab] = useState<
     "overview" | "history" | "recurring"
   >("overview");
@@ -243,47 +249,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const fetchData = async () => {
-      const [txRes, recRes] = await Promise.all([
-        supabase
-          .from("transactions")
-          .select("*")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("recurring_templates")
-          .select("*")
-          .order("day_of_month", { ascending: true }),
-      ]);
-
-      if (txRes.data) setTransactions(txRes.data);
-      if (recRes.data) setRecurring(recRes.data as RecurringItem[]);
-    };
-
-    fetchData();
-
     const txChannel = supabase
       .channel("realtime-transactions")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "transactions" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            const newTx = payload.new as Transaction;
-            setTransactions((prev) => {
-              if (prev.some((t) => t.id === newTx.id)) return prev;
-              return [newTx, ...prev];
-            });
-          } else if (payload.eventType === "UPDATE") {
-            setTransactions((prev) =>
-              prev.map((t) =>
-                t.id === payload.new.id ? (payload.new as Transaction) : t
-              )
-            );
-          } else if (payload.eventType === "DELETE") {
-            setTransactions((prev) =>
-              prev.filter((t) => t.id !== payload.old.id)
-            );
-          }
+        () => {
+          invalidateTransactions();
         }
       )
       .subscribe();
@@ -291,7 +263,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(txChannel);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, invalidateTransactions]);
 
   // Завантаження ліміту бюджету для обраного періоду
   useEffect(() => {
@@ -369,9 +341,6 @@ export default function Dashboard() {
     day_of_month: number;
   }) => {
     if (formData.id) {
-      setRecurring((prev) =>
-        prev.map((r) => (r.id === formData.id ? { ...r, ...formData } : r))
-      );
       await fetch("/api/recurring", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -379,22 +348,19 @@ export default function Dashboard() {
       });
     } else {
       const newItem = { ...formData, is_active: true };
-      const { data } = await supabase
-        .from("recurring_templates")
-        .insert(newItem)
-        .select()
-        .single();
-
-      if (data) {
-        setRecurring((prev) => [...prev, data as RecurringItem]);
-      }
+      await supabase.from("recurring_templates").insert(newItem);
     }
+    invalidateRecurring();
+    setIsAddingRecurring(false);
+    setEditingRecurring(null);
   };
 
   // Видалення шаблону підписки
   const handleDeleteRecurring = async (id: number) => {
-    setRecurring((prev) => prev.filter((r) => r.id !== id));
     await fetch(`/api/recurring?id=${id}`, { method: "DELETE" });
+    invalidateRecurring();
+    setIsAddingRecurring(false);
+    setEditingRecurring(null);
   };
 
   // Позачергове ручне проведення підписки
@@ -425,20 +391,11 @@ export default function Dashboard() {
         type: "expense",
       };
 
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert([newTx])
-        .select()
-        .single();
+      const { error } = await supabase.from("transactions").insert([newTx]);
 
       if (error) throw error;
 
-      if (data) {
-        setTransactions((prev) => {
-          if (prev.some((tx) => tx.id === data.id)) return prev;
-          return [data, ...prev];
-        });
-      }
+      invalidateTransactions();
     } catch (err) {
       console.error("Помилка списання:", err);
     } finally {
