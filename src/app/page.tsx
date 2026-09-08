@@ -182,7 +182,6 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  // Стан відкритості випадаючого меню налаштувань
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Збір усіх унікальних тегів із транзакцій поточного місяця
@@ -659,7 +658,7 @@ export default function Dashboard() {
                 />
 
                 {/* Контейнер списку дій */}
-                <div className="absolute right-0 top-11 z-50 w-56 rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl">
+                <div className="absolute top-11 right-0 z-50 w-56 rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl">
                   {/* 1. Новий фінансовий цикл */}
                   <button
                     type="button"
@@ -678,9 +677,11 @@ export default function Dashboard() {
                   {/* 2. Імпорт виписки Приват24 (обгортка підлаштовує стиль внутрішньої кнопки модалки) */}
                   <div
                     onClick={() => setIsSettingsOpen(false)}
-                    className="w-full [&>button]:!flex [&>button]:!w-full [&>button]:!items-center [&>button]:!justify-start [&>button]:!gap-2.5 [&>button]:!border-0 [&>button]:!bg-transparent [&>button]:!px-3 [&>button]:!py-2 [&>button]:!text-xs [&>button]:!font-medium [&>button]:!text-zinc-300 hover:[&>button]:!bg-zinc-900 [&>button]:!rounded-xl"
+                    className="w-full [&>button]:!flex [&>button]:!w-full [&>button]:!items-center [&>button]:!justify-start [&>button]:!gap-2.5 [&>button]:!rounded-xl [&>button]:!border-0 [&>button]:!bg-transparent [&>button]:!px-3 [&>button]:!py-2 [&>button]:!text-xs [&>button]:!font-medium [&>button]:!text-zinc-300 hover:[&>button]:!bg-zinc-900"
                   >
-                    <CsvImportModal onSuccess={() => window.location.reload()} />
+                    <CsvImportModal
+                      onSuccess={() => window.location.reload()}
+                    />
                   </div>
 
                   {/* 3. Прив'язка біометрії Face ID / Touch ID */}
@@ -716,6 +717,8 @@ export default function Dashboard() {
               </>
             )}
           </div>
+        </div>
+      </header>
 
       {/* Картка місячного ліміту бюджету */}
       <section className="mb-8 rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
