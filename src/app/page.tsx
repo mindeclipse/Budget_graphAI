@@ -15,6 +15,7 @@ import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import { CsvImportModal } from "@/components/CsvImportModal";
 import { NewCycleModal } from "@/components/NewCycleModal";
 import { AIAnalysisDrawer } from "@/components/AIAnalysisDrawer";
+import { BudgetPacingWidget } from "@/components/BudgetPacingWidget";
 import {
   AIAnalysisResponse,
   SupportedGeminiModel,
@@ -70,7 +71,11 @@ export default function Dashboard() {
   // Кешовані дані через React Query
   const {
     transactions: rawTransactions,
+    isLoadingTransactions,
     recurring,
+    isLoadingRecurring,
+    pacing,
+    isLoadingPacing,
     invalidateTransactions,
     invalidateRecurring,
   } = useFinanceQueries(isAuthenticated);
@@ -752,6 +757,11 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {/* Індикатор темпу бюджету та Safe Daily Spend */}
+      <div className="mb-6">
+        <BudgetPacingWidget pacing={pacing} isLoading={isLoadingPacing} />
+      </div>
 
       {/* Картка місячного ліміту бюджету */}
       <section className="mb-8 rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">

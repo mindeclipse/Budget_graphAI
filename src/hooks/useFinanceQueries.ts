@@ -12,6 +12,8 @@ export const FINANCE_KEYS = {
     range ? (["transactions", range] as const) : (["transactions"] as const),
   recurring: ["recurring"] as const,
   budget: (month: string) => ["budget", month] as const,
+  analyticsPace: (from?: string, to?: string) =>
+    ["analytics", "pace", from, to] as const,
 };
 
 export function useFinanceQueries(
@@ -63,6 +65,27 @@ export function useFinanceQueries(
     refetchOnWindowFocus: false,
   });
 
+  // Запит аналітики темпу та лімітів витрат
+  const pacingQuery = useQuery({
+    queryKey: FINANCE_KEYS.analyticsPace(dateRange?.from, dateRange?.to),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange?.from) params.set("from", dateRange.from);
+      if (dateRange?.to) params.set("to", dateRange.to);
+
+      const res = await fetch(
+        `/api/analytics/budget-pace?${params.toString()}`
+      );
+      if (!res.ok) throw new Error("Не вдалося завантажити аналітику темпу");
+      const data = await res.json();
+      return data.pacing;
+    },
+    enabled: Boolean(isAuthenticated),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   // Функції для ручної інвалідації кешу (скидають кеш для всіх діапазонів)
   const invalidateTransactions = () => {
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -79,6 +102,8 @@ export function useFinanceQueries(
     isLoadingTransactions: transactionsQuery.isLoading,
     recurring: recurringQuery.data || [],
     isLoadingRecurring: recurringQuery.isLoading,
+    pacing: pacingQuery.data,
+    isLoadingPacing: pacingQuery.isLoading,
     invalidateTransactions,
     invalidateRecurring,
   };
