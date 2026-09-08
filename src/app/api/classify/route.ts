@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-
-// Примусово вказуємо Next.js не оцінювати роут під час статичної збірки
 export const dynamic = "force-dynamic";
 
 const CATEGORIES = [
@@ -17,19 +15,9 @@ const CATEGORIES = [
   "Інше",
 ];
 
-// Безпечна ініціалізація клієнта
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    throw new Error("Supabase environment variables are missing");
-  }
-  return createClient(url, key);
-}
-
 async function classifyWithGemini(merchantRaw: string, amount: number) {
   const apiKey = process.env.GEMINI_API_KEY;
-  
+
   if (!apiKey) {
     console.error("ПОМИЛКА: GEMINI_API_KEY відсутній у змінних оточення Vercel!");
     return { cleanMerchant: merchantRaw, category: "Інше" };
@@ -48,7 +36,7 @@ async function classifyWithGemini(merchantRaw: string, amount: number) {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,10 +55,9 @@ async function classifyWithGemini(merchantRaw: string, amount: number) {
 
     const data = await res.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
+
     if (rawText) {
       const parsed = JSON.parse(rawText);
-      console.log("УСПІШНА КЛАСИФІКАЦІЯ:", parsed);
       return {
         cleanMerchant: parsed.cleanMerchant || merchantRaw,
         category: CATEGORIES.includes(parsed.category) ? parsed.category : "Інше",
@@ -85,7 +72,7 @@ async function classifyWithGemini(merchantRaw: string, amount: number) {
 
 export async function POST(req: NextRequest) {
   try {
-    // --- ПЕРЕВІРКА БЕЗПЕКИ: АВТОРИЗАЦІЯ ЗА СЕКРЕТНИМ ТОКЕНОМ ---
+    // 1. Перевірка Bearer токена
     const authHeader = req.headers.get("authorization");
     const secret = process.env.APP_API_SECRET;
 
@@ -95,7 +82,7 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    // -------------------------------------------------------------
+
     const body = await req.json();
     const { amount, currency = "UAH", merchant_raw, source = "apple_pay", type = "expense" } = body;
 
@@ -104,14 +91,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or missing amount" }, { status: 400 });
     }
 
-    const rawName = merchant_raw || "Невідомий мерчант";
+    const rawName = (merchant_raw || "Невідомий мерчант").trim();
+    const normalizedPattern = rawName.toLowerCase();
+    const supabaseAdmin = getSupabaseAdmin();
 
-    // AI-нормалізація
-    const { cleanMerchant, category } = await classifyWithGemini(rawName, numericAmount);
+    let cleanMerchant = rawName;
+    let category = "Інше";
+    let isCacheHit = false;
 
-    // Збереження в Supabase
-    const supabase = getSupabase();
-    const { data, error } = await supabase
+    // 2. Перевірка наявності в кеші
+    const { data: cachedRule } = await supabaseAdmin
+      .from("merchant_rules")
+      .select("clean_merchant, category_name")
+      .eq("pattern", normalizedPattern)
+      .maybeSingle();
+
+    if (cachedRule) {
+      cleanMerchant = cachedRule.clean_merchant;
+      category = cachedRule.category_name;
+      isCacheHit = true;
+    } else {
+      // 3. Cache Miss: Звернення до Gemini AI
+      const aiResult = await classifyWithGemini(rawName, numericAmount);
+      cleanMerchant = aiResult.cleanMerchant;
+      category = aiResult.category;
+
+      // 4. Запис нового правила в кеш (upsert запобігає race conditions)
+      if (category !== "Інше" || cleanMerchant !== rawName) {
+        await supabaseAdmin.from("merchant_rules").upsert(
+          {
+            pattern: normalizedPattern,
+            clean_merchant: cleanMerchant,
+            category_name: category,
+          },
+          { onConflict: "pattern" }
+        );
+      }
+    }
+
+    // 5. Збереження операції в transactions
+    const { data, error } = await supabaseAdmin
       .from("transactions")
       .insert([
         {
@@ -128,7 +147,11 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, transaction: data });
+    return NextResponse.json({
+      success: true,
+      cache_hit: isCacheHit,
+      transaction: data,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
