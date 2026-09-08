@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+build
+dist
+public
+.vercel
+package-lock.json

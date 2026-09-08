@@ -64,9 +64,9 @@ export async function POST(req: Request) {
   "forecast": "Сценарний розрахунок до кінця місяця при збереженні темпу."
 }`;
 
-const MODEL = "gemini-3.8-flash";
-    
-const response = await fetch(
+    const MODEL = "gemini-3.8-flash";
+
+    const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",

@@ -17,9 +17,9 @@ const CATEGORIES = [
 ];
 
 const FALLBACK_MODELS = [
-  "gemini-3.5-flash-lite", 
-  "gemini-3.6-flash",      
-  "gemini-2.5-flash-lite", 
+  "gemini-3.5-flash-lite",
+  "gemini-3.6-flash",
+  "gemini-2.5-flash-lite",
 ];
 
 async function classifyWithGemini(
@@ -65,19 +65,26 @@ async function classifyWithGemini(
           const parsed = JSON.parse(rawText);
           return {
             cleanMerchant: parsed.cleanMerchant || merchantRaw,
-            category: CATEGORIES.includes(parsed.category) ? parsed.category : "Інше",
+            category: CATEGORIES.includes(parsed.category)
+              ? parsed.category
+              : "Інше",
           };
         }
       }
 
       // Якщо перевантаження (503), рейтліміт (429) або збій сервера (500) — миттєво перемикаємо модель
       if ([503, 429, 500].includes(res.status)) {
-        console.warn(`[Failover] Модель ${model} недоступна (HTTP ${res.status}). Пробуємо наступну...`);
+        console.warn(
+          `[Failover] Модель ${model} недоступна (HTTP ${res.status}). Пробуємо наступну...`
+        );
         continue;
       }
 
       const errText = await res.text();
-      console.error(`Помилка запиту до ${model} [HTTP ${res.status}]:`, errText);
+      console.error(
+        `Помилка запиту до ${model} [HTTP ${res.status}]:`,
+        errText
+      );
       break;
     } catch (err) {
       console.error(`Мережевий збій на ${model}:`, err);
@@ -101,11 +108,20 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { amount, currency = "UAH", merchant_raw, source = "apple_pay", type = "expense" } = body;
+    const {
+      amount,
+      currency = "UAH",
+      merchant_raw,
+      source = "apple_pay",
+      type = "expense",
+    } = body;
 
     const numericAmount = parseFloat(String(amount).replace(",", "."));
     if (isNaN(numericAmount) || numericAmount <= 0) {
-      return NextResponse.json({ error: "Invalid or missing amount" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid or missing amount" },
+        { status: 400 }
+      );
     }
 
     const rawName = (merchant_raw || "Невідомий мерчант").trim();

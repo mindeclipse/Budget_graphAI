@@ -19,7 +19,10 @@ export async function PATCH(req: Request) {
 
     const { id, category_name } = await req.json();
     if (!id || !category_name) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     const supabaseAdmin = getSupabaseAdmin();
@@ -49,7 +52,10 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Transaction ID is required" },
+        { status: 400 }
+      );
     }
 
     const supabaseAdmin = getSupabaseAdmin();

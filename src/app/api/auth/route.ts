@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 // Простий in-memory трекер невдалих спроб
-const failedAttempts = new Map<string, { count: number; blockedUntil: number }>();
+const failedAttempts = new Map<
+  string,
+  { count: number; blockedUntil: number }
+>();
 
 export async function POST(req: Request) {
   try {
@@ -25,7 +28,10 @@ export async function POST(req: Request) {
     if (!correctPin || pin !== correctPin) {
       const currentCount = (tracker?.count || 0) + 1;
       if (currentCount >= 5) {
-        failedAttempts.set(ip, { count: currentCount, blockedUntil: now + 15 * 60 * 1000 });
+        failedAttempts.set(ip, {
+          count: currentCount,
+          blockedUntil: now + 15 * 60 * 1000,
+        });
       } else {
         failedAttempts.set(ip, { count: currentCount, blockedUntil: 0 });
       }
