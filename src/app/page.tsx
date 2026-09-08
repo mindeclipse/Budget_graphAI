@@ -53,6 +53,7 @@ import {
   Search,
   X,
   Wallet,
+  Settings,
 } from "lucide-react";
 
 /** Резервний курс для ручного списання USD, якщо API банку тимчасово недоступне */
@@ -180,6 +181,9 @@ export default function Dashboard() {
   // Стани для рядка пошуку та обраного тегу
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  // Стан відкритості випадаючого меню налаштувань
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Збір усіх унікальних тегів із транзакцій поточного місяця
   const availableTags = useMemo<string[]>(() => {
@@ -628,32 +632,90 @@ export default function Dashboard() {
               {filteredTransactions.length}
             </span>
           </div>
-          <CsvImportModal onSuccess={() => window.location.reload()} />
-          <button
-            onClick={handleRegisterDevice}
-            title="Налаштувати Face ID / Touch ID для цього пристрою"
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-zinc-400 transition-all hover:border-zinc-700 hover:text-white"
-          >
-            <Fingerprint size={14} />
-            <span className="hidden sm:inline">Face ID</span>
-          </button>
-          <button
-            onClick={() => setIsCycleModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-400 transition-all hover:bg-sky-500/20 active:scale-95"
-          >
-            <Wallet size={14} />
-            <span>Новий цикл</span>
-          </button>
-          <button
-            onClick={handleLogout}
-            title="Заблокувати додаток"
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-zinc-400 transition-all hover:border-rose-900/60 hover:bg-rose-950/30 hover:text-rose-400"
-          >
-            <LogOut size={14} />
-            <span className="hidden sm:inline">Вийти</span>
-          </button>
-        </div>
-      </header>
+
+          {/* Меню службових дій та налаштувань */}
+          <div className="relative">
+            {/* Кнопка-тригер виклику меню (Шестерня) */}
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen((prev) => !prev)}
+              title="Налаштування та керування"
+              className={`flex h-9 w-9 items-center justify-center rounded-2xl border transition-all active:scale-95 ${
+                isSettingsOpen
+                  ? "border-zinc-700 bg-zinc-800 text-white"
+                  : "border-zinc-800/80 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-white"
+              }`}
+            >
+              <Settings size={16} />
+            </button>
+
+            {/* Випадаюче вікно налаштувань */}
+            {isSettingsOpen && (
+              <>
+                {/* Невидимий бекдроп на весь екран для закриття меню по кліку в будь-яку точку */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsSettingsOpen(false)}
+                />
+
+                {/* Контейнер списку дій */}
+                <div className="absolute right-0 top-11 z-50 w-56 rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl">
+                  {/* 1. Новий фінансовий цикл */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      setIsCycleModalOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-sky-400 transition-colors hover:bg-sky-500/10"
+                  >
+                    <Wallet size={14} className="text-sky-400" />
+                    <span>Новий цикл</span>
+                  </button>
+
+                  <div className="my-1 border-t border-zinc-800/60" />
+
+                  {/* 2. Імпорт виписки Приват24 (обгортка підлаштовує стиль внутрішньої кнопки модалки) */}
+                  <div
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="w-full [&>button]:!flex [&>button]:!w-full [&>button]:!items-center [&>button]:!justify-start [&>button]:!gap-2.5 [&>button]:!border-0 [&>button]:!bg-transparent [&>button]:!px-3 [&>button]:!py-2 [&>button]:!text-xs [&>button]:!font-medium [&>button]:!text-zinc-300 hover:[&>button]:!bg-zinc-900 [&>button]:!rounded-xl"
+                  >
+                    <CsvImportModal onSuccess={() => window.location.reload()} />
+                  </div>
+
+                  {/* 3. Прив'язка біометрії Face ID / Touch ID */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      handleRegisterDevice();
+                    }}
+                    title="Налаштувати Face ID / Touch ID для цього пристрою"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
+                  >
+                    <Fingerprint size={14} className="text-zinc-400" />
+                    <span>Face ID / Touch ID</span>
+                  </button>
+
+                  <div className="my-1 border-t border-zinc-800/60" />
+
+                  {/* 4. Блокування додатка / Вихід */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      handleLogout();
+                    }}
+                    title="Заблокувати додаток"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-400 transition-colors hover:bg-rose-950/30"
+                  >
+                    <LogOut size={14} className="text-rose-400" />
+                    <span>Вийти</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
       {/* Картка місячного ліміту бюджету */}
       <section className="mb-8 rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
