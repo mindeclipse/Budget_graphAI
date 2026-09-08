@@ -128,7 +128,12 @@ export default function Dashboard() {
   }, [transactions]);
 
   return (
-    <main className="min-h-screen bg-black text-white px-4 sm:px-8 lg:px-12 pt-16 pb-24 md:py-8 max-w-7xl mx-auto font-sans antialiased [padding-top:max(4rem,calc(env(safe-area-inset-top)+1rem))]">
+    <main
+      style={{
+        paddingTop: "max(4.5rem, calc(env(safe-area-inset-top) + 1.25rem))",
+      }}
+      className="min-h-screen bg-black text-white px-4 sm:px-8 lg:px-12 pb-24 md:pt-8 max-w-7xl mx-auto font-sans antialiased"
+    >
       {/* Верхня панель / Заголовок */}
       <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-800/80 pb-6 gap-4">
         <div>
