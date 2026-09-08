@@ -97,7 +97,7 @@ export function CsvImportModal({ onSuccess }: CsvImportModalProps) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 className="hidden"
                 onChange={handleFileUpload}
                 disabled={isLoading}
