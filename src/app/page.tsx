@@ -979,7 +979,7 @@ export default function Dashboard() {
                 <label className="text-[11px] text-zinc-400 font-semibold block mb-1">Категорія</label>
                 <select
                   value={recCategoryInput}
-                  onChange={(e) => setNewRecCategory ? setNewRecCategory(e.target.value) : setRecCategoryInput(e.target.value)}
+                  onChange={(e) => setRecCategoryInput(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600"
                 >
                   {CATEGORIES.map((c) => (
