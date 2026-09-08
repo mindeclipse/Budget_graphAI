@@ -1088,16 +1088,7 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* 1. Графік темпу спалювання бюджету */}
-          <div className="mb-6">
-            <BurnRateChart
-              transactions={filteredTransactions}
-              budgetLimit={budgetLimit}
-              selectedMonthKey={selectedMonthKey}
-            />
-          </div>
-
-          {/* 2. Порівняння з минулим місяцем (MoM) */}
+          {/* Порівняння з минулим місяцем (MoM) */}
           <div className="mb-6">
             <MoMComparison
               currentTransactions={filteredTransactions}
