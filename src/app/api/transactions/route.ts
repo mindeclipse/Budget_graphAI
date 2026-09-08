@@ -6,33 +6,58 @@ import {
   transactionUpdateSchema,
 } from "@/lib/validations";
 
-export async function GET() {
+// GET: вибірка транзакцій з підтримкою фільтрації за датами та пагінацією
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const fromDate = searchParams.get("from");
+    const toDate = searchParams.get("to");
+    const limitParam = searchParams.get("limit");
+
     const supabase = getSupabaseAdmin();
     const PAGE_SIZE = 1000;
+    const maxLimit = limitParam ? Math.min(Number(limitParam), 10000) : 10000;
+
     let allTransactions: any[] = [];
     let page = 0;
-    const MAX_PAGES = 10;
+    const maxPages = Math.ceil(maxLimit / PAGE_SIZE);
 
-    while (page < MAX_PAGES) {
+    while (page < maxPages) {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("transactions")
         .select("*")
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      // Фільтрація за періодом, якщо передано параметри
+      if (fromDate) {
+        query = query.gte("created_at", fromDate);
+      }
+      if (toDate) {
+        query = query.lte("created_at", toDate);
+      }
+
+      const { data, error } = await query.range(from, to);
+
+      if (error) {
+        console.error("[API transactions GET] DB error:", error);
+        throw error;
+      }
+
       if (!data || data.length === 0) break;
 
       allTransactions.push(...data);
-      if (data.length < PAGE_SIZE) break;
+
+      if (data.length < PAGE_SIZE || allTransactions.length >= maxLimit) break;
       page++;
     }
 
-    return NextResponse.json({ transactions: allTransactions });
+    return NextResponse.json({
+      transactions: allTransactions.slice(0, maxLimit),
+      count: allTransactions.length,
+    });
   } catch (err: any) {
     console.error("Transaction GET error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });

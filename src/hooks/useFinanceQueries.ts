@@ -1,21 +1,39 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Transaction, RecurringItem } from "@/types/finance";
 
+export interface DateRangeFilter {
+  from?: string;
+  to?: string;
+}
+
 // Ключі для кешу
 export const FINANCE_KEYS = {
-  transactions: ["transactions"] as const,
+  transactions: (range?: DateRangeFilter) =>
+    range ? (["transactions", range] as const) : (["transactions"] as const),
   recurring: ["recurring"] as const,
   budget: (month: string) => ["budget", month] as const,
 };
 
-export function useFinanceQueries(isAuthenticated: boolean | null) {
+export function useFinanceQueries(
+  isAuthenticated: boolean | null,
+  dateRange?: DateRangeFilter
+) {
   const queryClient = useQueryClient();
 
-  // Запит транзакцій через внутрішній захищений API
+  // Запит транзакцій через внутрішній захищений API з кешуванням
   const transactionsQuery = useQuery({
-    queryKey: FINANCE_KEYS.transactions,
+    queryKey: FINANCE_KEYS.transactions(dateRange),
     queryFn: async () => {
-      const res = await fetch("/api/transactions");
+      const params = new URLSearchParams();
+      if (dateRange?.from) params.set("from", dateRange.from);
+      if (dateRange?.to) params.set("to", dateRange.to);
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `/api/transactions?${queryString}`
+        : "/api/transactions";
+
+      const res = await fetch(url);
       if (!res.ok) {
         throw new Error("Не вдалося завантажити транзакції");
       }
@@ -23,9 +41,12 @@ export function useFinanceQueries(isAuthenticated: boolean | null) {
       return (data.transactions || []) as Transaction[];
     },
     enabled: Boolean(isAuthenticated),
+    staleTime: 5 * 60 * 1000, // 5 хвилин вважаємо дані свіжими
+    gcTime: 30 * 60 * 1000, // 30 хвилин у пам'яті
+    refetchOnWindowFocus: false, // запобігає зайвим запитам при поверненні в PWA
   });
 
-  // Запит постійних платежів через API
+  // Запит постійних платежів
   const recurringQuery = useQuery({
     queryKey: FINANCE_KEYS.recurring,
     queryFn: async () => {
@@ -37,11 +58,14 @@ export function useFinanceQueries(isAuthenticated: boolean | null) {
       return (data.items || []) as RecurringItem[];
     },
     enabled: Boolean(isAuthenticated),
+    staleTime: 15 * 60 * 1000, // Шаблони змінюються рідко (15 хвилин)
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
-  // Функції для ручної інвалідації кешу при мутаціях (додавання/видалення)
+  // Функції для ручної інвалідації кешу (скидають кеш для всіх діапазонів)
   const invalidateTransactions = () => {
-    queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.transactions });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
   };
 
   const invalidateRecurring = () => {
