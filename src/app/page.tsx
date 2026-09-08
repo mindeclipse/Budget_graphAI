@@ -71,7 +71,7 @@ export default function Dashboard() {
     invalidateRecurring,
   } = useFinanceQueries(isAuthenticated);
 
-  // Відсікаємо транзакції, які позначені як виключені з поточного бюджету
+  // Відфільтровуємо глобально на рівні сторінки
   const transactions = useMemo(() => {
     return rawTransactions.filter((t: Transaction) => !t.exclude_from_budget);
   }, [rawTransactions]);
