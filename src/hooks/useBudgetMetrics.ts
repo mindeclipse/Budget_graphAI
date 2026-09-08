@@ -116,14 +116,23 @@ export function useBudgetMetrics({
       daysRemaining = Math.max(1, totalDaysInMonth - now.getDate() + 1);
     }
 
-    const remaining = budgetLimit - totalSpent;
-    const spentPercent = budgetLimit > 0 ? (totalSpent / budgetLimit) * 100 : 0;
+    // 1. Вільний бюджет на місяць за вирахуванням зарезервованих постійних витрат
+    const variableBudget = Math.max(0, budgetLimit - recurringTotal);
+
+    // 2. Реальний залишок вільних коштів
+    const remaining = variableBudget - totalSpent;
+
+    // 3. Відсоток вичерпання саме вільного бюджету
+    const spentPercent =
+      variableBudget > 0 ? (totalSpent / variableBudget) * 100 : 100;
+
+    // 4. Денний ліміт ділиться тільки з реально залишених коштів
     const safeDailySpend =
       daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
 
     let barColor = "#10B981";
-    if (spentPercent > 95) barColor = "#EF4444";
-    else if (spentPercent > 75) barColor = "#F59E0B";
+    if (spentPercent > 90) barColor = "#EF4444";
+    else if (spentPercent > 70) barColor = "#F59E0B";
 
     return {
       isCurrentMonth,
@@ -134,7 +143,7 @@ export function useBudgetMetrics({
       daysRemaining,
       barColor,
     };
-  }, [totalSpent, budgetLimit, selectedDate]);
+  }, [totalSpent, budgetLimit, recurringTotal, selectedDate]);
 
   // Агрегація витрат за категоріями
   const categoryStats = useMemo<CategoryStatItem[]>(() => {
