@@ -34,6 +34,11 @@ import {
   Repeat,
   Plus,
   CheckCircle2,
+  Sparkles,
+  RefreshCw,
+  Lightbulb,
+  ShieldCheck,
+  Zap,
 } from "lucide-react";
 
 interface Transaction {
@@ -53,6 +58,14 @@ interface RecurringItem {
   category_name: string;
   day_of_month: number;
   is_active: boolean;
+}
+
+interface AIInsightData {
+  status: "safe" | "warning" | "danger";
+  summary: string;
+  anomalies: string[];
+  saving_tactics: string[];
+  forecast: string;
 }
 
 const CATEGORIES = [
@@ -125,12 +138,18 @@ export default function Dashboard() {
   const [recCategoryInput, setRecCategoryInput] = useState<string>("Підписки та сервіси");
   const [recDayInput, setRecDayInput] = useState("1");
 
+  // Стан AI аналітики
+  const [aiInsight, setAiInsight] = useState<AIInsightData | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
   const handlePrevMonth = () => {
     setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    setAiInsight(null);
   };
 
   const handleNextMonth = () => {
     setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    setAiInsight(null);
   };
 
   useEffect(() => {
@@ -240,7 +259,61 @@ export default function Dashboard() {
     };
   }, [totalSpent, budgetLimit, selectedDate]);
 
-  // Відкриття форми додавання
+  const categoryStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    filteredTransactions.forEach((t) => {
+      const cat = t.category_name || "Інше";
+      stats[cat] = (stats[cat] || 0) + Number(t.amount);
+    });
+
+    return Object.entries(stats)
+      .map(([name, amount]) => ({
+        name,
+        amount,
+        percentage: totalSpent > 0 ? Math.round((amount / totalSpent) * 100) : 0,
+        color: CATEGORY_COLORS[name] || "#6B7280",
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredTransactions, totalSpent]);
+
+  // Запит на генерацію AI інсайту
+  const handleGenerateInsight = async () => {
+    setIsAnalyzing(true);
+    try {
+      const topTransactions = [...filteredTransactions]
+        .sort((a, b) => Number(b.amount) - Number(a.amount))
+        .slice(0, 5)
+        .map((t) => ({ merchant: t.merchant_raw, amount: t.amount, category: t.category_name }));
+
+      const payload = {
+        month: monthLabel,
+        budgetLimit,
+        totalSpent,
+        remaining: budgetMetrics.remaining,
+        daysRemaining: budgetMetrics.daysRemaining,
+        safeDailySpend: budgetMetrics.safeDailySpend,
+        categories: categoryStats,
+        recurringTotal,
+        topTransactions,
+      };
+
+      const res = await fetch("/api/ai-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAiInsight(data);
+      }
+    } catch (err) {
+      console.error("Failed to generate AI insights", err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleOpenAddRecurring = () => {
     setEditingRecurring(null);
     setRecTitleInput("");
@@ -250,7 +323,6 @@ export default function Dashboard() {
     setIsAddingRecurring(true);
   };
 
-  // Відкриття форми редагування
   const handleOpenEditRecurring = (item: RecurringItem) => {
     setEditingRecurring(item);
     setRecTitleInput(item.title);
@@ -260,13 +332,11 @@ export default function Dashboard() {
     setIsAddingRecurring(true);
   };
 
-  // Збереження (нове або редагування)
   const handleSaveRecurring = async () => {
     const amt = parseFloat(recAmountInput);
     if (!recTitleInput || isNaN(amt) || amt <= 0) return;
 
     if (editingRecurring) {
-      // Редагування існуючого
       const updatedPayload = {
         title: recTitleInput,
         amount: amt,
@@ -284,7 +354,6 @@ export default function Dashboard() {
         .update(updatedPayload)
         .eq("id", editingRecurring.id);
     } else {
-      // Створення нового
       const newItem = {
         title: recTitleInput,
         amount: amt,
@@ -351,23 +420,6 @@ export default function Dashboard() {
 
     await supabase.from("transactions").delete().eq("id", txId);
   };
-
-  const categoryStats = useMemo(() => {
-    const stats: Record<string, number> = {};
-    filteredTransactions.forEach((t) => {
-      const cat = t.category_name || "Інше";
-      stats[cat] = (stats[cat] || 0) + Number(t.amount);
-    });
-
-    return Object.entries(stats)
-      .map(([name, amount]) => ({
-        name,
-        amount,
-        percentage: totalSpent > 0 ? Math.round((amount / totalSpent) * 100) : 0,
-        color: CATEGORY_COLORS[name] || "#6B7280",
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [filteredTransactions, totalSpent]);
 
   const dailyStats = useMemo(() => {
     const daysMap: Record<string, number> = {};
@@ -555,6 +607,103 @@ export default function Dashboard() {
             activeTab === "overview" ? "block" : "hidden md:block"
           }`}
         >
+          {/* AI ФІНАНСОВИЙ АСИСТЕНТ */}
+          <div className="bg-gradient-to-b from-zinc-900/80 to-zinc-950 p-5 rounded-2xl border border-zinc-800/80 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs uppercase tracking-wider text-zinc-300 font-bold">
+                    AI Фінансовий Аналітик
+                  </h3>
+                  <p className="text-[11px] text-zinc-500">Аналіз витрат та стратегія оптимізації</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleGenerateInsight}
+                disabled={isAnalyzing || filteredTransactions.length === 0}
+                className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-xl border border-zinc-700/60 transition-all"
+              >
+                <RefreshCw size={12} className={isAnalyzing ? "animate-spin" : ""} />
+                {isAnalyzing ? "Аналізую..." : aiInsight ? "Оновити" : "Аналізувати"}
+              </button>
+            </div>
+
+            {aiInsight ? (
+              <div className="space-y-4 text-xs animate-in fade-in duration-300">
+                {/* Статус-бейдж */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    {aiInsight.status === "safe" ? (
+                      <ShieldCheck size={16} className="text-emerald-400" />
+                    ) : aiInsight.status === "warning" ? (
+                      <Zap size={16} className="text-amber-400" />
+                    ) : (
+                      <AlertTriangle size={16} className="text-rose-400" />
+                    )}
+                    <span className="font-semibold text-zinc-200">{aiInsight.summary}</span>
+                  </div>
+                </div>
+
+                {/* Аномалії */}
+                {aiInsight.anomalies?.length > 0 && (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-1.5">
+                      Виявлені аномалії
+                    </p>
+                    <ul className="space-y-1">
+                      {aiInsight.anomalies.map((item, idx) => (
+                        <li key={idx} className="text-zinc-300 flex items-start gap-2">
+                          <span className="text-zinc-600 mt-0.5">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Тактика заощадження */}
+                {aiInsight.saving_tactics?.length > 0 && (
+                  <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-850">
+                    <p className="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold mb-2 flex items-center gap-1.5">
+                      <Lightbulb size={13} /> Як заощадити кошти
+                    </p>
+                    <div className="space-y-1.5">
+                      {aiInsight.saving_tactics.map((tactic, idx) => (
+                        <div key={idx} className="text-zinc-300 flex items-start gap-2">
+                          <span className="font-mono text-zinc-500 text-[10px] mt-0.5">{idx + 1}.</span>
+                          <span>{tactic}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Прогноз */}
+                {aiInsight.forecast && (
+                  <p className="text-[11px] text-zinc-500 italic pt-1 border-t border-zinc-900">
+                    <strong className="text-zinc-400 not-italic">Прогноз:</strong> {aiInsight.forecast}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-zinc-500 text-xs">
+                {filteredTransactions.length === 0 ? (
+                  "Немає транзакцій за цей місяць для формування аналітики"
+                ) : (
+                  <>
+                    Натисніть <strong className="text-zinc-300">«Аналізувати»</strong>, щоб отримати
+                    структурований аналіз структури витрат та план заощадження від Gemini AI.
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Графік */}
           <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-900 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
@@ -598,6 +747,7 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* Структура категорій */}
           <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-900 shadow-sm">
             <h2 className="text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-4">
               Структура витрат за категоріями
@@ -677,7 +827,6 @@ export default function Dashboard() {
                     key={item.id}
                     className="group flex items-center justify-between p-2.5 bg-zinc-900/40 hover:bg-zinc-900/80 border border-zinc-850 hover:border-zinc-700 rounded-xl transition-all"
                   >
-                    {/* Клік по назві/деталях відкриває редагування */}
                     <div
                       onClick={() => handleOpenEditRecurring(item)}
                       className="cursor-pointer flex-1 min-w-0 pr-2"
@@ -830,7 +979,7 @@ export default function Dashboard() {
                 <label className="text-[11px] text-zinc-400 font-semibold block mb-1">Категорія</label>
                 <select
                   value={recCategoryInput}
-                  onChange={(e) => setRecCategoryInput(e.target.value)}
+                  onChange={(e) => setNewRecCategory ? setNewRecCategory(e.target.value) : setRecCategoryInput(e.target.value)}
                   className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-600"
                 >
                   {CATEGORIES.map((c) => (
