@@ -54,6 +54,7 @@ import {
   X,
   Wallet,
   Settings,
+  Upload,
 } from "lucide-react";
 
 /** Резервний курс для ручного списання USD, якщо API банку тимчасово недоступне */
@@ -91,7 +92,9 @@ export default function Dashboard() {
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [activeCycle, setActiveCycle] = useState<any>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Завантаження активного циклу
   const loadCycles = async () => {
@@ -181,8 +184,6 @@ export default function Dashboard() {
   // Стани для рядка пошуку та обраного тегу
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
-
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Збір усіх унікальних тегів із транзакцій поточного місяця
   const availableTags = useMemo<string[]>(() => {
@@ -675,14 +676,17 @@ export default function Dashboard() {
                   <div className="my-1 border-t border-zinc-800/60" />
 
                   {/* 2. Імпорт виписки Приват24 (обгортка підлаштовує стиль внутрішньої кнопки модалки) */}
-                  <div
-                    onClick={() => setIsSettingsOpen(false)}
-                    className="w-full [&>button]:!flex [&>button]:!w-full [&>button]:!items-center [&>button]:!justify-start [&>button]:!gap-2.5 [&>button]:!rounded-xl [&>button]:!border-0 [&>button]:!bg-transparent [&>button]:!px-3 [&>button]:!py-2 [&>button]:!text-xs [&>button]:!font-medium [&>button]:!text-zinc-300 hover:[&>button]:!bg-zinc-900"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      setIsImportModalOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
                   >
-                    <CsvImportModal
-                      onSuccess={() => window.location.reload()}
-                    />
-                  </div>
+                    <Upload size={14} className="text-zinc-400" />
+                    <span>Імпорт Приват24</span>
+                  </button>
 
                   {/* 3. Прив'язка біометрії Face ID / Touch ID */}
                   <button
@@ -1290,6 +1294,7 @@ export default function Dashboard() {
         onDelete={handleDeleteRecurring}
       />
 
+      {/* Модальне вікно Транзакції за місяць */}
       <TransactionActionSheet
         transaction={selectedTx}
         onClose={() => setSelectedTx(null)}
@@ -1298,6 +1303,7 @@ export default function Dashboard() {
         onDelete={handleDeleteTransaction}
       />
 
+      {/* Модальне вікно нового циклу (після ЗП) */}
       <NewCycleModal
         isOpen={isCycleModalOpen}
         onClose={() => setIsCycleModalOpen(false)}
@@ -1307,6 +1313,7 @@ export default function Dashboard() {
         }}
       />
 
+      {/* Модальне вікно AI асистента */}
       <AIAnalysisDrawer
         isOpen={isAiDrawerOpen}
         onClose={() => setIsAiDrawerOpen(false)}
@@ -1318,6 +1325,16 @@ export default function Dashboard() {
           handleRunAiAnalysis(model);
         }}
         onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
+      />
+
+      {/* Модальне вікно імпорту CSV */}
+      <CsvImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          setIsImportModalOpen(false);
+          window.location.reload();
+        }}
       />
     </main>
   );
