@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { BurnRateChart } from "@/components/BurnRateChart";
 import {
   BarChart,
   Bar,
@@ -511,16 +512,14 @@ export default function Dashboard() {
     const parsed = parseFloat(tempBudgetInput);
     if (!isNaN(parsed) && parsed > 0) {
       setBudgetLimit(parsed);
-      await supabase
-        .from("budgets")
-        .upsert(
-          {
-            month: selectedMonthKey,
-            amount: parsed,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "month" }
-        );
+      await supabase.from("budgets").upsert(
+        {
+          month: selectedMonthKey,
+          amount: parsed,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "month" }
+      );
     }
     setIsEditingBudget(false);
   };
@@ -1058,6 +1057,15 @@ export default function Dashboard() {
               : "hidden md:block"
           }`}
         >
+          {/* Графік темпу спалювання бюджету */}
+          <div className="mb-6">
+            <BurnRateChart
+              transactions={filteredTransactions}
+              budgetLimit={budgetLimit}
+              selectedMonthKey={selectedMonthKey}
+            />
+          </div>
+
           {/* БЛОК ПОСТІЙНИХ ВИТРАТ */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
