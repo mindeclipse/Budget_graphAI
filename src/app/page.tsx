@@ -422,26 +422,20 @@ export default function Dashboard() {
 
   // Оновлення категорії операції
   const handleUpdateCategory = async (txId: number, newCategory: string) => {
-    setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === txId ? { ...t, category_name: newCategory } : t
-      )
-    );
     setSelectedTx(null);
-
     await fetch("/api/transactions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: txId, category_name: newCategory }),
     });
+    invalidateTransactions();
   };
 
   // Видалення транзакції
   const handleDeleteTransaction = async (txId: number) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== txId));
     setSelectedTx(null);
-
     await fetch(`/api/transactions?id=${txId}`, { method: "DELETE" });
+    invalidateTransactions();
   };
 
   // Екран перевірки наявності сесії
