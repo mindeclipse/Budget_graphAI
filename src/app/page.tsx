@@ -112,6 +112,7 @@ export default function Dashboard() {
   const {
     selectedMonthKey,
     monthLabel,
+    monthTransactions,
     filteredTransactions,
     previousMonthTransactions,
     recurringTotal,
@@ -142,27 +143,19 @@ export default function Dashboard() {
   }, [filteredTransactions]);
 
   // Транзакції для відображення у списку (місяць + активний тег + текст пошуку)
-  const displayedTransactions = useMemo<Transaction[]>(() => {
-    return filteredTransactions.filter((t: Transaction) => {
-      if (activeTag && (!t.tags || !t.tags.includes(activeTag))) {
-        return false;
-      }
+  const displayedTransactions = useMemo(() => {
+    return monthTransactions.filter((t) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        t.merchant_raw.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.category_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(t.amount).includes(searchQuery);
 
-      if (!searchQuery.trim()) return true;
+      const matchesTag = !activeTag || (t.tags && t.tags.includes(activeTag));
 
-      const query = searchQuery.toLowerCase().trim();
-      const merchantMatch = t.merchant_raw?.toLowerCase().includes(query);
-      const categoryMatch = t.category_name?.toLowerCase().includes(query);
-      const amountMatch = String(t.amount).includes(query);
-      const tagsMatch = t.tags?.some((tag: string) =>
-        tag.toLowerCase().includes(query.replace(/^#/, ""))
-      );
-
-      return Boolean(
-        merchantMatch || categoryMatch || amountMatch || tagsMatch
-      );
+      return matchesSearch && matchesTag;
     });
-  }, [filteredTransactions, activeTag, searchQuery]);
+  }, [monthTransactions, searchQuery, activeTag]);
 
   // Стани модальних вікон
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
@@ -1303,7 +1296,7 @@ export default function Dashboard() {
           {/* 4. Порівняння з минулим місяцем (MoM) */}
           <div className="mb-6">
             <MoMComparison
-              currentTransactions={filteredTransactions}
+              currentTransactions={monthTransactions}
               previousTransactions={previousMonthTransactions}
               currentMonthLabel="Цей місяць"
               previousMonthLabel="Мин. місяць"
