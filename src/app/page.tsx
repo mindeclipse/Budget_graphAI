@@ -4,6 +4,10 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { BurnRateChart } from "@/components/BurnRateChart";
 import { MoMComparison } from "@/components/MoMComparison";
+import { RecurringModal } from "@/components/RecurringModal";
+import { TransactionActionSheet } from "@/components/TransactionActionSheet";
+import { Transaction, RecurringItem, AIInsightData } from "@/types/finance";
+import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
 import {
   BarChart,
   Bar,
@@ -14,23 +18,12 @@ import {
   Cell,
 } from "recharts";
 import {
-  ShoppingBag,
-  Coffee,
-  Car,
-  Tv,
-  HeartPulse,
-  Home,
-  Shirt,
-  HandHeart,
-  HelpCircle,
   TrendingUp,
   Receipt,
   Pencil,
   Check,
   Calendar,
   AlertTriangle,
-  X,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Repeat,
@@ -42,84 +35,14 @@ import {
   ShieldCheck,
   Zap,
   Lock,
+  HelpCircle,
 } from "lucide-react";
 
-/** Одинична фінансова операція з бази даних */
-interface Transaction {
-  id: number;
-  amount: number;
-  currency: string;
-  merchant_raw: string;
-  category_name: string;
-  source: string;
-  created_at: string;
-}
-
-/** Шаблон повторюваного регулярного платежу чи підписки */
-interface RecurringItem {
-  id: number;
-  title: string;
-  amount: number;
-  currency?: "UAH" | "USD";
-  category_name: string;
-  day_of_month: number;
-  is_active: boolean;
-}
-
-/** Структурована відповідь аналітичного модуля Gemini AI */
-interface AIInsightData {
-  status: "safe" | "warning" | "danger";
-  summary: string;
-  anomalies: string[];
-  saving_tactics: string[];
-  forecast: string;
-}
-
-/** Орієнтовний курс для зведення загальної суми підписок у гривні */
+/** Орієнтовний курс для зведення підписок у гривневий еквівалент */
 const ESTIMATED_USD_RATE = 41.8;
 
-/** Довідник базових категорій витрат */
-const CATEGORIES = [
-  "Продукти",
-  "Кафе та ресторани",
-  "Транспорт",
-  "Підписки та сервіси",
-  "Здоров'я та догляд",
-  "Дім та побут",
-  "Одяг та взуття",
-  "Благодійність",
-  "Інше",
-] as const;
-
-/** Палітра кольорів категорій для графіків та індикаторів */
-const CATEGORY_COLORS: Record<string, string> = {
-  Продукти: "#10B981",
-  "Кафе та ресторани": "#F59E0B",
-  Транспорт: "#3B82F6",
-  "Підписки та сервіси": "#8B5CF6",
-  "Здоров'я та догляд": "#EC4899",
-  "Дім та побут": "#14B8A6",
-  "Одяг та взуття": "#F97316",
-  Благодійність: "#EF4444",
-  Інше: "#6B7280",
-};
-
-/** Відповідність категорій векторним піктограмам */
-const CATEGORY_ICONS: Record<string, any> = {
-  Продукти: ShoppingBag,
-  "Кафе та ресторани": Coffee,
-  Транспорт: Car,
-  "Підписки та сервіси": Tv,
-  "Здоров'я та догляд": HeartPulse,
-  "Дім та побут": Home,
-  "Одяг та взуття": Shirt,
-  Благодійність: HandHeart,
-  Інше: HelpCircle,
-};
-
 /**
- * Розраховує ключ попереднього календарного місяця у форматі YYYY-MM.
- * Використовується для побудови порівняльної аналітики MoM (Month-over-Month).
+ * Розраховує ключ попереднього місяця у форматі YYYY-MM для MoM-аналітики.
  */
 function getPreviousMonthKey(monthKey: string): string {
   const [year, month] = monthKey.split("-").map(Number);
@@ -130,7 +53,7 @@ function getPreviousMonthKey(monthKey: string): string {
 }
 
 export default function Dashboard() {
-  // Аутентифікація та сесія користувача
+  // Сесія користувача та аутентифікація
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
@@ -139,22 +62,17 @@ export default function Dashboard() {
   // Сховище фінансових даних
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurring, setRecurring] = useState<RecurringItem[]>([]);
-  const [recurringCurrency, setRecurringCurrency] = useState<"UAH" | "USD">(
-    "UAH"
-  );
   const [activeTab, setActiveTab] = useState<
     "overview" | "history" | "recurring"
   >("overview");
 
-  // Вибір активного календарного періоду
+  // Активний період перегляду
   const [selectedDate, setSelectedDate] = useState(() => new Date());
 
-  // Ключ активного місяця для фільтрації та запиту бюджету ("YYYY-MM")
   const selectedMonthKey = useMemo(() => {
     return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}`;
   }, [selectedDate]);
 
-  // Локалізована назва місяця для заголовків ("вересень 2026")
   const monthLabel = useMemo(() => {
     return selectedDate.toLocaleDateString("uk-UA", {
       month: "long",
@@ -162,33 +80,25 @@ export default function Dashboard() {
     });
   }, [selectedDate]);
 
-  // Керування лімітом витрат
+  // Ліміт бюджету
   const [budgetLimit, setBudgetLimit] = useState<number>(30000);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
 
-  // Швидке контекстне редагування транзакції
+  // Стани модальних вікон
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-
-  // Стан форми створення та редагування підписок
   const [isAddingRecurring, setIsAddingRecurring] = useState(false);
   const [editingRecurring, setEditingRecurring] =
     useState<RecurringItem | null>(null);
-  const [isSubmittingRecurring, setIsSubmittingRecurring] = useState<
+  const [isExecutingRecurring, setIsExecutingRecurring] = useState<
     number | null
   >(null);
-  const [recTitleInput, setRecTitleInput] = useState("");
-  const [recAmountInput, setRecAmountInput] = useState("");
-  const [recCategoryInput, setRecCategoryInput] = useState<string>(
-    "Підписки та сервіси"
-  );
-  const [recDayInput, setRecDayInput] = useState("1");
 
-  // Аналітичний висновок Gemini AI
+  // Gemini AI аналітика
   const [aiInsight, setAiInsight] = useState<AIInsightData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Перевірка активної HTTP-only cookie сесії при первинному завантаженні
+  // Перевірка активної HTTP-only cookie сесії
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -202,7 +112,7 @@ export default function Dashboard() {
     checkAuth();
   }, []);
 
-  // Обробка введення PIN-коду та створення сесії
+  // Обробка введення PIN-коду
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsVerifyingPin(true);
@@ -227,7 +137,6 @@ export default function Dashboard() {
     }
   };
 
-  // Перемикання на попередній календарний місяць
   const handlePrevMonth = () => {
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
@@ -235,7 +144,6 @@ export default function Dashboard() {
     setAiInsight(null);
   };
 
-  // Перемикання на наступний календарний місяць
   const handleNextMonth = () => {
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
@@ -243,7 +151,7 @@ export default function Dashboard() {
     setAiInsight(null);
   };
 
-  // Завантаження вихідних даних та підписка на Realtime-зміни в базі
+  // Початкове завантаження даних та підписка на Realtime
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -265,7 +173,6 @@ export default function Dashboard() {
 
     fetchData();
 
-    // Канал реального часу для синхронізації змін без перезавантаження сторінки
     const txChannel = supabase
       .channel("realtime-transactions")
       .on(
@@ -322,7 +229,7 @@ export default function Dashboard() {
     fetchBudget();
   }, [selectedMonthKey, isAuthenticated]);
 
-  // Фільтрація транзакцій за обраний у календарі місяць
+  // Фільтрація транзакцій за активний місяць
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
       const d = new Date(t.created_at);
@@ -331,7 +238,7 @@ export default function Dashboard() {
     });
   }, [transactions, selectedMonthKey]);
 
-  // Обчислення ключа та вибірки попереднього місяця для блоку MoM
+  // Транзакції минулого місяця для MoM-порівняння
   const prevMonthKey = useMemo(
     () => getPreviousMonthKey(selectedMonthKey),
     [selectedMonthKey]
@@ -345,7 +252,7 @@ export default function Dashboard() {
     });
   }, [transactions, prevMonthKey]);
 
-  // Загальна вартість активних регулярних підписок (з конвертацією USD в UAH)
+  // Загальна щомісячна сума постійних витрат (із конвертацією USD)
   const recurringTotal = useMemo(() => {
     return recurring
       .filter((r) => r.is_active)
@@ -355,12 +262,12 @@ export default function Dashboard() {
       }, 0);
   }, [recurring]);
 
-  // Фактична сума витрат за поточний місяць
+  // Фактична сума витрат за місяць
   const totalSpent = useMemo(() => {
     return filteredTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
   }, [filteredTransactions]);
 
-  // Метрики темпу витрат, залишку та рекомендованої денної норми
+  // Розрахунок темпу витрат, залишку та денної норми
   const budgetMetrics = useMemo(() => {
     const now = new Date();
     const isCurrentMonth =
@@ -398,7 +305,7 @@ export default function Dashboard() {
     };
   }, [totalSpent, budgetLimit, selectedDate]);
 
-  // Агрегація витрат за категоріями для побудови шкали часток
+  // Агрегація витрат за категоріями
   const categoryStats = useMemo(() => {
     const stats: Record<string, number> = {};
     filteredTransactions.forEach((t) => {
@@ -412,12 +319,28 @@ export default function Dashboard() {
         amount,
         percentage:
           totalSpent > 0 ? Math.round((amount / totalSpent) * 100) : 0,
-        color: CATEGORY_COLORS[name] || "#6B7280",
+        color: CATEGORY_COLORS[name] || "#71717A",
       }))
       .sort((a, b) => b.amount - a.amount);
   }, [filteredTransactions, totalSpent]);
 
-  // Генерація комплексного аналізу фінансового стану через Gemini API
+  // Щоденні витрати для стовпчикової діаграми
+  const dailyStats = useMemo(() => {
+    const daysMap: Record<string, number> = {};
+    filteredTransactions.forEach((t) => {
+      const date = new Date(t.created_at);
+      const key = `${String(date.getDate()).padStart(2, "0")}.${String(
+        date.getMonth() + 1
+      ).padStart(2, "0")}`;
+      daysMap[key] = (daysMap[key] || 0) + Number(t.amount);
+    });
+
+    return Object.entries(daysMap)
+      .map(([date, amount]) => ({ date, amount }))
+      .reverse();
+  }, [filteredTransactions]);
+
+  // Запит аналітичного звіту від Gemini AI
   const handleGenerateInsight = async () => {
     setIsAnalyzing(true);
     try {
@@ -459,65 +382,26 @@ export default function Dashboard() {
     }
   };
 
-  // Відкриття модалки додавання підписки з дефолтними полями
-  const handleOpenAddRecurring = () => {
-    setEditingRecurring(null);
-    setRecTitleInput("");
-    setRecAmountInput("");
-    setRecurringCurrency("UAH");
-    setRecCategoryInput("Підписки та сервіси");
-    setRecDayInput("1");
-    setIsAddingRecurring(true);
-  };
-
-  // Відкриття модалки для редагування існуючої підписки
-  const handleOpenEditRecurring = (item: RecurringItem) => {
-    setEditingRecurring(item);
-    setRecTitleInput(item.title);
-    setRecAmountInput(item.amount.toString());
-    setRecurringCurrency(item.currency || "UAH");
-    setRecCategoryInput(item.category_name);
-    setRecDayInput(item.day_of_month.toString());
-    setIsAddingRecurring(true);
-  };
-
-  // Збереження нового шаблону або оновлення існуючого
-  const handleSaveRecurring = async () => {
-    const amt = parseFloat(recAmountInput);
-    if (!recTitleInput || isNaN(amt) || amt <= 0) return;
-
-    if (editingRecurring) {
-      const updatedPayload = {
-        id: editingRecurring.id,
-        title: recTitleInput,
-        amount: amt,
-        currency: recurringCurrency,
-        category_name: recCategoryInput,
-        day_of_month: parseInt(recDayInput) || 1,
-      };
-
+  // Створення / оновлення підписки через відокремлений RecurringModal
+  const handleSaveRecurring = async (formData: {
+    id?: number;
+    title: string;
+    amount: number;
+    currency: "UAH" | "USD";
+    category_name: string;
+    day_of_month: number;
+  }) => {
+    if (formData.id) {
       setRecurring((prev) =>
-        prev.map((r) =>
-          r.id === editingRecurring.id ? { ...r, ...updatedPayload } : r
-        )
+        prev.map((r) => (r.id === formData.id ? { ...r, ...formData } : r))
       );
-      setIsAddingRecurring(false);
-
       await fetch("/api/recurring", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedPayload),
+        body: JSON.stringify(formData),
       });
     } else {
-      const newItem = {
-        title: recTitleInput,
-        amount: amt,
-        currency: recurringCurrency,
-        category_name: recCategoryInput,
-        day_of_month: parseInt(recDayInput) || 1,
-        is_active: true,
-      };
-
+      const newItem = { ...formData, is_active: true };
       const { data } = await supabase
         .from("recurring_templates")
         .insert(newItem)
@@ -527,25 +411,19 @@ export default function Dashboard() {
       if (data) {
         setRecurring((prev) => [...prev, data as RecurringItem]);
       }
-      setIsAddingRecurring(false);
-      setRecurringCurrency("UAH");
     }
   };
 
-  // Видалення шаблону регулярного платежу
+  // Видалення шаблону підписки
   const handleDeleteRecurring = async (id: number) => {
     setRecurring((prev) => prev.filter((r) => r.id !== id));
-    setIsAddingRecurring(false);
-
-    await fetch(`/api/recurring?id=${id}`, {
-      method: "DELETE",
-    });
+    await fetch(`/api/recurring?id=${id}`, { method: "DELETE" });
   };
 
-  // Ручне проведення регулярного платежу в журнал поточного місяця
+  // Позачергове ручне проведення підписки
   const handleExecuteRecurring = async (item: RecurringItem) => {
-    if (isSubmittingRecurring === item.id) return;
-    setIsSubmittingRecurring(item.id);
+    if (isExecutingRecurring === item.id) return;
+    setIsExecutingRecurring(item.id);
 
     try {
       const isUsd = item.currency === "USD";
@@ -587,11 +465,11 @@ export default function Dashboard() {
     } catch (err) {
       console.error("Помилка списання:", err);
     } finally {
-      setIsSubmittingRecurring(null);
+      setIsExecutingRecurring(null);
     }
   };
 
-  // Збереження встановленого місячного бюджету в Supabase
+  // Збереження місячного ліміту бюджету
   const handleSaveBudget = async () => {
     const parsed = parseFloat(tempBudgetInput);
     if (!isNaN(parsed) && parsed > 0) {
@@ -608,7 +486,7 @@ export default function Dashboard() {
     setIsEditingBudget(false);
   };
 
-  // Оновлення категорії операції з миттєвим відображенням у UI
+  // Оновлення категорії операції
   const handleUpdateCategory = async (txId: number, newCategory: string) => {
     setTransactions((prev) =>
       prev.map((t) =>
@@ -629,28 +507,10 @@ export default function Dashboard() {
     setTransactions((prev) => prev.filter((t) => t.id !== txId));
     setSelectedTx(null);
 
-    await fetch(`/api/transactions?id=${txId}`, {
-      method: "DELETE",
-    });
+    await fetch(`/api/transactions?id=${txId}`, { method: "DELETE" });
   };
 
-  // Агрегація витрат по окремих днях місяця для стовпчикового графіка
-  const dailyStats = useMemo(() => {
-    const daysMap: Record<string, number> = {};
-    filteredTransactions.forEach((t) => {
-      const date = new Date(t.created_at);
-      const key = `${String(date.getDate()).padStart(2, "0")}.${String(
-        date.getMonth() + 1
-      ).padStart(2, "0")}`;
-      daysMap[key] = (daysMap[key] || 0) + Number(t.amount);
-    });
-
-    return Object.entries(daysMap)
-      .map(([date, amount]) => ({ date, amount }))
-      .reverse();
-  }, [filteredTransactions]);
-
-  // Екран початкової ініціалізації перевірки доступу
+  // Екран перевірки наявності сесії
   if (isAuthenticated === null) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black">
@@ -659,7 +519,7 @@ export default function Dashboard() {
     );
   }
 
-  // Екран блокування доступу з введенням PIN-коду
+  // Екран введення PIN-коду
   if (!isAuthenticated) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black p-4 text-white">
@@ -705,7 +565,7 @@ export default function Dashboard() {
 
   return (
     <main className="mx-auto min-h-screen max-w-7xl bg-black px-4 pt-28 pb-24 font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
-      {/* Навігація між календарними місяцями */}
+      {/* Навігація календарних періодів */}
       <div className="mb-4 flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 px-3.5 py-2">
         <button
           onClick={handlePrevMonth}
@@ -727,7 +587,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Головний підсумок витрат за місяць та ключові лічильники */}
+      {/* Головний підсумок витрат та лічильники */}
       <header className="mb-6 flex flex-col justify-between gap-4 border-b border-zinc-800/80 pb-6 md:flex-row md:items-end">
         <div>
           <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-widest text-zinc-400 uppercase">
@@ -756,7 +616,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Картка контролю ліміту бюджету */}
+      {/* Картка місячного ліміту бюджету */}
       <section className="mb-8 rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -799,7 +659,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Шкала використання бюджету */}
         <div className="mb-4 h-2 w-full overflow-hidden rounded-full border border-zinc-800/60 bg-zinc-900">
           <div
             className="h-full rounded-full transition-all duration-700 ease-out"
@@ -853,7 +712,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Навігаційні вкладки для мобільних екранів */}
+      {/* Мобільні таби */}
       <div className="mb-6 flex rounded-xl border border-zinc-800 bg-zinc-900/80 p-1 md:hidden">
         <button
           onClick={() => setActiveTab("overview")}
@@ -887,15 +746,15 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Основна сітка дашборду */}
+      {/* Основна сітка */}
       <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-12">
-        {/* Ліва колонка: Аналітика та розподіл витрат */}
+        {/* Ліва колонка */}
         <section
           className={`space-y-6 md:col-span-7 ${
             activeTab === "overview" ? "block" : "hidden md:block"
           }`}
         >
-          {/* Рекомендації та аудит від Gemini AI */}
+          {/* Рекомендації від Gemini AI */}
           <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-zinc-950 p-5 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1011,7 +870,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Діаграма динаміки щоденних витрат */}
+          {/* Діаграма витрат за днями */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -1074,7 +933,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Розподіл витрат за категоріями */}
+          {/* Структура категорій */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <h2 className="mb-4 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
               Структура витрат за категоріями
@@ -1135,7 +994,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Права колонка: Burn Rate, MoM-порівняння, підписки та журнал */}
+        {/* Права колонка */}
         <section
           className={`space-y-6 md:col-span-5 ${
             activeTab === "history" || activeTab === "recurring"
@@ -1152,7 +1011,7 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Порівняння динаміки витрат із минулим місяцем (MoM) */}
+          {/* Порівняння з минулим місяцем (MoM) */}
           <div className="mb-6">
             <MoMComparison
               currentTransactions={filteredTransactions}
@@ -1162,7 +1021,7 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Керування постійними витратами та підписками */}
+          {/* Блок постійних платежів */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1172,7 +1031,10 @@ export default function Dashboard() {
                 </h2>
               </div>
               <button
-                onClick={handleOpenAddRecurring}
+                onClick={() => {
+                  setEditingRecurring(null);
+                  setIsAddingRecurring(true);
+                }}
                 className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 transition-all hover:bg-zinc-800 hover:text-white"
               >
                 <Plus size={13} /> Додати
@@ -1191,7 +1053,10 @@ export default function Dashboard() {
                     className="group flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-2.5 transition-all hover:border-zinc-700 hover:bg-zinc-900/80"
                   >
                     <div
-                      onClick={() => handleOpenEditRecurring(item)}
+                      onClick={() => {
+                        setEditingRecurring(item);
+                        setIsAddingRecurring(true);
+                      }}
                       className="min-w-0 flex-1 cursor-pointer pr-2"
                     >
                       <div className="flex items-center gap-1.5">
@@ -1210,7 +1075,10 @@ export default function Dashboard() {
 
                     <div className="flex shrink-0 items-center gap-2">
                       <span
-                        onClick={() => handleOpenEditRecurring(item)}
+                        onClick={() => {
+                          setEditingRecurring(item);
+                          setIsAddingRecurring(true);
+                        }}
                         className="cursor-pointer text-xs font-bold text-white hover:underline"
                       >
                         {item.currency === "USD"
@@ -1231,7 +1099,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Журнал останніх фінансових операцій */}
+          {/* Журнал останніх операцій */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -1257,7 +1125,7 @@ export default function Dashboard() {
                   const IconComponent =
                     CATEGORY_ICONS[t.category_name] || HelpCircle;
                   const iconColor =
-                    CATEGORY_COLORS[t.category_name] || "#6B7280";
+                    CATEGORY_COLORS[t.category_name] || "#71717A";
 
                   return (
                     <div
@@ -1304,208 +1172,22 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* Модальне вікно створення та редагування підписки */}
-      {isAddingRecurring && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h3 className="text-sm font-bold text-white">
-                {editingRecurring
-                  ? "Редагування постійної витрати"
-                  : "Новий постійний платіж"}
-              </h3>
-              <button
-                onClick={() => setIsAddingRecurring(false)}
-                className="text-zinc-500 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
+      {/* Відокремлена модалка підписок */}
+      <RecurringModal
+        isOpen={isAddingRecurring}
+        item={editingRecurring}
+        onClose={() => setIsAddingRecurring(false)}
+        onSave={handleSaveRecurring}
+        onDelete={handleDeleteRecurring}
+      />
 
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-zinc-400">
-                  Назва
-                </label>
-                <input
-                  type="text"
-                  placeholder="Оренда, зв'язок, підписка"
-                  value={recTitleInput}
-                  onChange={(e) => setRecTitleInput(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
-                />
-              </div>
-
-              {/* Введення суми, валюти та дня щомісячного списання */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-zinc-400">
-                    Сума та валюта
-                  </label>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="number"
-                      step="any"
-                      placeholder="100"
-                      value={recAmountInput}
-                      onChange={(e) => setRecAmountInput(e.target.value)}
-                      className="w-full min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
-                    />
-                    <select
-                      value={recurringCurrency}
-                      onChange={(e) =>
-                        setRecurringCurrency(e.target.value as "UAH" | "USD")
-                      }
-                      className="rounded-xl border border-zinc-800 bg-zinc-900 px-2 py-2 text-xs font-semibold text-zinc-300 focus:border-zinc-600 focus:outline-none"
-                    >
-                      <option value="UAH">₴</option>
-                      <option value="USD">$</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-zinc-400">
-                    День місяця
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={recDayInput}
-                    onChange={(e) => setRecDayInput(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold text-zinc-400">
-                  Категорія
-                </label>
-                <select
-                  value={recCategoryInput}
-                  onChange={(e) => setRecCategoryInput(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
-              {editingRecurring && (
-                <button
-                  onClick={() => handleDeleteRecurring(editingRecurring.id)}
-                  className="rounded-xl border border-rose-900/50 bg-rose-950/30 p-2 text-rose-400 transition-all hover:bg-rose-950/60"
-                  title="Видалити цей регулярний платіж"
-                >
-                  <Trash2 size={15} />
-                </button>
-              )}
-              <button
-                onClick={() => setIsAddingRecurring(false)}
-                className="flex-1 rounded-xl bg-zinc-900 py-2 text-xs text-zinc-400 transition-all hover:bg-zinc-800"
-              >
-                Скасувати
-              </button>
-              <button
-                onClick={handleSaveRecurring}
-                className="flex-1 rounded-xl bg-white py-2 text-xs font-semibold text-black transition-all hover:bg-zinc-200"
-              >
-                {editingRecurring ? "Оновити" : "Зберегти"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Меню швидких дій для транзакцій */}
-      {selectedTx && (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm duration-150 sm:items-center sm:p-4">
-          <div
-            className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700/80 sm:hidden" />
-
-            <div className="mb-5 flex items-start justify-between border-b border-zinc-800/80 pb-4">
-              <div>
-                <span className="text-xs font-medium tracking-wider text-zinc-400 uppercase">
-                  Редагування операції
-                </span>
-                <h3 className="mt-0.5 text-lg font-bold text-white">
-                  {selectedTx.merchant_raw}
-                </h3>
-                <p className="text-xs text-zinc-500">
-                  {new Date(selectedTx.created_at).toLocaleString("uk-UA", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-base font-extrabold text-white">
-                  -{Number(selectedTx.amount).toFixed(2)} ₴
-                </span>
-                <button
-                  onClick={() => setSelectedTx(null)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900 p-1 text-zinc-400 hover:text-white"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <p className="mb-2.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-                Оберіть правильну категорію
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {CATEGORIES.map((catName) => {
-                  const Icon = CATEGORY_ICONS[catName] || HelpCircle;
-                  const isCurrent = selectedTx.category_name === catName;
-                  const color = CATEGORY_COLORS[catName] || "#6B7280";
-
-                  return (
-                    <button
-                      key={catName}
-                      onClick={() =>
-                        handleUpdateCategory(selectedTx.id, catName)
-                      }
-                      className={`flex items-center space-x-2.5 rounded-xl border p-2.5 text-left text-xs font-medium transition-all ${
-                        isCurrent
-                          ? "border-zinc-600 bg-zinc-800 text-white shadow-sm"
-                          : "border-zinc-800/80 bg-zinc-900/40 text-zinc-300 hover:bg-zinc-900 hover:text-white"
-                      }`}
-                    >
-                      <div
-                        className="shrink-0 rounded-lg p-1.5"
-                        style={{ backgroundColor: `${color}20`, color: color }}
-                      >
-                        <Icon size={14} />
-                      </div>
-                      <span className="truncate">{catName}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleDeleteTransaction(selectedTx.id)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/30 py-2.5 text-xs font-semibold text-rose-400 transition-all hover:border-rose-700/80 hover:bg-rose-950/60"
-            >
-              <Trash2 size={14} />
-              Видалити цю транзакцію
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Відокремлена панель дій транзакції */}
+      <TransactionActionSheet
+        transaction={selectedTx}
+        onClose={() => setSelectedTx(null)}
+        onUpdateCategory={handleUpdateCategory}
+        onDelete={handleDeleteTransaction}
+      />
     </main>
   );
 }
