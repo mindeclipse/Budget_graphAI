@@ -15,11 +15,20 @@ const CATEGORIES = [
   "Інше",
 ];
 
-async function classifyWithGemini(merchantRaw: string, amount: number) {
+const FALLBACK_MODELS = [
+  "gemini-3.5-flash-lite", 
+  "gemini-3.6-flash",      
+  "gemini-2.5-flash-lite", 
+];
+
+async function classifyWithGemini(
+  merchantRaw: string,
+  amount: number
+): Promise<{ cleanMerchant: string; category: string }> {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    console.error("ПОМИЛКА: GEMINI_API_KEY відсутній у змінних оточення Vercel!");
+    console.error("ПОМИЛКА: GEMINI_API_KEY відсутній у змінних оточення!");
     return { cleanMerchant: merchantRaw, category: "Інше" };
   }
 
@@ -34,37 +43,44 @@ async function classifyWithGemini(merchantRaw: string, amount: number) {
 Відповідь надай виключно у валідному JSON без markdown-форматування:
 {"cleanMerchant": "Назва", "category": "Категорія"}`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
+  for (const model of FALLBACK_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" },
+          }),
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText) {
+          const parsed = JSON.parse(rawText);
+          return {
+            cleanMerchant: parsed.cleanMerchant || merchantRaw,
+            category: CATEGORIES.includes(parsed.category) ? parsed.category : "Інше",
+          };
+        }
       }
-    );
 
-    if (!res.ok) {
-      const errorBody = await res.text();
-      console.error(`ПОМИЛКА Gemini API [HTTP ${res.status}]:`, errorBody);
-      return { cleanMerchant: merchantRaw, category: "Інше" };
+      // Якщо перевантаження (503), рейтліміт (429) або збій сервера (500) — миттєво перемикаємо модель
+      if ([503, 429, 500].includes(res.status)) {
+        console.warn(`[Failover] Модель ${model} недоступна (HTTP ${res.status}). Пробуємо наступну...`);
+        continue;
+      }
+
+      const errText = await res.text();
+      console.error(`Помилка запиту до ${model} [HTTP ${res.status}]:`, errText);
+      break;
+    } catch (err) {
+      console.error(`Мережевий збій на ${model}:`, err);
     }
-
-    const data = await res.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (rawText) {
-      const parsed = JSON.parse(rawText);
-      return {
-        cleanMerchant: parsed.cleanMerchant || merchantRaw,
-        category: CATEGORIES.includes(parsed.category) ? parsed.category : "Інше",
-      };
-    }
-  } catch (err) {
-    console.error("Збій обробки Gemini:", err);
   }
 
   return { cleanMerchant: merchantRaw, category: "Інше" };
