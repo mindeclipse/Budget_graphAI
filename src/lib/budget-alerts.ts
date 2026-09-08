@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { sendTelegramMessage } from "@/lib/telegram";
 
 const ESTIMATED_USD_RATE = 44.5;
+const CYCLE_DURATION_DAYS = 30; // Стандартна тривалість зарплатного циклу
 
 function getKyivDateString(date: Date | string): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -18,7 +19,6 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
 
   const kyivTodayStr = getKyivDateString(now);
   const kyivMonthStr = kyivTodayStr.slice(0, 7); // "YYYY-MM"
-  const startOfMonthIso = `${kyivMonthStr}-01T00:00:00Z`;
 
   // 1. Дедуплікація сповіщень за сьогодні
   const { data: existingAlert } = await supabase
@@ -33,10 +33,21 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
     return { alerted: false, reason: "already_notified_today" };
   }
 
-  // 2. Місячний ліміт
-  const budgetLimit = customBudgetLimit || 35000;
+  // 2. Отримання поточного активного зарплатного циклу
+  const { data: activeCycle } = await supabase
+    .from("budget_cycles")
+    .select("id, name, start_date, end_date, budget_limit, is_active")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  // 3. Завантаження активних постійних витрат
+  // 3. Визначення ліміту бюджету (пріоритет: активний цикл -> кастомний параметр -> дефолт 35 000)
+  const budgetLimit = activeCycle?.budget_limit
+    ? Number(activeCycle.budget_limit)
+    : customBudgetLimit || 35000;
+
+  // 4. Завантаження активних постійних витрат
   const { data: recurringItems } = await supabase
     .from("recurring_templates")
     .select("amount, currency, is_active")
@@ -47,26 +58,53 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
     return sum + (r.currency === "USD" ? amt * ESTIMATED_USD_RATE : amt);
   }, 0);
 
-  // 4. Отримання транзакцій поточного місяця (враховуємо все, крім явних income)
+  // 5. Розрахунок днів та початкової дати вибірки операцій
+  let cycleStartIso: string;
+  let daysRemaining = 0;
+
+  if (activeCycle) {
+    // Якщо є активний зарплатний цикл — рахуємо дні циклу (30 днів)
+    const cycleStart = new Date(activeCycle.start_date);
+    const cycleEnd = activeCycle.end_date
+      ? new Date(activeCycle.end_date)
+      : new Date(
+          cycleStart.getTime() + CYCLE_DURATION_DAYS * 24 * 60 * 60 * 1000
+        );
+
+    cycleStartIso = cycleStart.toISOString();
+    const diffMs = cycleEnd.getTime() - now.getTime();
+    daysRemaining = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  } else {
+    // Фоллбек на звичайний календарний місяць
+    const [year, month, day] = kyivTodayStr.split("-").map(Number);
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+    daysRemaining = Math.max(1, totalDaysInMonth - day + 1);
+    cycleStartIso = `${kyivMonthStr}-01T00:00:00Z`;
+  }
+
+  // 6. Отримання транзакцій від старту активного вікна
   const { data: rawTransactions, error } = await supabase
     .from("transactions")
-    .select("amount, created_at, type")
-    .gte("created_at", startOfMonthIso);
+    .select("amount, created_at, type, exclude_from_budget")
+    .gte("created_at", cycleStartIso);
 
   if (error || !rawTransactions) {
     console.error("[BudgetAlert] Error fetching transactions:", error);
     return { alerted: false, error };
   }
 
-  const monthExpenses = rawTransactions.filter((t) => t.type !== "income");
+  // Враховуємо лише реальні витрати, які не виключені з бюджету
+  const periodExpenses = rawTransactions.filter(
+    (t) => t.type !== "income" && !t.exclude_from_budget
+  );
 
-  const totalSpentMonth = monthExpenses.reduce(
+  const totalSpentPeriod = periodExpenses.reduce(
     (sum, t) => sum + Number(t.amount || 0),
     0
   );
 
-  // Фільтрація операцій саме за сьогоднішню добу за Києвом
-  const todayTransactions = monthExpenses.filter(
+  // Фільтрація витрат суто за поточну київську добу
+  const todayTransactions = periodExpenses.filter(
     (t) => getKyivDateString(t.created_at) === kyivTodayStr
   );
 
@@ -75,13 +113,9 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
     0
   );
 
-  // 5. Розрахунок лімітів
-  const [year, month, day] = kyivTodayStr.split("-").map(Number);
-  const totalDaysInMonth = new Date(year, month, 0).getDate();
-  const daysRemaining = Math.max(1, totalDaysInMonth - day + 1);
-
+  // 7. Розрахунок лімітів
   const variableBudget = Math.max(0, budgetLimit - recurringTotal);
-  const remaining = variableBudget - totalSpentMonth;
+  const remaining = variableBudget - totalSpentPeriod;
   const safeDailySpend =
     daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
 
@@ -90,6 +124,7 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
   // Діагностичний лог у Vercel
   console.log("[BudgetAlert] Calculation:", {
     date: kyivTodayStr,
+    activeCycleId: activeCycle?.id || null,
     todayTransactionsCount: todayTransactions.length,
     totalSpentToday,
     threshold85,
@@ -99,7 +134,7 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
     daysRemaining,
   });
 
-  // 6. Порівняння з порогом 85%
+  // 8. Порівняння з порогом 85%
   if (totalSpentToday >= threshold85 && totalSpentToday > 0) {
     const percentSpent =
       safeDailySpend > 0
