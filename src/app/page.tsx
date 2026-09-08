@@ -763,13 +763,137 @@ export default function Dashboard() {
 
       {/* Основна сітка */}
       <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-12">
-        {/* Ліва колонка */}
+        {/* Ліва колонка (Операційні діаграми + AI аналітика внизу) */}
         <section
           className={`space-y-6 md:col-span-7 ${
             activeTab === "overview" ? "block" : "hidden md:block"
           }`}
         >
-          {/* Рекомендації від Gemini AI */}
+          {/* 1. Діаграма витрат за днями */}
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+                Динаміка витрат за днями
+              </p>
+              <span className="font-mono text-xs text-zinc-500">UAH</span>
+            </div>
+
+            {dailyStats.length > 0 ? (
+              <div className="h-48 w-full md:h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dailyStats}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <XAxis
+                      dataKey="date"
+                      stroke="#71717a"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="#71717a"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(val) => `${val}₴`}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="rounded-lg border border-zinc-700 bg-zinc-800/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur">
+                              <p className="text-zinc-400">
+                                {payload[0].payload.date}
+                              </p>
+                              <p className="font-bold text-white">
+                                {payload[0].value} ₴
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                      {dailyStats.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill="#3B82F6" />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex h-40 items-center justify-center text-xs text-zinc-600">
+                Немає даних за цей місяць
+              </div>
+            )}
+          </div>
+
+          {/* 2. Структура категорій */}
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
+            <h2 className="mb-4 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Структура витрат за категоріями
+            </h2>
+
+            {categoryStats.length === 0 ? (
+              <p className="py-4 text-sm text-zinc-600">
+                Категорії ще не сформовані
+              </p>
+            ) : (
+              <div className="space-y-3.5">
+                {categoryStats.map((cat) => {
+                  const IconComponent = CATEGORY_ICONS[cat.name] || HelpCircle;
+                  return (
+                    <div
+                      key={cat.name}
+                      onClick={() => setSelectedCategory(cat.name)}
+                      className="cursor-pointer rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3.5 transition-all hover:border-zinc-700/70 hover:bg-zinc-900/70 active:scale-[0.99]"
+                    >
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div
+                            className="rounded-lg p-2"
+                            style={{
+                              backgroundColor: `${cat.color}20`,
+                              color: cat.color,
+                            }}
+                          >
+                            <IconComponent size={16} />
+                          </div>
+                          <span className="text-sm font-medium text-zinc-200">
+                            {cat.name}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold text-white">
+                            {cat.amount.toLocaleString("uk-UA")} ₴
+                          </span>
+                          <span className="ml-2 font-mono text-xs text-zinc-500">
+                            {cat.percentage}%
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/80">
+                        <div
+                          className="h-full rounded-full transition-all duration-700 ease-out"
+                          style={{
+                            width: `${cat.percentage}%`,
+                            backgroundColor: cat.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 3. Рекомендації від Gemini AI (перенесено нижче) */}
           <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/80 to-zinc-950 p-5 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -884,133 +1008,9 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-
-          {/* Діаграма витрат за днями */}
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-                Динаміка витрат за днями
-              </p>
-              <span className="font-mono text-xs text-zinc-500">UAH</span>
-            </div>
-
-            {dailyStats.length > 0 ? (
-              <div className="h-48 w-full md:h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dailyStats}
-                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                  >
-                    <XAxis
-                      dataKey="date"
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="#71717a"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(val) => `${val}₴`}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="rounded-lg border border-zinc-700 bg-zinc-800/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur">
-                              <p className="text-zinc-400">
-                                {payload[0].payload.date}
-                              </p>
-                              <p className="font-bold text-white">
-                                {payload[0].value} ₴
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                      {dailyStats.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill="#3B82F6" />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex h-40 items-center justify-center text-xs text-zinc-600">
-                Немає даних за цей місяць
-              </div>
-            )}
-          </div>
-
-          {/* Структура категорій */}
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
-            <h2 className="mb-4 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Структура витрат за категоріями
-            </h2>
-
-            {categoryStats.length === 0 ? (
-              <p className="py-4 text-sm text-zinc-600">
-                Категорії ще не сформовані
-              </p>
-            ) : (
-              <div className="space-y-3.5">
-                {categoryStats.map((cat) => {
-                  const IconComponent = CATEGORY_ICONS[cat.name] || HelpCircle;
-                  return (
-                    <div
-                      key={cat.name}
-                      onClick={() => setSelectedCategory(cat.name)}
-                      className="cursor-pointer rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3.5 transition-all hover:border-zinc-700/70 hover:bg-zinc-900/70 active:scale-[0.99]"
-                    >
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div
-                            className="rounded-lg p-2"
-                            style={{
-                              backgroundColor: `${cat.color}20`,
-                              color: cat.color,
-                            }}
-                          >
-                            <IconComponent size={16} />
-                          </div>
-                          <span className="text-sm font-medium text-zinc-200">
-                            {cat.name}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-semibold text-white">
-                            {cat.amount.toLocaleString("uk-UA")} ₴
-                          </span>
-                          <span className="ml-2 font-mono text-xs text-zinc-500">
-                            {cat.percentage}%
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/80">
-                        <div
-                          className="h-full rounded-full transition-all duration-700 ease-out"
-                          style={{
-                            width: `${cat.percentage}%`,
-                            backgroundColor: cat.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </section>
 
-        {/* Права колонка */}
+        {/* Права колонка (Стрічка транзакцій нагорі + Постійні + Аналітика) */}
         <section
           className={`space-y-6 md:col-span-5 ${
             activeTab === "history" || activeTab === "recurring"
@@ -1018,112 +1018,14 @@ export default function Dashboard() {
               : "hidden md:block"
           }`}
         >
-          {/* Графік темпу спалювання бюджету (Burn Rate) */}
-          <div className="mb-6">
-            <BurnRateChart
-              transactions={filteredTransactions}
-              budgetLimit={budgetLimit}
-              recurringTotal={recurringTotal}
-              selectedMonthKey={selectedMonthKey}
-            />
-          </div>
-
-          {/* Порівняння з минулим місяцем (MoM) */}
-          <div className="mb-6">
-            <MoMComparison
-              currentTransactions={filteredTransactions}
-              previousTransactions={previousMonthTransactions}
-              currentMonthLabel="Цей місяць"
-              previousMonthLabel="Мин. місяць"
-            />
-          </div>
-
-          {/* Блок постійних платежів */}
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Repeat size={15} className="text-violet-400" />
-                <h2 className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-                  Постійні витрати
-                </h2>
-              </div>
-              <button
-                onClick={() => {
-                  setEditingRecurring(null);
-                  setIsAddingRecurring(true);
-                }}
-                className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 transition-all hover:bg-zinc-800 hover:text-white"
-              >
-                <Plus size={13} /> Додати
-              </button>
-            </div>
-
-            {recurring.length === 0 ? (
-              <p className="py-3 text-xs text-zinc-600">
-                Немає запланованих платежів
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {recurring.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-2.5 transition-all hover:border-zinc-700 hover:bg-zinc-900/80"
-                  >
-                    <div
-                      onClick={() => {
-                        setEditingRecurring(item);
-                        setIsAddingRecurring(true);
-                      }}
-                      className="min-w-0 flex-1 cursor-pointer pr-2"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
-                          {item.title}
-                        </p>
-                        <Pencil
-                          size={11}
-                          className="shrink-0 text-zinc-600 group-hover:text-zinc-400"
-                        />
-                      </div>
-                      <p className="truncate text-[11px] text-zinc-500">
-                        {item.day_of_month}-е число • {item.category_name}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span
-                        onClick={() => {
-                          setEditingRecurring(item);
-                          setIsAddingRecurring(true);
-                        }}
-                        className="cursor-pointer text-xs font-bold text-white hover:underline"
-                      >
-                        {item.currency === "USD"
-                          ? `$${Number(item.amount).toFixed(item.amount % 1 === 0 ? 0 : 2)}`
-                          : `${Number(item.amount).toLocaleString("uk-UA")} ₴`}
-                      </span>
-                      <button
-                        onClick={() => handleExecuteRecurring(item)}
-                        title="Провести платіж зараз"
-                        className="rounded-lg border border-zinc-800 bg-zinc-800/60 p-1.5 text-zinc-400 transition-all hover:border-emerald-700/60 hover:bg-emerald-950/60 hover:text-emerald-400"
-                      >
-                        <CheckCircle2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Журнал останніх операцій */}
+          {/* 1. Журнал останніх операцій (піднято нагору зі зручним скролом) */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                 <Receipt size={14} className="text-zinc-500" /> Транзакції за
                 місяць
               </h2>
-              <span className="text-xs text-zinc-500">
+              <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 font-mono text-[11px] text-zinc-400">
                 {displayedTransactions.length} оп.
               </span>
             </div>
@@ -1216,7 +1118,7 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : (
-              <div className="max-h-[500px] space-y-2.5 overflow-y-auto pr-1">
+              <div className="max-h-[520px] [scrollbar-width:thin] space-y-2 overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent">
                 {displayedTransactions.map((t: Transaction) => {
                   const IconComponent =
                     CATEGORY_ICONS[t.category_name] || HelpCircle;
@@ -1229,7 +1131,7 @@ export default function Dashboard() {
                       onClick={() => setSelectedTx(t)}
                       className="group flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3 transition-all hover:border-zinc-700 hover:bg-zinc-900/80 active:scale-[0.99]"
                     >
-                      <div className="flex items-center space-x-3">
+                      <div className="flex min-w-0 items-center space-x-3 pr-2">
                         <div
                           className="shrink-0 rounded-lg p-2 transition-transform group-hover:scale-105"
                           style={{
@@ -1254,7 +1156,6 @@ export default function Dashboard() {
                               minute: "2-digit",
                             })}
                           </p>
-                          {/* 👇 БЛОК ТЕГІВ: вставляємо тут, перед закриваючим </div> */}
                           {t.tags && t.tags.length > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">
                               {t.tags.map((tag: string) => (
@@ -1277,6 +1178,104 @@ export default function Dashboard() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* 2. Блок постійних платежів */}
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Repeat size={15} className="text-violet-400" />
+                <h2 className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+                  Постійні витрати
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingRecurring(null);
+                  setIsAddingRecurring(true);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 transition-all hover:bg-zinc-800 hover:text-white"
+              >
+                <Plus size={13} /> Додати
+              </button>
+            </div>
+
+            {recurring.length === 0 ? (
+              <p className="py-3 text-xs text-zinc-600">
+                Немає запланованих платежів
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {recurring.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group flex items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-2.5 transition-all hover:border-zinc-700 hover:bg-zinc-900/80"
+                  >
+                    <div
+                      onClick={() => {
+                        setEditingRecurring(item);
+                        setIsAddingRecurring(true);
+                      }}
+                      className="min-w-0 flex-1 cursor-pointer pr-2"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
+                          {item.title}
+                        </p>
+                        <Pencil
+                          size={11}
+                          className="shrink-0 text-zinc-600 group-hover:text-zinc-400"
+                        />
+                      </div>
+                      <p className="truncate text-[11px] text-zinc-500">
+                        {item.day_of_month}-е число • {item.category_name}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span
+                        onClick={() => {
+                          setEditingRecurring(item);
+                          setIsAddingRecurring(true);
+                        }}
+                        className="cursor-pointer text-xs font-bold text-white hover:underline"
+                      >
+                        {item.currency === "USD"
+                          ? `$${Number(item.amount).toFixed(item.amount % 1 === 0 ? 0 : 2)}`
+                          : `${Number(item.amount).toLocaleString("uk-UA")} ₴`}
+                      </span>
+                      <button
+                        onClick={() => handleExecuteRecurring(item)}
+                        title="Провести платіж зараз"
+                        className="rounded-lg border border-zinc-800 bg-zinc-800/60 p-1.5 text-zinc-400 transition-all hover:border-emerald-700/60 hover:bg-emerald-950/60 hover:text-emerald-400"
+                      >
+                        <CheckCircle2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 3. Графік темпу спалювання бюджету (Burn Rate) */}
+          <div className="mb-6">
+            <BurnRateChart
+              transactions={filteredTransactions}
+              budgetLimit={budgetLimit}
+              recurringTotal={recurringTotal}
+              selectedMonthKey={selectedMonthKey}
+            />
+          </div>
+
+          {/* 4. Порівняння з минулим місяцем (MoM) */}
+          <div className="mb-6">
+            <MoMComparison
+              currentTransactions={filteredTransactions}
+              previousTransactions={previousMonthTransactions}
+              currentMonthLabel="Цей місяць"
+              previousMonthLabel="Мин. місяць"
+            />
           </div>
         </section>
       </div>
