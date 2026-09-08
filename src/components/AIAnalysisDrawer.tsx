@@ -95,14 +95,14 @@ export function AIAnalysisDrawer({
           <div className="flex gap-1">
             <button
               type="button"
-              onClick={() => onModelChange("gemini-3.5-flash")}
+              onClick={() => onModelChange("gemini-3.7-flash")}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
                 selectedModel === "gemini-3.5-flash"
                   ? "bg-zinc-800 text-purple-300 shadow-xs"
                   : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
-              2.5 Flash (Швидка)
+              3.7 Flash (Глибок)
             </button>
             <button
               type="button"
@@ -113,7 +113,7 @@ export function AIAnalysisDrawer({
                   : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
-              2.5 Pro (Глибока)
+              3.5 Flash-Lite (Швидка)
             </button>
           </div>
         </div>
