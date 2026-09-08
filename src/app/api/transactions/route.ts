@@ -1,147 +1,50 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+// src/app/api/transactions/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { cleanMerchantRaw } from "@/lib/normalize";
 
-// Допоміжна перевірка сесії
-async function checkAuthSession() {
-  const cookieStore = await cookies();
-  const session = cookieStore.get("finance_session")?.value;
-  const correctPin = process.env.APP_ACCESS_PIN;
-  return Boolean(correctPin && session === correctPin);
-}
-
-// UPDATE: зміна категорії та/або тегів транзакції
-export async function PATCH(req: Request) {
+export async function PATCH(req: NextRequest) {
   try {
-    if (!(await checkAuthSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id, category_name, tags } = await req.json();
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Transaction ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Формуємо об'єкт оновлення тільки з тих полів, які передано в запиті
-    const updates: Record<string, any> = {};
-    if (category_name !== undefined) updates.category_name = category_name;
-    if (tags !== undefined) updates.tags = tags;
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: "No fields to update" },
-        { status: 400 }
-      );
-    }
-
-    const supabaseAdmin = getSupabaseAdmin();
-    const { data, error } = await supabaseAdmin
-      .from("transactions")
-      .update(updates)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({ success: true, transaction: data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// CREATE: додавання нової транзакції з перевіркою денного ліміту
-export async function POST(req: Request) {
-  try {
-    if (!(await checkAuthSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
-    const {
-      amount,
-      merchant_raw,
-      category_name = "Інше",
-      type = "expense",
-      currency = "UAH",
-      tags = [],
-      created_at,
-    } = body;
-
-    if (!amount || isNaN(Number(amount))) {
-      return NextResponse.json(
-        { error: "Valid amount is required" },
-        { status: 400 }
-      );
-    }
-
-    const supabaseAdmin = getSupabaseAdmin();
-    const { data: newTransaction, error } = await supabaseAdmin
-      .from("transactions")
-      .insert({
-        amount: Number(amount),
-        merchant_raw: merchant_raw || "Невідомий мерчант",
-        category_name,
-        type,
-        currency,
-        tags,
-        ...(created_at ? { created_at } : {}),
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Перевіряємо ліміт лише для витрат
-    if (type === "expense") {
-      // Використовуємо await з перехопленням помилки, щоб Vercel Serverless
-      // не вбив фоновий процес до відправки HTTP-запиту в Telegram
-      await checkDailyBudgetThreshold().catch((err) => {
-        console.error("Budget alert error:", err);
-      });
-    }
-
-    return NextResponse.json(
-      { success: true, transaction: newTransaction },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-// DELETE: видалення транзакції
-export async function DELETE(req: Request) {
-  try {
-    if (!(await checkAuthSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
+    const { id, category_name, merchant_raw, clean_title, save_as_rule } = body;
 
     if (!id) {
       return NextResponse.json(
-        { error: "Transaction ID is required" },
+        { error: "Transaction ID required" },
         { status: 400 }
       );
     }
 
-    const supabaseAdmin = getSupabaseAdmin();
-    const { error } = await supabaseAdmin
+    // 1. Оновлюємо саму транзакцію
+    const updateData: any = {};
+    if (category_name) updateData.category_name = category_name;
+    if (clean_title) updateData.merchant_raw = clean_title;
+    if (body.tags) updateData.tags = body.tags;
+
+    const { error: txError } = await supabase
       .from("transactions")
-      .delete()
+      .update(updateData)
       .eq("id", id);
 
-    if (error) throw error;
+    if (txError) throw txError;
+
+    // 2. Якщо користувач зазначив "Запам'ятати правило для цього мерчанта"
+    if (save_as_rule && merchant_raw && category_name) {
+      const pattern = cleanMerchantRaw(merchant_raw);
+
+      await supabase.from("merchant_rules").upsert(
+        {
+          pattern,
+          normalized_name: clean_title || pattern,
+          category_name,
+        },
+        { onConflict: "pattern" }
+      );
+    }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (err: any) {
+    console.error("Transaction PATCH error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

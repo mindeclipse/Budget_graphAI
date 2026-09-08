@@ -477,12 +477,24 @@ export default function Dashboard() {
     setIsEditingBudget(false);
   };
 
-  const handleUpdateCategory = async (txId: number, newCategory: string) => {
+  // Оновлення категорії операції з автонавчанням правил
+  const handleUpdateCategory = async (
+    txId: number,
+    newCategory: string,
+    cleanTitle?: string,
+    saveAsRule?: boolean
+  ) => {
     setSelectedTx(null);
     await fetch("/api/transactions", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: txId, category_name: newCategory }),
+      body: JSON.stringify({
+        id: txId,
+        category_name: newCategory,
+        merchant_raw: selectedTx?.merchant_raw,
+        clean_title: cleanTitle,
+        save_as_rule: saveAsRule,
+      }),
     });
     invalidateTransactions();
   };

@@ -1,197 +1,128 @@
+// src/app/api/classify/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
+import { supabase } from "@/lib/supabase";
+import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { cleanMerchantRaw } from "@/lib/normalize";
 
-export const dynamic = "force-dynamic";
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 
-const CATEGORIES = [
-  "Продукти",
-  "Кафе та ресторани",
-  "Транспорт",
-  "Підписки та сервіси",
-  "Здоров'я та догляд",
-  "Дім та побут",
-  "Одяг та взуття",
-  "Книги",
-  "Благодійність",
-  "Інше",
-];
-
-const FALLBACK_MODELS = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.6-flash",
-  "gemini-2.5-flash-lite",
-];
-
-async function classifyWithGemini(
-  merchantRaw: string,
-  amount: number
-): Promise<{ cleanMerchant: string; category: string }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
-    console.error("ПОМИЛКА: GEMINI_API_KEY відсутній у змінних оточення!");
-    return { cleanMerchant: merchantRaw, category: "Інше" };
-  }
-
-  const prompt = `Проаналізуй транзакцію витрат:
-Мерчант: "${merchantRaw}"
-Сума: ${amount} UAH
-
-Завдання:
-1. Очисти назву мерчанта від технічних кодів, транслітерації (наприклад: Blyzenko -> Близенько, Silpo -> Сільпо, Uklon -> Uklon, Ресторан -> Ресторан).
-2. Обери одну категорію виключно з цього списку: ${CATEGORIES.join(", ")}.
-
-Відповідь надай виключно у валідному JSON без markdown-форматування:
-{"cleanMerchant": "Назва", "category": "Категорія"}`;
-
-  for (const model of FALLBACK_MODELS) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" },
-          }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          const parsed = JSON.parse(rawText);
-          return {
-            cleanMerchant: parsed.cleanMerchant || merchantRaw,
-            category: CATEGORIES.includes(parsed.category)
-              ? parsed.category
-              : "Інше",
-          };
-        }
-      }
-
-      // Якщо перевантаження (503), рейтліміт (429) або збій сервера (500) — миттєво перемикаємо модель
-      if ([503, 429, 500].includes(res.status)) {
-        console.warn(
-          `[Failover] Модель ${model} недоступна (HTTP ${res.status}). Пробуємо наступну...`
-        );
-        continue;
-      }
-
-      const errText = await res.text();
-      console.error(
-        `Помилка запиту до ${model} [HTTP ${res.status}]:`,
-        errText
-      );
-      break;
-    } catch (err) {
-      console.error(`Мережевий збій на ${model}:`, err);
-    }
-  }
-
-  return { cleanMerchant: merchantRaw, category: "Інше" };
-}
+const classifySchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    cleanTitle: {
+      type: Type.STRING,
+      description:
+        "Зрозуміла, коротка назва закладу або мережі (наприклад: 'Кебаб на Шевченка', 'Овація', 'Близенько')",
+    },
+    categoryName: {
+      type: Type.STRING,
+      description: "Точна назва категорії зі списку дозволених",
+    },
+  },
+  required: ["cleanTitle", "categoryName"],
+};
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Перевірка Bearer токена
-    const authHeader = req.headers.get("authorization");
-    const secret = process.env.APP_API_SECRET;
+    const { rawMerchant, amount } = await req.json();
 
-    if (!secret || authHeader !== `Bearer ${secret}`) {
+    if (!rawMerchant) {
       return NextResponse.json(
-        { error: "Unauthorized: Invalid or missing API secret" },
-        { status: 401 }
-      );
-    }
-
-    const body = await req.json();
-    const {
-      amount,
-      currency = "UAH",
-      merchant_raw,
-      source = "apple_pay",
-      type = "expense",
-    } = body;
-
-    const numericAmount = parseFloat(String(amount).replace(",", "."));
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      return NextResponse.json(
-        { error: "Invalid or missing amount" },
+        { error: "rawMerchant обов'язковий" },
         { status: 400 }
       );
     }
 
-    const rawName = (merchant_raw || "Невідомий мерчант").trim();
-    const normalizedPattern = rawName.toLowerCase();
-    const supabaseAdmin = getSupabaseAdmin();
+    const cleaned = cleanMerchantRaw(rawMerchant);
 
-    let cleanMerchant = rawName;
-    let category = "Інше";
-    let isCacheHit = false;
-
-    // 2. Перевірка наявності в кеші
-    const { data: cachedRule } = await supabaseAdmin
+    // --- ЕШЕЛОН 1: Пошук у таблиці правил merchant_rules ---
+    const { data: rules } = await supabase
       .from("merchant_rules")
-      .select("clean_merchant, category_name")
-      .eq("pattern", normalizedPattern)
-      .maybeSingle();
+      .select("pattern, normalized_name, category_name");
 
-    if (cachedRule) {
-      cleanMerchant = cachedRule.clean_merchant;
-      category = cachedRule.category_name;
-      isCacheHit = true;
-    } else {
-      // 3. Cache Miss: Звернення до Gemini AI
-      const aiResult = await classifyWithGemini(rawName, numericAmount);
-      cleanMerchant = aiResult.cleanMerchant;
-      category = aiResult.category;
+    if (rules && rules.length > 0) {
+      const lowerCleaned = cleaned.toLowerCase();
+      const lowerRaw = rawMerchant.toLowerCase();
 
-      // 4. Запис нового правила в кеш (upsert запобігає race conditions)
-      if (category !== "Інше" || cleanMerchant !== rawName) {
-        await supabaseAdmin.from("merchant_rules").upsert(
-          {
-            pattern: normalizedPattern,
-            clean_merchant: cleanMerchant,
-            category_name: category,
-          },
-          { onConflict: "pattern" }
-        );
+      // Шукаємо правило, патерн якого входить у сиру або очищену назву
+      const matchedRule = rules.find((r) => {
+        const p = r.pattern.toLowerCase();
+        return lowerCleaned.includes(p) || lowerRaw.includes(p);
+      });
+
+      if (matchedRule) {
+        return NextResponse.json({
+          cleanTitle: matchedRule.normalized_name || cleaned,
+          categoryName: matchedRule.category_name,
+          source: "rule_engine",
+        });
       }
     }
 
-    // 5. Збереження операції в transactions
-    const { data, error } = await supabaseAdmin
-      .from("transactions")
-      .insert([
-        {
-          amount: numericAmount,
-          currency,
-          merchant_raw: cleanMerchant,
-          category_name: category,
-          source,
-          type,
-        },
-      ])
-      .select()
-      .single();
+    // --- ЕШЕЛОН 2: Gemini API з українським ритейл-контекстом ---
+    const systemInstruction = `
+Ти — класифікатор фінансових транзакцій в Україні (зокрема Львів / Київ).
+Твоє завдання: прийняти сиру банківську назву мерчанта і повернути зрозумілу назву (cleanTitle) та точну категорію (categoryName).
 
-    if (error) throw error;
+СПИСОК КАТЕГОРІЙ:
+- Продукти (супермаркети, мінімаркети: Близенько, Сім23, Simi, Рукавичка, АТБ, Сільпо)
+- Кафе та ресторани (фастфуд, донери, кебаби: DK / Dk Shevchenka -> Кебаб, кав'ярні, бари)
+- Куріння (тютюнові кіоски, вейпи: Овація / Ovatsiya, Табакерка, Сигарний Дім)
+- Транспорт (таксі Uklon, Bolt, громадський транспорт, паркінг)
+- Здоров'я (аптеки, клініки)
+- Розваги
+- Покупки
+- Інше
 
-    // Перевірка денного ліміту для нових витрат
-    await checkDailyBudgetThreshold().catch((err) => {
-      console.error("Budget alert error in classify:", err);
+Правила:
+- Очищай транслітерацію (наприклад: "Ovatsiya" -> "Овація").
+- "Dk Shevchenka" — це кебабна / донер ("Кафе та ресторани").
+- Відповідай суворо за наданою JSON-схемою.
+`;
+
+    const prompt = `Мерчант: "${rawMerchant}". Очищений вигляд: "${cleaned}". Сума: ${amount || 0} ₴`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash-lite",
+      contents: prompt,
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: classifySchema,
+        temperature: 0.1,
+      },
     });
+
+    const parsed = JSON.parse(response.text || "{}");
+    const cleanTitle = parsed.cleanTitle || cleaned;
+    const categoryName = parsed.categoryName || "Інше";
+
+    // --- ЕШЕЛОН 3: Кешування в merchant_rules для майбутніх покупок ---
+    // Якщо правило з'явилося вперше, закріплюємо його автоматично
+    await supabase.from("merchant_rules").upsert(
+      {
+        pattern: cleaned,
+        normalized_name: cleanTitle,
+        category_name: categoryName,
+      },
+      { onConflict: "pattern" }
+    );
 
     return NextResponse.json({
-      success: true,
-      cache_hit: isCacheHit,
-      transaction: data,
+      cleanTitle,
+      categoryName,
+      source: "gemini_ai",
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Classify API error:", error);
+    return NextResponse.json(
+      {
+        cleanTitle: req.headers.get("rawMerchant") || "Невідомо",
+        categoryName: "Інше",
+      },
+      { status: 200 } // Повертаємо 200 із дефолтом, щоб Shortcuts не падав
+    );
   }
 }
