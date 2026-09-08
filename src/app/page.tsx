@@ -1265,6 +1265,7 @@ export default function Dashboard() {
               budgetLimit={budgetLimit}
               recurringTotal={recurringTotal}
               selectedMonthKey={selectedMonthKey}
+              recurring={recurring}
             />
           </div>
 
