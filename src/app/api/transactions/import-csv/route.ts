@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { readSheet } from "read-excel-file/node";
+import * as XLSX from "xlsx";
 
 export const dynamic = "force-dynamic";
 
@@ -61,46 +61,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Файл не надано" }, { status: 400 });
     }
 
-    const fileName = file.name.toLowerCase();
-    const isExcel = fileName.endsWith(".xlsx");
-    let rows: any[][] = [];
+    // Читаємо бінарний буфер файлу
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    if (isExcel) {
-      // Безпечний парсинг XLSX через Buffer напряму в рядки таблиці
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const parsedRows = await readSheet(buffer);
-      rows = parsedRows as any[][];
-    } else {
-      // Парсинг звичайного CSV
-      const text = await file.text();
-      const lines = text
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean);
+    // XLSX.read автоматично визначає формат (HTML, XML, XLS, XLSX, CSV)
+    const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
 
-      let delimiter = ",";
-      for (const l of lines.slice(0, 5)) {
-        if (l.includes(";")) {
-          delimiter = ";";
-          break;
-        }
-      }
+    // raw: false повертає відформатовані текстові значення клітинок
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      raw: false,
+    }) as any[][];
 
-      rows = lines.map((line) =>
-        line
-          .split(new RegExp(`${delimiter}(?=(?:(?:[^"]*"){2})*[^"]*$)`))
-          .map((c) => c.replace(/^["']|["']$/g, "").trim())
-      );
-    }
-
-    if (rows.length < 3) {
+    if (!rows || rows.length < 3) {
       return NextResponse.json(
         { error: "Таблиця містить замало рядків для аналізу" },
         { status: 400 }
       );
     }
 
-    // 1. Пошук рядка заголовків
+    // 1. Пошук рядка із заголовками колонок
     let headerRowIdx = -1;
     let headers: string[] = [];
 
@@ -154,7 +137,7 @@ export async function POST(req: Request) {
 
     const transactionsToInsert: any[] = [];
 
-    // 3. Формування транзакцій
+    // 3. Збір транзакцій
     for (let i = headerRowIdx + 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length <= amountIdx) continue;
@@ -188,7 +171,7 @@ export async function POST(req: Request) {
         currency: "UAH",
         merchant_raw: rawMerchant,
         category_name: normalizePrivatCategory(rawCategory),
-        source: isExcel ? "privatbank_xlsx" : "privatbank_csv",
+        source: "privatbank_statement",
         type,
         created_at: createdAt,
       });
@@ -201,7 +184,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Запис у базу з дедуплікацією
+    // 4. Запис у базу
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("transactions")
