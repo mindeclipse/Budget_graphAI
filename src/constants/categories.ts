@@ -1,5 +1,4 @@
 import {
-  // Базові іконки
   ShoppingBag,
   Utensils,
   Coffee,
@@ -12,13 +11,13 @@ import {
   Briefcase,
   TrendingUp,
   HelpCircle,
-  // Нові іконки
   HeartHandshake,
   Gift,
   Laptop,
   Cloud,
   Wifi,
   GraduationCap,
+  BookOpen,
   Key,
   Home,
   Wrench,
@@ -32,30 +31,34 @@ import {
   Palette,
   Landmark,
   Coins,
+  MoreHorizontal,
 } from "lucide-react";
 
 export const CATEGORY_ICONS: Record<string, any> = {
-  // Поточні категорії
+  // Базові та транзакційні назви з вашої бази
   Продукти: ShoppingBag,
   "Кафе та Ресторани": Utensils,
   Кава: Coffee,
+  Транспорт: Car,
   "Транспорт/Таксі": Car,
   Авто: Fuel,
   Підписки: Flame,
+  "Підписки та сервіси": Flame,
+  Книги: BookOpen,
+  "Освіта та книги": GraduationCap,
   Одяг: Shirt,
   "Здоров'я": HeartPulse,
   Комунальні: Lightbulb,
   "Зарплата/ФОП": Briefcase,
   Інвестиції: TrendingUp,
-  Інше: HelpCircle,
+  Інше: MoreHorizontal,
 
-  // 20 нових категорій
+  // Розширені категорії
   Донати: HeartHandshake,
   Подарунки: Gift,
   "Техніка та гаджети": Laptop,
   "Софт та сервери": Cloud,
   "Зв'язок та інтернет": Wifi,
-  "Освіта та книги": GraduationCap,
   "Оренда житла": Key,
   "Дім та затишок": Home,
   "Ремонт та сервіс": Wrench,
@@ -73,13 +76,17 @@ export const CATEGORY_ICONS: Record<string, any> = {
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  // Поточні категорії
+  // Базові та транзакційні назви з вашої бази
   Продукти: "#10B981",
   "Кафе та Ресторани": "#F59E0B",
   Кава: "#D97706",
+  Транспорт: "#3B82F6",
   "Транспорт/Таксі": "#3B82F6",
   Авто: "#EF4444",
   Підписки: "#8B5CF6",
+  "Підписки та сервіси": "#8B5CF6",
+  Книги: "#A78BFA",
+  "Освіта та книги": "#A78BFA",
   Одяг: "#EC4899",
   "Здоров'я": "#14B8A6",
   Комунальні: "#6366F1",
@@ -87,13 +94,12 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Інвестиції: "#06B6D4",
   Інше: "#71717A",
 
-  // 20 нових категорій
+  // Розширені категорії
   Донати: "#F43F5E",
   Подарунки: "#FB7185",
   "Техніка та гаджети": "#38BDF8",
   "Софт та сервери": "#818CF8",
   "Зв'язок та інтернет": "#60A5FA",
-  "Освіта та книги": "#A78BFA",
   "Оренда житла": "#F97316",
   "Дім та затишок": "#34D399",
   "Ремонт та сервіс": "#A3E635",
@@ -109,4 +115,5 @@ export const CATEGORY_COLORS: Record<string, string> = {
   "Кешбек та бонуси": "#10B981",
   "Дивіденди та купони": "#14B8A6",
 };
+
 export const CATEGORIES = Object.keys(CATEGORY_ICONS);
