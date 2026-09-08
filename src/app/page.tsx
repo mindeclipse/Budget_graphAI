@@ -1015,6 +1015,7 @@ export default function Dashboard() {
             <BurnRateChart
               transactions={filteredTransactions}
               budgetLimit={budgetLimit}
+              recurringTotal={recurringTotal}
               selectedMonthKey={selectedMonthKey}
             />
           </div>

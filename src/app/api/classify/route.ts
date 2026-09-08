@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -179,6 +180,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Перевірка денного ліміту для нових витрат
+    await checkDailyBudgetThreshold().catch((err) => {
+      console.error("Budget alert error in classify:", err);
+    });
 
     return NextResponse.json({
       success: true,

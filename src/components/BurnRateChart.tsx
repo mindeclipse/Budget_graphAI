@@ -23,14 +23,19 @@ interface Transaction {
 interface BurnRateChartProps {
   transactions: Transaction[];
   budgetLimit: number;
+  recurringTotal?: number; // Додаємо суму постійних витрат
   selectedMonthKey: string; // Формат "YYYY-MM"
 }
 
 export function BurnRateChart({
   transactions,
   budgetLimit,
+  recurringTotal = 0,
   selectedMonthKey,
 }: BurnRateChartProps) {
+  // Вільний бюджет на місяць за вирахуванням постійних витрат
+  const variableBudget = Math.max(0, budgetLimit - recurringTotal);
+
   const chartData = useMemo(() => {
     const [yearStr, monthStr] = selectedMonthKey.split("-");
     const year = parseInt(yearStr, 10);
@@ -55,12 +60,12 @@ export function BurnRateChart({
       dailyExpenses[day] = (dailyExpenses[day] || 0) + Number(tx.amount);
     });
 
-    // Побудова накопичувального масиву
+    // Побудова накопичувального масиву відміряючи від variableBudget
     let runningTotal = 0;
     const data = [];
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const ideal = Math.round((budgetLimit / daysInMonth) * d);
+      const ideal = Math.round((variableBudget / daysInMonth) * d);
 
       if (d <= currentDay) {
         runningTotal += dailyExpenses[d] || 0;
@@ -79,11 +84,11 @@ export function BurnRateChart({
     }
 
     return { data, currentDay, daysInMonth, runningTotal };
-  }, [transactions, budgetLimit, selectedMonthKey]);
+  }, [transactions, variableBudget, selectedMonthKey]);
 
   const { data, currentDay, daysInMonth, runningTotal } = chartData;
 
-  const idealToday = Math.round((budgetLimit / daysInMonth) * currentDay);
+  const idealToday = Math.round((variableBudget / daysInMonth) * currentDay);
   const diffFromTarget = runningTotal - idealToday;
   const isOverPace = diffFromTarget > 0;
   const projectedMonthEnd =
@@ -98,8 +103,8 @@ export function BurnRateChart({
             Динаміка спалювання бюджету (Burn Rate)
           </h2>
           <p className="mt-0.5 text-[11px] text-zinc-500">
-            Порівняння факту з плановою прямою ліміту (
-            {budgetLimit.toLocaleString("uk-UA")} ₴)
+            Порівняння факту з плановою прямою вільного ліміту (
+            {variableBudget.toLocaleString("uk-UA")} ₴)
           </p>
         </div>
 
@@ -167,13 +172,13 @@ export function BurnRateChart({
               }
             />
             <ReferenceLine
-              y={budgetLimit}
+              y={variableBudget}
               stroke="#ef4444"
               strokeDasharray="4 4"
               opacity={0.4}
             />
 
-            {/* Лінія планового спалювання */}
+            {/* Лінія планового спалювання вільного залишку */}
             <Line
               type="monotone"
               dataKey="ideal"
@@ -222,7 +227,7 @@ export function BurnRateChart({
           </span>
           <span
             className={`text-xs font-semibold ${
-              projectedMonthEnd > budgetLimit
+              projectedMonthEnd > variableBudget
                 ? "text-rose-400"
                 : "text-emerald-400"
             }`}
