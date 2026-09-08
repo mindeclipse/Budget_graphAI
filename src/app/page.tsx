@@ -27,6 +27,8 @@ import {
   Check,
   Calendar,
   AlertTriangle,
+  X,
+  Trash2,
 } from "lucide-react";
 
 interface Transaction {
@@ -38,6 +40,18 @@ interface Transaction {
   source: string;
   created_at: string;
 }
+
+const CATEGORIES = [
+  "Продукти",
+  "Кафе та ресторани",
+  "Транспорт",
+  "Підписки та сервіси",
+  "Здоров'я та догляд",
+  "Дім та побут",
+  "Одяг та взуття",
+  "Благодійність",
+  "Інше",
+] as const;
 
 const CATEGORY_COLORS: Record<string, string> = {
   "Продукти": "#10B981",
@@ -67,10 +81,13 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
 
-  // Бюджет із Supabase
+  // Бюджет
   const [budgetLimit, setBudgetLimit] = useState<number>(30000);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
+
+  // Стан вибору транзакції для редагування
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   const currentMonthKey = useMemo(() => {
     const now = new Date();
@@ -78,7 +95,6 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    // 1. Отримання транзакцій
     const fetchTransactions = async () => {
       const { data } = await supabase
         .from("transactions")
@@ -88,7 +104,6 @@ export default function Dashboard() {
       if (data) setTransactions(data);
     };
 
-    // 2. Отримання бюджету на поточний місяць із Supabase
     const fetchBudget = async () => {
       const { data } = await supabase
         .from("budgets")
@@ -106,19 +121,26 @@ export default function Dashboard() {
     fetchTransactions();
     fetchBudget();
 
-    // 3. Realtime підписка на транзакції
+    // Слухаємо всі події (INSERT, UPDATE, DELETE)
     const txChannel = supabase
       .channel("realtime-transactions")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "transactions" },
+        { event: "*", schema: "public", table: "transactions" },
         (payload) => {
-          setTransactions((prev) => [payload.new as Transaction, ...prev]);
+          if (payload.eventType === "INSERT") {
+            setTransactions((prev) => [payload.new as Transaction, ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setTransactions((prev) =>
+              prev.map((t) => (t.id === payload.new.id ? (payload.new as Transaction) : t))
+            );
+          } else if (payload.eventType === "DELETE") {
+            setTransactions((prev) => prev.filter((t) => t.id === payload.old.id));
+          }
         }
       )
       .subscribe();
 
-    // 4. Realtime підписка на зміну бюджету (синхронізація Mac <-> iPhone)
     const budgetChannel = supabase
       .channel("realtime-budgets")
       .on(
@@ -140,7 +162,26 @@ export default function Dashboard() {
     };
   }, [currentMonthKey]);
 
-  // Збереження бюджету в базі
+  // Дії з транзакціями
+  const handleUpdateCategory = async (txId: number, newCategory: string) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === txId ? { ...t, category_name: newCategory } : t))
+    );
+    setSelectedTx(null);
+
+    await supabase
+      .from("transactions")
+      .update({ category_name: newCategory })
+      .eq("id", txId);
+  };
+
+  const handleDeleteTransaction = async (txId: number) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== txId));
+    setSelectedTx(null);
+
+    await supabase.from("transactions").delete().eq("id", txId);
+  };
+
   const handleSaveBudget = async () => {
     const parsed = parseFloat(tempBudgetInput);
     if (!isNaN(parsed) && parsed > 0) {
@@ -496,17 +537,18 @@ export default function Dashboard() {
                   return (
                     <div
                       key={t.id}
-                      className="flex items-center justify-between p-3 bg-zinc-900/40 border border-zinc-800/60 hover:border-zinc-700/70 rounded-xl transition-all"
+                      onClick={() => setSelectedTx(t)}
+                      className="group flex items-center justify-between p-3 bg-zinc-900/40 hover:bg-zinc-900/80 border border-zinc-800/60 hover:border-zinc-700 cursor-pointer rounded-xl transition-all active:scale-[0.99]"
                     >
                       <div className="flex items-center space-x-3">
                         <div
-                          className="p-2 rounded-lg shrink-0"
+                          className="p-2 rounded-lg shrink-0 group-hover:scale-105 transition-transform"
                           style={{ backgroundColor: `${iconColor}15`, color: iconColor }}
                         >
                           <IconComponent size={16} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold truncate text-zinc-100">
+                          <p className="text-sm font-semibold truncate text-zinc-100 group-hover:text-white">
                             {t.merchant_raw}
                           </p>
                           <p className="text-xs text-zinc-500 truncate">
@@ -533,6 +575,91 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      {/* QUICK ACTION SHEET / МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ */}
+      {selectedTx && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-150">
+          <div
+            className="w-full sm:max-w-md bg-zinc-950 border border-zinc-800 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Смужка-хендл для мобільних пристроїв */}
+            <div className="w-10 h-1 bg-zinc-700/80 rounded-full mx-auto mb-4 sm:hidden" />
+
+            {/* Шапка модалки з деталями чека */}
+            <div className="flex items-start justify-between mb-5 border-b border-zinc-800/80 pb-4">
+              <div>
+                <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+                  Редагування операції
+                </span>
+                <h3 className="text-lg font-bold text-white mt-0.5">
+                  {selectedTx.merchant_raw}
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  {new Date(selectedTx.created_at).toLocaleString("uk-UA", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-base font-extrabold text-white">
+                  -{Number(selectedTx.amount).toFixed(2)} ₴
+                </span>
+                <button
+                  onClick={() => setSelectedTx(null)}
+                  className="text-zinc-400 hover:text-white p-1 rounded-lg bg-zinc-900 border border-zinc-800"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Вибір категорії */}
+            <div className="mb-6">
+              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2.5">
+                Оберіть правильну категорію
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {CATEGORIES.map((catName) => {
+                  const Icon = CATEGORY_ICONS[catName] || HelpCircle;
+                  const isCurrent = selectedTx.category_name === catName;
+                  const color = CATEGORY_COLORS[catName] || "#6B7280";
+
+                  return (
+                    <button
+                      key={catName}
+                      onClick={() => handleUpdateCategory(selectedTx.id, catName)}
+                      className={`flex items-center space-x-2.5 p-2.5 rounded-xl border text-left text-xs font-medium transition-all ${
+                        isCurrent
+                          ? "bg-zinc-800 border-zinc-600 text-white shadow-sm"
+                          : "bg-zinc-900/40 border-zinc-800/80 hover:bg-zinc-900 text-zinc-300 hover:text-white"
+                      }`}
+                    >
+                      <div
+                        className="p-1.5 rounded-lg shrink-0"
+                        style={{ backgroundColor: `${color}20`, color: color }}
+                      >
+                        <Icon size={14} />
+                      </div>
+                      <span className="truncate">{catName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Видалення транзакції */}
+            <button
+              onClick={() => handleDeleteTransaction(selectedTx.id)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-950/30 hover:bg-rose-950/60 border border-rose-900/50 hover:border-rose-700/80 text-rose-400 text-xs font-semibold transition-all"
+            >
+              <Trash2 size={14} />
+              Видалити цю транзакцію
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
