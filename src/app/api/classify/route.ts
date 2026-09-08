@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+
 // Примусово вказуємо Next.js не оцінювати роут під час статичної збірки
 export const dynamic = "force-dynamic";
 
@@ -84,15 +85,26 @@ async function classifyWithGemini(merchantRaw: string, amount: number) {
 
 export async function POST(req: NextRequest) {
   try {
+    // --- ПЕРЕВІРКА БЕЗПЕКИ: АВТОРИЗАЦІЯ ЗА СЕКРЕТНИМ ТОКЕНОМ ---
+    const authHeader = req.headers.get("authorization");
+    const secret = process.env.APP_API_SECRET;
+
+    if (!secret || authHeader !== `Bearer ${secret}`) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid or missing API secret" },
+        { status: 401 }
+      );
+    }
+    // -------------------------------------------------------------
     const body = await req.json();
     const { amount, currency = "UAH", merchant_raw, source = "apple_pay", type = "expense" } = body;
 
-    if (!amount) {
-      return NextResponse.json({ error: "Amount is required" }, { status: 400 });
+    const numericAmount = parseFloat(String(amount).replace(",", "."));
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return NextResponse.json({ error: "Invalid or missing amount" }, { status: 400 });
     }
 
     const rawName = merchant_raw || "Невідомий мерчант";
-    const numericAmount = parseFloat(amount);
 
     // AI-нормалізація
     const { cleanMerchant, category } = await classifyWithGemini(rawName, numericAmount);

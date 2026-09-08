@@ -375,12 +375,14 @@ export default function Dashboard() {
     setIsAddingRecurring(true);
   };
 
+  // Збереження / редагування постійної витрати
   const handleSaveRecurring = async () => {
     const amt = parseFloat(recAmountInput);
     if (!recTitleInput || isNaN(amt) || amt <= 0) return;
 
     if (editingRecurring) {
       const updatedPayload = {
+        id: editingRecurring.id,
         title: recTitleInput,
         amount: amt,
         category_name: recCategoryInput,
@@ -392,10 +394,11 @@ export default function Dashboard() {
       );
       setIsAddingRecurring(false);
 
-      await supabase
-        .from("recurring_templates")
-        .update(updatedPayload)
-        .eq("id", editingRecurring.id);
+      await fetch("/api/recurring", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPayload),
+      });
     } else {
       const newItem = {
         title: recTitleInput,
@@ -413,10 +416,14 @@ export default function Dashboard() {
     }
   };
 
+  // Видалення постійної витрати
   const handleDeleteRecurring = async (id: number) => {
     setRecurring((prev) => prev.filter((r) => r.id !== id));
     setIsAddingRecurring(false);
-    await supabase.from("recurring_templates").delete().eq("id", id);
+
+    await fetch(`/api/recurring?id=${id}`, {
+      method: "DELETE",
+    });
   };
 
   const handleExecuteRecurring = async (item: RecurringItem) => {
@@ -448,20 +455,28 @@ export default function Dashboard() {
     setIsEditingBudget(false);
   };
 
+  // Оновлення категорії транзакції
   const handleUpdateCategory = async (txId: number, newCategory: string) => {
     setTransactions((prev) =>
       prev.map((t) => (t.id === txId ? { ...t, category_name: newCategory } : t))
     );
     setSelectedTx(null);
 
-    await supabase.from("transactions").update({ category_name: newCategory }).eq("id", txId);
+    await fetch("/api/transactions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: txId, category_name: newCategory }),
+    });
   };
 
+  // Видалення транзакції
   const handleDeleteTransaction = async (txId: number) => {
     setTransactions((prev) => prev.filter((t) => t.id !== txId));
     setSelectedTx(null);
 
-    await supabase.from("transactions").delete().eq("id", txId);
+    await fetch(`/api/transactions?id=${txId}`, {
+      method: "DELETE",
+    });
   };
 
   const dailyStats = useMemo(() => {
