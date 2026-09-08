@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
+    // 1. СУВОРИЙ ЗАХИСТ: Перевірка сесії перед викликом Gemini
+    const cookieStore = await cookies();
+    const session = cookieStore.get("finance_session")?.value;
+    const correctPin = process.env.APP_ACCESS_PIN;
+
+    if (!correctPin || session !== correctPin) {
+      return NextResponse.json(
+        { error: "Доступ заборонено: відсутня активна сесія" },
+        { status: 401 }
+      );
+    }
+
+    // 2. Лише після успішної перевірки парсимо тіло і викликаємо Gemini
     const body = await req.json();
     const {
       month,
@@ -51,7 +65,7 @@ export async function POST(req: Request) {
 }`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

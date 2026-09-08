@@ -39,6 +39,7 @@ import {
   Lightbulb,
   ShieldCheck,
   Zap,
+  Lock,
 } from "lucide-react";
 
 interface Transaction {
@@ -105,6 +106,12 @@ const CATEGORY_ICONS: Record<string, any> = {
 };
 
 export default function Dashboard() {
+  // Стан аутентифікації
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurring, setRecurring] = useState<RecurringItem[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "recurring">("overview");
@@ -122,25 +129,59 @@ export default function Dashboard() {
     });
   }, [selectedDate]);
 
-  // Бюджет
   const [budgetLimit, setBudgetLimit] = useState<number>(30000);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
 
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
-  // Стан для додавання / редагування постійної витрати
   const [isAddingRecurring, setIsAddingRecurring] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState<RecurringItem | null>(null);
-
   const [recTitleInput, setRecTitleInput] = useState("");
   const [recAmountInput, setRecAmountInput] = useState("");
   const [recCategoryInput, setRecCategoryInput] = useState<string>("Підписки та сервіси");
   const [recDayInput, setRecDayInput] = useState("1");
 
-  // Стан AI аналітики
   const [aiInsight, setAiInsight] = useState<AIInsightData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Перевірка активної сесії при першому завантаженні
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth");
+        const data = await res.json();
+        setIsAuthenticated(data.authenticated);
+      } catch {
+        setIsAuthenticated(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifyingPin(true);
+    setPinError("");
+
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: pinInput }),
+      });
+
+      if (res.ok) {
+        setIsAuthenticated(true);
+      } else {
+        setPinError("Невірний PIN-код");
+      }
+    } catch {
+      setPinError("Помилка підключення");
+    } finally {
+      setIsVerifyingPin(false);
+    }
+  };
 
   const handlePrevMonth = () => {
     setSelectedDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -153,6 +194,8 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchData = async () => {
       const [txRes, recRes] = await Promise.all([
         supabase.from("transactions").select("*").order("created_at", { ascending: false }),
@@ -183,10 +226,11 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(txChannel);
     };
-  }, []);
+  }, [isAuthenticated]);
 
-  // Бюджет під місяць
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchBudget = async () => {
       const { data } = await supabase
         .from("budgets")
@@ -205,7 +249,7 @@ export default function Dashboard() {
     };
 
     fetchBudget();
-  }, [selectedMonthKey]);
+  }, [selectedMonthKey, isAuthenticated]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
@@ -276,7 +320,6 @@ export default function Dashboard() {
       .sort((a, b) => b.amount - a.amount);
   }, [filteredTransactions, totalSpent]);
 
-  // Запит на генерацію AI інсайту
   const handleGenerateInsight = async () => {
     setIsAnalyzing(true);
     try {
@@ -436,6 +479,56 @@ export default function Dashboard() {
       .reverse();
   }, [filteredTransactions]);
 
+  // Екран завантаження стану авторизації
+  if (isAuthenticated === null) {
+    return (
+      <main className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-zinc-700 border-t-white rounded-full animate-spin" />
+      </main>
+    );
+  }
+
+  // Екран блокування: вхід за PIN-кодом
+  if (!isAuthenticated) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+        <div className="w-full max-w-xs bg-zinc-950 border border-zinc-900 rounded-3xl p-6 text-center shadow-2xl space-y-6">
+          <div className="w-12 h-12 bg-zinc-900 rounded-2xl flex items-center justify-center mx-auto text-zinc-400 border border-zinc-800">
+            <Lock size={20} />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-white">Вхід до фінансів</h2>
+            <p className="text-xs text-zinc-500 mt-1">Введіть PIN-код доступу</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={12}
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              placeholder="••••"
+              autoFocus
+              className="w-full text-center tracking-[0.4em] font-mono text-xl py-3 bg-zinc-900 border border-zinc-800 rounded-2xl text-white focus:outline-none focus:border-zinc-600 transition-all"
+            />
+
+            {pinError && <p className="text-rose-400 text-xs font-medium">{pinError}</p>}
+
+            <button
+              type="submit"
+              disabled={isVerifyingPin || !pinInput}
+              className="w-full py-3 rounded-2xl bg-white hover:bg-zinc-200 disabled:opacity-40 text-black text-xs font-bold transition-all"
+            >
+              {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  // Головний дашборд (відображається лише після авторизації)
   return (
     <main className="min-h-screen bg-black text-white px-4 sm:px-8 lg:px-12 pt-28 pb-24 md:pt-10 max-w-7xl mx-auto font-sans antialiased">
       {/* Навігатор місяців */}
@@ -634,7 +727,6 @@ export default function Dashboard() {
 
             {aiInsight ? (
               <div className="space-y-4 text-xs animate-in fade-in duration-300">
-                {/* Статус-бейдж */}
                 <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800">
                   <div className="flex items-center gap-2">
                     {aiInsight.status === "safe" ? (
@@ -648,7 +740,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Аномалії */}
                 {aiInsight.anomalies?.length > 0 && (
                   <div>
                     <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-1.5">
@@ -665,7 +756,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Тактика заощадження */}
                 {aiInsight.saving_tactics?.length > 0 && (
                   <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-850">
                     <p className="text-[11px] uppercase tracking-wider text-emerald-400 font-semibold mb-2 flex items-center gap-1.5">
@@ -682,7 +772,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Прогноз */}
                 {aiInsight.forecast && (
                   <p className="text-[11px] text-zinc-500 italic pt-1 border-t border-zinc-900">
                     <strong className="text-zinc-400 not-italic">Прогноз:</strong> {aiInsight.forecast}
