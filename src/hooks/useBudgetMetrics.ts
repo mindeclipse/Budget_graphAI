@@ -3,6 +3,7 @@ import { Transaction, RecurringItem } from "@/types/finance";
 import { CATEGORY_COLORS } from "@/constants/categories";
 
 const ESTIMATED_USD_RATE = 44.5;
+const CYCLE_DURATION_DAYS = 30; // Стандартна тривалість зарплатного циклу
 
 function getPreviousMonthKey(monthKey: string): string {
   const [year, month] = monthKey.split("-").map(Number);
@@ -74,7 +75,7 @@ export function useBudgetMetrics({
     });
   }, [selectedDate]);
 
-  // 1. УСІ витрати обраного місяця (завжди показуються у списку та в MoM)
+  // 1. Усі календарні витрати обраного місяця (для журналу та MoM-порівняння)
   const monthTransactions = useMemo(() => {
     return transactions.filter((t) => {
       const d = new Date(t.created_at);
@@ -87,8 +88,8 @@ export function useBudgetMetrics({
     });
   }, [transactions, selectedMonthKey]);
 
-  // 2. Транзакції, що входять у розрахунок поточного бюджету
-  // (Якщо це поточний місяць і є активний цикл — беремо від дати циклу, інакше — весь місяць)
+  // 2. Транзакції, що входять у розрахунок ліміту активного циклу
+  // Якщо є активний цикл — фільтруємо напряму з transactions від дати старту циклу
   const budgetTransactions = useMemo(() => {
     if (!isCurrentMonth || !activeCycle) {
       return monthTransactions;
@@ -97,15 +98,16 @@ export function useBudgetMetrics({
     const cycleStart = new Date(activeCycle.start_date).getTime();
     const cycleEnd = activeCycle.end_date
       ? new Date(activeCycle.end_date).getTime()
-      : Infinity;
+      : Infinity; // Поки цикл триває, враховуються всі витрати після дати старту
 
-    return monthTransactions.filter((t) => {
+    return transactions.filter((t) => {
+      if (t.exclude_from_budget || t.type !== "expense") return false;
       const txTime = new Date(t.created_at).getTime();
       return txTime >= cycleStart && txTime <= cycleEnd;
     });
-  }, [monthTransactions, isCurrentMonth, activeCycle]);
+  }, [transactions, monthTransactions, isCurrentMonth, activeCycle]);
 
-  // Ліміт бюджету (для поточного циклу береться його ліміт)
+  // Ліміт бюджету (для активного циклу береться встановлена сума циклу)
   const effectiveLimit = useMemo(() => {
     return isCurrentMonth && activeCycle?.budget_limit
       ? Number(activeCycle.budget_limit)
@@ -128,6 +130,7 @@ export function useBudgetMetrics({
     });
   }, [transactions, prevMonthKey]);
 
+  // Сума обов'язкових регулярних платежів
   const recurringTotal = useMemo(() => {
     return recurring
       .filter((r) => r.is_active)
@@ -137,21 +140,36 @@ export function useBudgetMetrics({
       }, 0);
   }, [recurring]);
 
-  // Витрати саме поточної каденції/бюджету
+  // Фактично витрачено в межах активного вікна
   const totalSpent = useMemo(() => {
     return budgetTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
   }, [budgetTransactions]);
 
-  // Показники прогресу бюджету
+  // Розрахунок метрик прогресу бюджету
   const budgetMetrics = useMemo<BudgetMetricsResult>(() => {
-    const totalDaysInMonth = new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth() + 1,
-      0
-    ).getDate();
-
     let daysRemaining = 0;
-    if (isCurrentMonth) {
+
+    if (activeCycle && isCurrentMonth) {
+      // Розрахунок за вікном зарплатного циклу (+30 днів від дати натискання "Новий цикл")
+      const cycleStart = new Date(activeCycle.start_date);
+      const cycleEnd = activeCycle.end_date
+        ? new Date(activeCycle.end_date)
+        : new Date(
+            cycleStart.getTime() + CYCLE_DURATION_DAYS * 24 * 60 * 60 * 1000
+          );
+
+      const diffMs = cycleEnd.getTime() - now.getTime();
+      const msPerDay = 1000 * 60 * 60 * 24;
+
+      // Округляємо дні догори: у день старту циклу залишок становитиме 30 днів
+      daysRemaining = Math.max(0, Math.ceil(diffMs / msPerDay));
+    } else if (isCurrentMonth) {
+      // Фоллбек на стандартний календарний місяць, якщо цикл не запущено
+      const totalDaysInMonth = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth() + 1,
+        0
+      ).getDate();
       daysRemaining = Math.max(1, totalDaysInMonth - now.getDate() + 1);
     }
 
@@ -160,6 +178,7 @@ export function useBudgetMetrics({
     const spentPercent =
       variableBudget > 0 ? (totalSpent / variableBudget) * 100 : 100;
 
+    // Безпечний щоденний ліміт спирається на дні активного циклу
     const safeDailySpend =
       daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
 
@@ -182,10 +201,11 @@ export function useBudgetMetrics({
     recurringTotal,
     selectedDate,
     isCurrentMonth,
+    activeCycle,
     now,
   ]);
 
-  // Категорії та щоденний графік
+  // Структура витрат за категоріями
   const categoryStats = useMemo<CategoryStatItem[]>(() => {
     const stats: Record<string, number> = {};
     budgetTransactions.forEach((t) => {
@@ -204,6 +224,7 @@ export function useBudgetMetrics({
       .sort((a, b) => b.amount - a.amount);
   }, [budgetTransactions, totalSpent]);
 
+  // Щоденна динаміка для графіка
   const dailyStats = useMemo<DailyStatItem[]>(() => {
     const daysMap: Record<string, number> = {};
     budgetTransactions.forEach((t) => {
@@ -222,8 +243,8 @@ export function useBudgetMetrics({
   return {
     selectedMonthKey,
     monthLabel,
-    monthTransactions, // 👈 Усі транзакції для списку
-    budgetTransactions, // 👈 Транзакції для підрахунку ліміту й Burn Rate
+    monthTransactions,
+    budgetTransactions,
     filteredTransactions: budgetTransactions,
     prevMonthKey,
     previousMonthTransactions,
