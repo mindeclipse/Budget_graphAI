@@ -3,37 +3,40 @@ import { sendTelegramMessage } from "@/lib/telegram";
 
 const ESTIMATED_USD_RATE = 44.5;
 
-export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
-  const supabase = getSupabaseAdmin();
-  const now = new Date();
-
-  // Локальна дата за київським часом (YYYY-MM-DD)
-  const kyivDateStr = new Intl.DateTimeFormat("en-CA", {
+function getKyivDateString(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Kyiv",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(now);
+  }).format(new Date(date));
+}
 
-  const startOfMonth = `${kyivDateStr.slice(0, 7)}-01T00:00:00Z`;
-  const startOfDay = `${kyivDateStr}T00:00:00Z`;
+export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
+  const supabase = getSupabaseAdmin();
+  const now = new Date();
 
-  // 1. Перевірка дедуплікації за сьогодні
+  const kyivTodayStr = getKyivDateString(now);
+  const kyivMonthStr = kyivTodayStr.slice(0, 7); // "YYYY-MM"
+  const startOfMonthIso = `${kyivMonthStr}-01T00:00:00Z`;
+
+  // 1. Дедуплікація сповіщень за сьогодні
   const { data: existingAlert } = await supabase
     .from("budget_alerts")
     .select("id")
-    .eq("alert_date", kyivDateStr)
+    .eq("alert_date", kyivTodayStr)
     .eq("alert_type", "daily_85_percent")
     .maybeSingle();
 
   if (existingAlert) {
+    console.log("[BudgetAlert] Already notified today:", kyivTodayStr);
     return { alerted: false, reason: "already_notified_today" };
   }
 
-  // 2. Отримуємо місячний ліміт (якщо не передано — читаємо 35000 або з налаштувань)
+  // 2. Місячний ліміт
   const budgetLimit = customBudgetLimit || 35000;
 
-  // 3. Завантажуємо активні постійні витрати
+  // 3. Завантаження активних постійних витрат
   const { data: recurringItems } = await supabase
     .from("recurring_templates")
     .select("amount, currency, is_active")
@@ -44,37 +47,38 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
     return sum + (r.currency === "USD" ? amt * ESTIMATED_USD_RATE : amt);
   }, 0);
 
-  // 4. Завантажуємо витрати поточного місяця
-  const { data: monthTransactions, error } = await supabase
+  // 4. Отримання транзакцій поточного місяця (враховуємо все, крім явних income)
+  const { data: rawTransactions, error } = await supabase
     .from("transactions")
     .select("amount, created_at, type")
-    .gte("created_at", startOfMonth)
-    .eq("type", "expense");
+    .gte("created_at", startOfMonthIso);
 
-  if (error || !monthTransactions) {
-    console.error("Error fetching transactions for alert:", error);
+  if (error || !rawTransactions) {
+    console.error("[BudgetAlert] Error fetching transactions:", error);
     return { alerted: false, error };
   }
 
-  const totalSpentMonth = monthTransactions.reduce(
+  const monthExpenses = rawTransactions.filter((t) => t.type !== "income");
+
+  const totalSpentMonth = monthExpenses.reduce(
     (sum, t) => sum + Number(t.amount || 0),
     0
   );
 
-  // Витрати за поточну добу
-  const todayTransactions = monthTransactions.filter(
-    (t) => t.created_at >= startOfDay
+  // Фільтрація операцій саме за сьогоднішню добу за Києвом
+  const todayTransactions = monthExpenses.filter(
+    (t) => getKyivDateString(t.created_at) === kyivTodayStr
   );
+
   const totalSpentToday = todayTransactions.reduce(
     (sum, t) => sum + Number(t.amount || 0),
     0
   );
 
-  // 5. Точна математика вільного залишку
-  const [year, month] = kyivDateStr.split("-").map(Number);
+  // 5. Розрахунок лімітів
+  const [year, month, day] = kyivTodayStr.split("-").map(Number);
   const totalDaysInMonth = new Date(year, month, 0).getDate();
-  const currentDay = Number(kyivDateStr.split("-")[2]);
-  const daysRemaining = Math.max(1, totalDaysInMonth - currentDay + 1);
+  const daysRemaining = Math.max(1, totalDaysInMonth - day + 1);
 
   const variableBudget = Math.max(0, budgetLimit - recurringTotal);
   const remaining = variableBudget - totalSpentMonth;
@@ -83,7 +87,19 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
 
   const threshold85 = safeDailySpend * 0.85;
 
-  // 6. Якщо витрати перевищили 85% від денного ліміту (або якщо денний ліміт уже 0 через оверспенд)
+  // Діагностичний лог у Vercel
+  console.log("[BudgetAlert] Calculation:", {
+    date: kyivTodayStr,
+    todayTransactionsCount: todayTransactions.length,
+    totalSpentToday,
+    threshold85,
+    safeDailySpend,
+    variableBudget,
+    remaining,
+    daysRemaining,
+  });
+
+  // 6. Порівняння з порогом 85%
   if (totalSpentToday >= threshold85 && totalSpentToday > 0) {
     const percentSpent =
       safeDailySpend > 0
@@ -104,9 +120,10 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
 
     if (sent) {
       await supabase.from("budget_alerts").insert({
-        alert_date: kyivDateStr,
+        alert_date: kyivTodayStr,
         alert_type: "daily_85_percent",
       });
+      console.log("[BudgetAlert] Telegram notification successfully sent.");
       return { alerted: true, totalSpentToday, safeDailySpend };
     }
   }
