@@ -23,6 +23,10 @@ import {
   HelpCircle,
   TrendingUp,
   Receipt,
+  Pencil,
+  Check,
+  Calendar,
+  AlertTriangle,
 } from "lucide-react";
 
 interface Transaction {
@@ -63,7 +67,18 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
 
+  // Бюджет із Supabase
+  const [budgetLimit, setBudgetLimit] = useState<number>(30000);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [tempBudgetInput, setTempBudgetInput] = useState("30000");
+
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
   useEffect(() => {
+    // 1. Отримання транзакцій
     const fetchTransactions = async () => {
       const { data } = await supabase
         .from("transactions")
@@ -73,9 +88,26 @@ export default function Dashboard() {
       if (data) setTransactions(data);
     };
 
-    fetchTransactions();
+    // 2. Отримання бюджету на поточний місяць із Supabase
+    const fetchBudget = async () => {
+      const { data } = await supabase
+        .from("budgets")
+        .select("amount")
+        .eq("month", currentMonthKey)
+        .maybeSingle();
 
-    const channel = supabase
+      if (data?.amount) {
+        const val = Number(data.amount);
+        setBudgetLimit(val);
+        setTempBudgetInput(val.toString());
+      }
+    };
+
+    fetchTransactions();
+    fetchBudget();
+
+    // 3. Realtime підписка на транзакції
+    const txChannel = supabase
       .channel("realtime-transactions")
       .on(
         "postgres_changes",
@@ -86,14 +118,74 @@ export default function Dashboard() {
       )
       .subscribe();
 
+    // 4. Realtime підписка на зміну бюджету (синхронізація Mac <-> iPhone)
+    const budgetChannel = supabase
+      .channel("realtime-budgets")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "budgets" },
+        (payload) => {
+          const updated = payload.new as { month: string; amount: number };
+          if (updated && updated.month === currentMonthKey) {
+            setBudgetLimit(Number(updated.amount));
+            setTempBudgetInput(updated.amount.toString());
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(txChannel);
+      supabase.removeChannel(budgetChannel);
     };
-  }, []);
+  }, [currentMonthKey]);
+
+  // Збереження бюджету в базі
+  const handleSaveBudget = async () => {
+    const parsed = parseFloat(tempBudgetInput);
+    if (!isNaN(parsed) && parsed > 0) {
+      setBudgetLimit(parsed);
+      await supabase
+        .from("budgets")
+        .upsert(
+          { month: currentMonthKey, amount: parsed, updated_at: new Date().toISOString() },
+          { onConflict: "month" }
+        );
+    }
+    setIsEditingBudget(false);
+  };
 
   const totalSpent = useMemo(() => {
     return transactions.reduce((acc, t) => acc + Number(t.amount), 0);
   }, [transactions]);
+
+  const budgetMetrics = useMemo(() => {
+    const now = new Date();
+    const totalDaysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0
+    ).getDate();
+    const currentDay = now.getDate();
+    const daysRemaining = Math.max(1, totalDaysInMonth - currentDay + 1);
+
+    const remaining = budgetLimit - totalSpent;
+    const spentPercent = budgetLimit > 0 ? (totalSpent / budgetLimit) * 100 : 0;
+    const safeDailySpend = remaining > 0 ? remaining / daysRemaining : 0;
+
+    let barColor = "#10B981";
+    if (spentPercent > 95) barColor = "#EF4444";
+    else if (spentPercent > 75) barColor = "#F59E0B";
+
+    return {
+      remaining,
+      spentPercent: Math.min(100, spentPercent),
+      exactPercent: spentPercent,
+      safeDailySpend,
+      daysRemaining,
+      barColor,
+    };
+  }, [totalSpent, budgetLimit]);
 
   const categoryStats = useMemo(() => {
     const stats: Record<string, number> = {};
@@ -129,8 +221,8 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-black text-white px-4 sm:px-8 lg:px-12 pt-28 pb-24 md:pt-10 max-w-7xl mx-auto font-sans antialiased">
-      {/* Верхня панель / Заголовок */}
-      <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-800/80 pb-6 gap-4">
+      {/* Верхня панель */}
+      <header className="mb-6 flex flex-col md:flex-row md:items-end justify-between border-b border-zinc-800/80 pb-6 gap-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-zinc-400 font-semibold mb-1 flex items-center gap-1.5">
             <TrendingUp size={14} className="text-emerald-400" /> Витрачено цього місяця
@@ -141,7 +233,7 @@ export default function Dashboard() {
           </h1>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-zinc-400">
+        <div className="flex items-center gap-3 text-xs text-zinc-400">
           <div className="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg">
             Всього транзакцій: <span className="text-white font-semibold">{transactions.length}</span>
           </div>
@@ -151,7 +243,91 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Мобільні таби (ховаються на десктопі завдяки md:hidden) */}
+      {/* КАРТКА МІСЯЧНОГО БЮДЖЕТУ */}
+      <section className="mb-8 bg-zinc-950 border border-zinc-900 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
+              Місячний ліміт
+            </span>
+            {budgetMetrics.exactPercent > 100 && (
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-400 bg-rose-950/50 border border-rose-800/50 px-2 py-0.5 rounded-full">
+                <AlertTriangle size={12} /> Переліміт
+              </span>
+            )}
+          </div>
+
+          {isEditingBudget ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={tempBudgetInput}
+                onChange={(e) => setTempBudgetInput(e.target.value)}
+                className="w-28 bg-zinc-900 border border-zinc-700 text-white text-xs px-2.5 py-1 rounded-lg focus:outline-none focus:border-emerald-500"
+                autoFocus
+              />
+              <button
+                onClick={handleSaveBudget}
+                className="bg-emerald-600 hover:bg-emerald-500 p-1.5 rounded-lg text-white transition-all"
+              >
+                <Check size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingBudget(true)}
+              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 px-2.5 py-1 rounded-lg transition-all"
+            >
+              <span className="font-semibold text-zinc-200">
+                {budgetLimit.toLocaleString("uk-UA")} ₴
+              </span>
+              <Pencil size={11} className="text-zinc-500" />
+            </button>
+          )}
+        </div>
+
+        <div className="h-2 w-full bg-zinc-900 rounded-full overflow-hidden mb-4 border border-zinc-800/60">
+          <div
+            className="h-full rounded-full transition-all duration-700 ease-out"
+            style={{
+              width: `${budgetMetrics.spentPercent}%`,
+              backgroundColor: budgetMetrics.barColor,
+            }}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1 border-t border-zinc-900 text-xs">
+          <div>
+            <p className="text-zinc-500 mb-0.5">Залишок бюджету</p>
+            <p
+              className={`font-bold text-sm ${
+                budgetMetrics.remaining < 0 ? "text-rose-400" : "text-white"
+              }`}
+            >
+              {budgetMetrics.remaining.toLocaleString("uk-UA", {
+                minimumFractionDigits: 2,
+              })}{" "}
+              ₴
+            </p>
+          </div>
+
+          <div>
+            <p className="text-zinc-500 mb-0.5">Безпечно на день</p>
+            <p className="font-bold text-sm text-zinc-200">
+              ~{Math.round(budgetMetrics.safeDailySpend).toLocaleString("uk-UA")} ₴/д
+            </p>
+          </div>
+
+          <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5 text-zinc-400">
+            <Calendar size={13} className="text-zinc-500 shrink-0" />
+            <span>
+              Залишилось <strong className="text-zinc-200">{budgetMetrics.daysRemaining}</strong> дн.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Мобільні таби */}
       <div className="flex md:hidden bg-zinc-900/80 p-1 rounded-xl mb-6 border border-zinc-800">
         <button
           onClick={() => setActiveTab("overview")}
@@ -175,16 +351,14 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Основна 2-колонкова сітка на десктопі */}
+      {/* Основна сітка */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-        
-        {/* ЛІВА КОЛОНКА: Графік + Категорії (7 колонок з 12) */}
+        {/* Ліва колонка */}
         <section
           className={`md:col-span-7 space-y-6 ${
             activeTab === "overview" ? "block" : "hidden md:block"
           }`}
         >
-          {/* Графік */}
           <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-900 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">
@@ -240,7 +414,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Розподіл за категоріями */}
           <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-900 shadow-sm">
             <h2 className="text-xs uppercase tracking-wider text-zinc-400 font-semibold mb-4">
               Структура витрат за категоріями
@@ -277,7 +450,6 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Прогрес-бар */}
                       <div className="h-1.5 w-full bg-zinc-800/80 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700 ease-out"
@@ -295,7 +467,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* ПРАВА КОЛОНКА: Останні операції (5 колонок з 12) */}
+        {/* Права колонка */}
         <section
           className={`md:col-span-5 ${
             activeTab === "history" ? "block" : "hidden md:block"
@@ -360,7 +532,6 @@ export default function Dashboard() {
             )}
           </div>
         </section>
-
       </div>
     </main>
   );
