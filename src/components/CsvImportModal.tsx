@@ -3,7 +3,7 @@
 import React, { useRef, useState } from "react";
 import {
   Upload,
-  FileText,
+  FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -49,11 +49,11 @@ export function CsvImportModal({ onSuccess }: CsvImportModalProps) {
         text: `Успішно імпортовано нових операцій: ${data.imported_count} (із ${data.total_rows})`,
       });
 
-      onSuccess();
       setTimeout(() => {
         setIsOpen(false);
         setStatus(null);
-      }, 2000);
+        onSuccess();
+      }, 1500);
     } catch (err: any) {
       setStatus({ type: "error", text: err.message });
     } finally {
@@ -66,10 +66,11 @@ export function CsvImportModal({ onSuccess }: CsvImportModalProps) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+        className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+        title="Імпорт виписки з банку"
       >
         <Upload size={14} />
-        Імпорт Приват24 (CSV)
+        <span className="hidden sm:inline">Імпорт Приват24</span>
       </button>
 
       {isOpen && (
@@ -77,7 +78,7 @@ export function CsvImportModal({ onSuccess }: CsvImportModalProps) {
           <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-xl">
             <div className="flex items-center justify-between pb-4">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-                <FileText size={16} className="text-zinc-400" />
+                <FileSpreadsheet size={16} className="text-zinc-400" />
                 Імпорт виписки ПриватБанку
               </h3>
               <button
@@ -89,8 +90,9 @@ export function CsvImportModal({ onSuccess }: CsvImportModalProps) {
             </div>
 
             <p className="text-xs text-zinc-400">
-              Завантажте експортований з Приват24 файл <code>.csv</code>.
-              Система автоматично відфільтрує дублікати операцій.
+              Підтримуються оригінальні файли <b>.xlsx</b> та <b>.csv</b> прямо
+              з Приват24. Дублікати вже внесених операцій відфільтровуються
+              автоматично.
             </p>
 
             <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 p-6 text-center">
@@ -118,7 +120,7 @@ export function CsvImportModal({ onSuccess }: CsvImportModalProps) {
                   onClick={() => fileInputRef.current?.click()}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-500"
                 >
-                  Обрати CSV файл
+                  Обрати XLSX або CSV файл
                 </button>
               )}
             </div>
