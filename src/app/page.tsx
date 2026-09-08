@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { BurnRateChart } from "@/components/BurnRateChart";
+import { MoMComparison } from "@/components/MoMComparison";
 import {
   BarChart,
   Bar,
@@ -105,6 +106,14 @@ const CATEGORY_ICONS: Record<string, any> = {
   Благодійність: HandHeart,
   Інше: HelpCircle,
 };
+
+function getPreviousMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  const prevDate = new Date(year, month - 2, 1);
+  const prevYear = prevDate.getFullYear();
+  const prevMonth = String(prevDate.getMonth() + 1).padStart(2, "0");
+  return `${prevYear}-${prevMonth}`;
+}
 
 export default function Dashboard() {
   // Стан аутентифікації
@@ -289,6 +298,19 @@ export default function Dashboard() {
       return key === selectedMonthKey;
     });
   }, [transactions, selectedMonthKey]);
+
+  const prevMonthKey = useMemo(
+    () => getPreviousMonthKey(selectedMonthKey),
+    [selectedMonthKey]
+  );
+
+  const previousMonthTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      const d = new Date(t.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return key === prevMonthKey;
+    });
+  }, [transactions, prevMonthKey]);
 
   const recurringTotal = useMemo(() => {
     return recurring
@@ -1063,6 +1085,25 @@ export default function Dashboard() {
               transactions={filteredTransactions}
               budgetLimit={budgetLimit}
               selectedMonthKey={selectedMonthKey}
+            />
+          </div>
+
+          {/* 1. Графік темпу спалювання бюджету */}
+          <div className="mb-6">
+            <BurnRateChart
+              transactions={filteredTransactions}
+              budgetLimit={budgetLimit}
+              selectedMonthKey={selectedMonthKey}
+            />
+          </div>
+
+          {/* 2. Порівняння з минулим місяцем (MoM) */}
+          <div className="mb-6">
+            <MoMComparison
+              currentTransactions={filteredTransactions}
+              previousTransactions={previousMonthTransactions}
+              currentMonthLabel="Цей місяць"
+              previousMonthLabel="Мин. місяць"
             />
           </div>
 
