@@ -7,6 +7,7 @@ import { BurnRateChart } from "@/components/BurnRateChart";
 import { MoMComparison } from "@/components/MoMComparison";
 import { RecurringModal } from "@/components/RecurringModal";
 import { TransactionActionSheet } from "@/components/TransactionActionSheet";
+import { CategoryDetailModal } from "@/components/CategoryDetailModal";
 import { Transaction, RecurringItem, AIInsightData } from "@/types/finance";
 import { CATEGORY_COLORS, CATEGORY_ICONS } from "@/constants/categories";
 import { useAutoLock } from "@/hooks/useAutoLock";
@@ -104,6 +105,7 @@ export default function Dashboard() {
   const [isExecutingRecurring, setIsExecutingRecurring] = useState<
     number | null
   >(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Gemini AI аналітика
   const [aiInsight, setAiInsight] = useState<AIInsightData | null>(null);
@@ -907,7 +909,8 @@ export default function Dashboard() {
                   return (
                     <div
                       key={cat.name}
-                      className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3.5 transition-all hover:border-zinc-700/70"
+                      onClick={() => setSelectedCategory(cat.name)}
+                      className="cursor-pointer rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3.5 transition-all hover:border-zinc-700/70 hover:bg-zinc-900/70 active:scale-[0.99]"
                     >
                       <div className="mb-2.5 flex items-center justify-between">
                         <div className="flex items-center space-x-3">
@@ -1128,6 +1131,16 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      {/* Деталізація витрат по вибраній категорії */}
+      <CategoryDetailModal
+        categoryName={selectedCategory}
+        transactions={filteredTransactions}
+        onClose={() => setSelectedCategory(null)}
+        onSelectTransaction={(tx) => {
+          setSelectedTx(tx);
+        }}
+      />
 
       {/* Відокремлена модалка підписок */}
       <RecurringModal
