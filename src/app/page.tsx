@@ -58,6 +58,7 @@ interface RecurringItem {
   id: number;
   title: string;
   amount: number;
+  currency?: "UAH" | "USD";
   category_name: string;
   day_of_month: number;
   is_active: boolean;
@@ -124,6 +125,9 @@ export default function Dashboard() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [recurring, setRecurring] = useState<RecurringItem[]>([]);
+  const [recurringCurrency, setRecurringCurrency] = useState<"UAH" | "USD">(
+    "UAH"
+  );
   const [activeTab, setActiveTab] = useState<
     "overview" | "history" | "recurring"
   >("overview");
@@ -422,6 +426,7 @@ export default function Dashboard() {
     setEditingRecurring(null);
     setRecTitleInput("");
     setRecAmountInput("");
+    setRecurringCurrency("UAH"); // скидання валюти
     setRecCategoryInput("Підписки та сервіси");
     setRecDayInput("1");
     setIsAddingRecurring(true);
@@ -431,6 +436,7 @@ export default function Dashboard() {
     setEditingRecurring(item);
     setRecTitleInput(item.title);
     setRecAmountInput(item.amount.toString());
+    setRecurringCurrency(item.currency || "UAH"); // підтягуємо збережену валюту
     setRecCategoryInput(item.category_name);
     setRecDayInput(item.day_of_month.toString());
     setIsAddingRecurring(true);
@@ -446,6 +452,7 @@ export default function Dashboard() {
         id: editingRecurring.id,
         title: recTitleInput,
         amount: amt,
+        currency: recurringCurrency, // передаємо валюту в PATCH
         category_name: recCategoryInput,
         day_of_month: parseInt(recDayInput) || 1,
       };
@@ -466,6 +473,7 @@ export default function Dashboard() {
       const newItem = {
         title: recTitleInput,
         amount: amt,
+        currency: recurringCurrency,
         category_name: recCategoryInput,
         day_of_month: parseInt(recDayInput) || 1,
         is_active: true,
@@ -476,10 +484,12 @@ export default function Dashboard() {
         .insert(newItem)
         .select()
         .single();
+
       if (data) {
         setRecurring((prev) => [...prev, data as RecurringItem]);
       }
       setIsAddingRecurring(false);
+      setRecurringCurrency("UAH");
     }
   };
 
@@ -498,10 +508,22 @@ export default function Dashboard() {
     setIsSubmittingRecurring(item.id);
 
     try {
+      const isUsd = item.currency === "USD";
+      let finalAmount = Number(item.amount);
+      let merchantTitle = item.title;
+
+      if (isUsd) {
+        // Отримуємо актуальний картковий курс через існуючий утилітний бекенд-ендпоінт або фіксований курс
+        const rateRes = await fetch("/api/currency/rate").catch(() => null);
+        const rateData = rateRes?.ok ? await rateRes.json() : { rate: 41.8 };
+        finalAmount = Math.round(Number(item.amount) * rateData.rate);
+        merchantTitle = `${item.title} ($${item.amount})`;
+      }
+
       const newTx = {
-        amount: item.amount,
+        amount: finalAmount,
         currency: "UAH",
-        merchant_raw: item.title,
+        merchant_raw: merchantTitle,
         category_name: item.category_name,
         source: "recurring",
         type: "expense",
@@ -1149,7 +1171,9 @@ export default function Dashboard() {
                         onClick={() => handleOpenEditRecurring(item)}
                         className="cursor-pointer text-xs font-bold text-white hover:underline"
                       >
-                        {Number(item.amount).toLocaleString("uk-UA")} ₴
+                        {item.currency === "USD"
+                          ? `$${Number(item.amount).toFixed(item.amount % 1 === 0 ? 0 : 2)}`
+                          : `${Number(item.amount).toLocaleString("uk-UA")} ₴`}
                       </span>
                       <button
                         onClick={() => handleExecuteRecurring(item)}
@@ -1273,15 +1297,28 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-[11px] font-semibold text-zinc-400">
-                    Сума (UAH)
+                    Сума та валюта
                   </label>
-                  <input
-                    type="number"
-                    placeholder="15000"
-                    value={recAmountInput}
-                    onChange={(e) => setRecAmountInput(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
-                  />
+                  <div className="flex gap-1.5">
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="100"
+                      value={recAmountInput}
+                      onChange={(e) => setRecAmountInput(e.target.value)}
+                      className="w-full min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-zinc-600 focus:outline-none"
+                    />
+                    <select
+                      value={recurringCurrency}
+                      onChange={(e) =>
+                        setRecurringCurrency(e.target.value as "UAH" | "USD")
+                      }
+                      className="rounded-xl border border-zinc-800 bg-zinc-900 px-2 py-2 text-xs font-semibold text-zinc-300 focus:border-zinc-600 focus:outline-none"
+                    >
+                      <option value="UAH">₴</option>
+                      <option value="USD">$</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-semibold text-zinc-400">
