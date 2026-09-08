@@ -47,6 +47,8 @@ import {
   HelpCircle,
   Fingerprint,
   LogOut,
+  Search,
+  X,
 } from "lucide-react";
 
 /** Резервний курс для ручного списання USD, якщо API банку тимчасово недоступне */
@@ -96,6 +98,42 @@ export default function Dashboard() {
     budgetLimit,
     selectedDate,
   });
+
+  // Стани для рядка пошуку та обраного тегу
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  // Збір усіх унікальних тегів із транзакцій поточного місяця
+  const availableTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    filteredTransactions.forEach((tx) => {
+      tx.tags?.forEach((tag) => tagsSet.add(tag));
+    });
+    return Array.from(tagsSet);
+  }, [filteredTransactions]);
+
+  // Транзакції для відображення у списку (місяць + активний тег + текст пошуку)
+  const displayedTransactions = useMemo(() => {
+    return filteredTransactions.filter((t) => {
+      // Фільтр за активним тегом (якщо обрано)
+      if (activeTag && (!t.tags || !t.tags.includes(activeTag))) {
+        return false;
+      }
+
+      // Якщо пошуковий рядок порожній — показуємо все
+      if (!searchQuery.trim()) return true;
+
+      const query = searchQuery.toLowerCase().trim();
+      const merchantMatch = t.merchant_raw?.toLowerCase().includes(query);
+      const categoryMatch = t.category_name?.toLowerCase().includes(query);
+      const amountMatch = String(t.amount).includes(query);
+      const tagsMatch = t.tags?.some((tag) =>
+        tag.toLowerCase().includes(query.replace(/^#/, ""))
+      );
+
+      return merchantMatch || categoryMatch || amountMatch || tagsMatch;
+    });
+  }, [filteredTransactions, activeTag, searchQuery]);
 
   // Стани модальних вікон
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
@@ -1077,8 +1115,68 @@ export default function Dashboard() {
                 місяць
               </h2>
               <span className="text-xs text-zinc-500">
-                {filteredTransactions.length} оп.
+                {displayedTransactions.length} оп.
               </span>
+            </div>
+
+            {/* Панель пошуку та фільтрації за тегами */}
+            <div className="mb-4 space-y-2.5">
+              <div className="relative flex items-center">
+                <Search
+                  size={15}
+                  className="pointer-events-none absolute left-3.5 text-zinc-500"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Пошук за мерчантом, сумою чи категорією..."
+                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/60 py-2.5 pr-9 pl-9 text-xs text-white placeholder-zinc-500 transition-all focus:border-zinc-700 focus:bg-zinc-900 focus:outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 rounded-lg p-0.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {availableTags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="mr-1 text-[11px] font-medium text-zinc-500">
+                    Теги:
+                  </span>
+                  {availableTags.map((tag) => {
+                    const isActive = activeTag === tag;
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setActiveTag(isActive ? null : tag)}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all ${
+                          isActive
+                            ? "border border-sky-500/50 bg-sky-500/15 font-semibold text-sky-400"
+                            : "border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    );
+                  })}
+                  {activeTag && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTag(null)}
+                      className="rounded-lg px-2 py-1 text-[10px] text-zinc-500 underline underline-offset-2 hover:text-zinc-300"
+                    >
+                      Скинути
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {filteredTransactions.length === 0 ? (
@@ -1089,9 +1187,28 @@ export default function Dashboard() {
                   У цьому місяці витрат не зафіксовано
                 </p>
               </div>
+            ) : displayedTransactions.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/30 p-8 text-center">
+                <p className="text-sm font-medium text-zinc-400">
+                  Нічого не знайдено
+                </p>
+                <p className="mt-1 text-xs text-zinc-600">
+                  За вашим фільтром немає відповідних транзакцій
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setActiveTag(null);
+                  }}
+                  className="mt-3 inline-flex items-center rounded-xl bg-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 hover:text-white"
+                >
+                  Очистити пошук
+                </button>
+              </div>
             ) : (
               <div className="max-h-[500px] space-y-2.5 overflow-y-auto pr-1">
-                {filteredTransactions.map((t) => {
+                {displayedTransactions.map((t) => {
                   const IconComponent =
                     CATEGORY_ICONS[t.category_name] || HelpCircle;
                   const iconColor =
