@@ -61,6 +61,11 @@ export interface AIChatFinancialContext {
     amount: number;
     daysRemaining: number;
   }>;
+  wishlistCount?: number;
+  wishlistPendingAmount?: number;
+  savedImpulseAmount?: number;
+  costPerUseCount?: number;
+  costPerUseTotalSaved?: number;
 }
 
 export interface AIChatRequest {

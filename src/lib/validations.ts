@@ -107,3 +107,65 @@ export const transactionSplitSchema = z.object({
     )
     .min(2, "Для спліту необхідно щонайменше 2 частини"),
 });
+
+export const wishlistItemSchema = z.object({
+  title: z.string().trim().min(1, "Назва бажання обов'язкова").max(200),
+  estimated_price: z
+    .number()
+    .positive("Орієнтовна сума має бути більшою за нуль")
+    .max(100_000_000),
+  currency: z.enum(["UAH", "USD", "EUR", "PLN"]).default("UAH"),
+  category_name: z.string().trim().min(1).max(100).default("Інше"),
+  url: z.string().url("Некоректне посилання").nullable().optional().or(z.literal("")),
+  notes: z.string().trim().max(1000).nullable().optional(),
+  cooling_days: z
+    .number()
+    .int()
+    .min(1, "Період охолодження має бути щонайменше 1 день")
+    .max(365)
+    .default(14),
+  cooling_end_date: z.string().optional(),
+});
+
+export const wishlistItemUpdateSchema = wishlistItemSchema.partial().extend({
+  id: z.coerce.number().int().positive("ID повинен бути додатним числом"),
+  status: z.enum(["cooling", "ready", "purchased", "saved"]).optional(),
+  resolved_at: z.string().nullable().optional(),
+});
+
+export const wishlistResolveSchema = z.object({
+  id: z.coerce.number().int().positive("ID обов'язковий"),
+  action: z.enum(["saved", "purchased", "extend"]),
+  extend_days: z.number().int().positive().optional(),
+});
+
+export const costPerUseSchema = z.object({
+  item_name: z.string().trim().min(1, "Назва речі обов'язкова").max(200),
+  category_name: z.string().trim().min(1).max(100).default("Інше"),
+  purchase_price: z
+    .number()
+    .positive("Вартість покупки має бути більшою за нуль")
+    .max(100_000_000),
+  currency: z.enum(["UAH", "USD", "EUR", "PLN"]).default("UAH"),
+  purchase_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Дата повинна бути у форматі РРРР-ММ-ДД")
+    .optional(),
+  total_uses: z.number().int().min(0).default(1),
+  benchmark_cost_per_use: z.number().positive().nullable().optional(),
+  target_cost_per_use: z.number().positive().nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const costPerUseUpdateSchema = costPerUseSchema.partial().extend({
+  id: z.coerce.number().int().positive("ID повинен бути додатним числом"),
+  total_uses: z.number().int().min(0).optional(),
+  last_used_at: z.string().nullable().optional(),
+});
+
+export const costPerUseActionSchema = z.object({
+  id: z.coerce.number().int().positive("ID обов'язковий"),
+  action: z.literal("log_use"),
+  increment: z.number().int().positive().default(1),
+});
+

@@ -25,6 +25,8 @@ import { TransactionsList } from "@/components/dashboard/TransactionsList";
 import { RecurringSection } from "@/components/dashboard/RecurringSection";
 import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
 import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
+import { WishlistCard } from "@/components/dashboard/WishlistCard";
+import { CostPerUseCard } from "@/components/dashboard/CostPerUseCard";
 import { CapitalHistoryCard } from "@/components/dashboard/CapitalHistoryCard";
 import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { exportFinancialDataToExcel } from "@/lib/export-excel";
@@ -85,6 +87,8 @@ import {
   RecurringItem,
   SavingsGoal,
   InvestmentAsset,
+  WishlistItem,
+  CostPerUseItem,
 } from "@/types/finance";
 import {
   AIAnalysisResponse,
@@ -148,6 +152,14 @@ export default function Dashboard() {
   });
   const [splitTx, setSplitTx] = useState<Transaction | null>(null);
 
+  // Стан для усвідомлених покупок (Wishlist & Cost-per-Use)
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
+  const [wishlistSavedAmount, setWishlistSavedAmount] = useState<number>(0);
+  const [costPerUseItems, setCostPerUseItems] = useState<CostPerUseItem[]>([]);
+  const [costPerUseSavedAmount, setCostPerUseSavedAmount] = useState<number>(0);
+  const [prefillCostPerUse, setPrefillCostPerUse] =
+    useState<Partial<CostPerUseItem> | null>(null);
+
   // 4. Оптимістичні мутації транзакцій
   const {
     updateTransaction,
@@ -180,14 +192,23 @@ export default function Dashboard() {
     }
   };
 
-  // Завантаження скарбничок, інвестицій, лімітів категорій та курсів валют
+  // Завантаження скарбничок, інвестицій, лімітів категорій, курсів валют та усвідомлених покупок
   const loadWealthData = async () => {
     try {
-      const [goalsRes, investRes, catBudgetsRes, ratesRes] = await Promise.all([
+      const [
+        goalsRes,
+        investRes,
+        catBudgetsRes,
+        ratesRes,
+        wishlistRes,
+        costPerUseRes,
+      ] = await Promise.all([
         fetch("/api/savings-goals").catch(() => null),
         fetch("/api/investments").catch(() => null),
         fetch("/api/category-budgets").catch(() => null),
         fetch("/api/currency/rate").catch(() => null),
+        fetch("/api/wishlist").catch(() => null),
+        fetch("/api/cost-per-use").catch(() => null),
       ]);
 
       if (goalsRes?.ok) {
@@ -210,6 +231,20 @@ export default function Dashboard() {
         const data = await ratesRes.json();
         if (data.rates) {
           setCommercialRates(data.rates);
+        }
+      }
+      if (wishlistRes?.ok) {
+        const data = await wishlistRes.json();
+        setWishlistItems(data.items || []);
+        if (data.metrics?.saved_amount !== undefined) {
+          setWishlistSavedAmount(data.metrics.saved_amount);
+        }
+      }
+      if (costPerUseRes?.ok) {
+        const data = await costPerUseRes.json();
+        setCostPerUseItems(data.items || []);
+        if (data.metrics?.total_money_saved !== undefined) {
+          setCostPerUseSavedAmount(data.metrics.total_money_saved);
         }
       }
     } catch (err) {
@@ -310,6 +345,13 @@ export default function Dashboard() {
   );
 
   const aiFinancialContext = useMemo(() => {
+    const coolingCount = wishlistItems.filter(
+      (i) => i.status === "cooling" || i.status === "ready"
+    ).length;
+    const pendingAmount = wishlistItems
+      .filter((i) => i.status === "cooling" || i.status === "ready")
+      .reduce((sum, i) => sum + Number(i.estimated_price || 0), 0);
+
     return {
       cycleName: activeCycle?.name,
       budgetLimit: effectiveLimit,
@@ -330,6 +372,11 @@ export default function Dashboard() {
           amount: s.amount,
           daysRemaining: s.days_remaining,
         })),
+      wishlistCount: coolingCount,
+      wishlistPendingAmount: pendingAmount,
+      savedImpulseAmount: wishlistSavedAmount,
+      costPerUseCount: costPerUseItems.length,
+      costPerUseTotalSaved: costPerUseSavedAmount,
     };
   }, [
     activeCycle?.name,
@@ -341,6 +388,10 @@ export default function Dashboard() {
     categoryStats,
     aiAnalysis?.summary,
     radarData?.upcoming,
+    wishlistItems,
+    wishlistSavedAmount,
+    costPerUseItems.length,
+    costPerUseSavedAmount,
   ]);
 
   const handleRunAiAnalysis = async (
@@ -901,9 +952,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Вкладка 3: Капітал & Цілі (Скарбнички, Runway, Інвестиційний портфель та Окрема історія капіталу) */}
+      {/* Вкладка 3: Капітал & Цілі (Скарбнички, Runway, Інвестиційний портфель, Анти-імпульс, Cost-per-Use та Окрема історія капіталу) */}
       {activeTab === "wealth" && (
         <div className="space-y-6">
+          {/* Ряд 1: Скарбнички та Інвестиційний портфель */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <SavingsGoalsCard
               goals={savingsGoals}
@@ -917,7 +969,34 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Окрема історія операцій капіталу */}
+          {/* Ряд 2: Поведінкова психологія та усвідомлені покупки */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <WishlistCard
+              items={wishlistItems}
+              savedAmount={wishlistSavedAmount}
+              onRefresh={loadWealthData}
+              onConvertToCostPerUse={(wish) => {
+                setPrefillCostPerUse({
+                  item_name: wish.title,
+                  purchase_price: wish.estimated_price,
+                  currency: wish.currency,
+                  category_name: wish.category_name,
+                  notes: wish.notes || undefined,
+                  total_uses: 1,
+                  purchase_date: new Date().toISOString().split("T")[0],
+                });
+              }}
+            />
+            <CostPerUseCard
+              items={costPerUseItems}
+              totalMoneySaved={costPerUseSavedAmount}
+              onRefresh={loadWealthData}
+              prefillItem={prefillCostPerUse}
+              onClearPrefill={() => setPrefillCostPerUse(null)}
+            />
+          </div>
+
+          {/* Ряд 3: Окрема історія операцій капіталу */}
           <CapitalHistoryCard
             transactions={capitalTransactions}
             onSelectTransaction={setSelectedTx}

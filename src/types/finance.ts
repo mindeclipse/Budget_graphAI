@@ -61,3 +61,34 @@ export interface AIInsightData {
   saving_tactics: string[];
   forecast: string;
 }
+
+export interface WishlistItem {
+  id: number;
+  title: string;
+  estimated_price: number;
+  currency: string;
+  category_name: string;
+  url?: string | null;
+  notes?: string | null;
+  cooling_days: number;
+  cooling_end_date: string;
+  status: "cooling" | "ready" | "purchased" | "saved";
+  resolved_at?: string | null;
+  created_at: string;
+}
+
+export interface CostPerUseItem {
+  id: number;
+  item_name: string;
+  category_name: string;
+  purchase_price: number;
+  currency: string;
+  purchase_date: string;
+  total_uses: number;
+  benchmark_cost_per_use?: number | null;
+  target_cost_per_use?: number | null;
+  notes?: string | null;
+  last_used_at?: string | null;
+  created_at: string;
+}
+
