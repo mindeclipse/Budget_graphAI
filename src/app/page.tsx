@@ -97,6 +97,7 @@ export default function Dashboard() {
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [activeCycle, setActiveCycle] = useState<any>(null);
+  const [previousCycle, setPreviousCycle] = useState<any>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Окрема форма створення разової витрати
@@ -106,7 +107,7 @@ export default function Dashboard() {
   const { updateTransaction, createTransaction, deleteTransaction } =
     useTransactionMutations();
 
-  // Завантаження активного циклу
+  // Завантаження активного циклу та визначення попереднього
   const loadCycles = async () => {
     try {
       const res = await fetch("/api/cycles");
@@ -114,8 +115,18 @@ export default function Dashboard() {
       if (data.activeCycle) {
         setActiveCycle(data.activeCycle);
       }
+      if (Array.isArray(data.cycles) && data.cycles.length > 0) {
+        const activeIdx = data.cycles.findIndex(
+          (c: any) => c.id === data.activeCycle?.id || c.is_active
+        );
+        const prev =
+          activeIdx !== -1
+            ? data.cycles[activeIdx + 1] || null
+            : data.cycles[1] || null;
+        setPreviousCycle(prev);
+      }
     } catch (e) {
-      console.error("Failed to load active cycle:", e);
+      console.error("Failed to load cycles:", e);
     }
   };
 
@@ -143,6 +154,63 @@ export default function Dashboard() {
     selectedDate,
     activeCycle,
   });
+
+  // Фільтрація транзакцій за зарплатними циклами замість календарних місяців
+  const {
+    cycleCurrentTransactions,
+    cyclePreviousTransactions,
+    cycleCurrentLabel,
+    cyclePreviousLabel,
+  } = useMemo(() => {
+    // Якщо цикл не створено — повертаємо стандартні календарні місяці
+    if (!activeCycle) {
+      return {
+        cycleCurrentTransactions: monthTransactions,
+        cyclePreviousTransactions: previousMonthTransactions,
+        cycleCurrentLabel: monthLabel,
+        cyclePreviousLabel: "Мин. місяць",
+      };
+    }
+
+    const currentStart = new Date(activeCycle.start_date).getTime();
+    const currentEnd = activeCycle.end_date
+      ? new Date(activeCycle.end_date).getTime()
+      : Infinity;
+
+    // Транзакції поточного відкритого циклу
+    const curr = transactions.filter((t: any) => {
+      const txTime = new Date(t.created_at).getTime();
+      return txTime >= currentStart && txTime <= currentEnd;
+    });
+
+    // Транзакції попереднього циклу
+    let prev: any[] = [];
+    if (previousCycle) {
+      const prevStart = new Date(previousCycle.start_date).getTime();
+      const prevEnd = previousCycle.end_date
+        ? new Date(previousCycle.end_date).getTime()
+        : currentStart;
+
+      prev = transactions.filter((t: any) => {
+        const txTime = new Date(t.created_at).getTime();
+        return txTime >= prevStart && txTime < prevEnd;
+      });
+    }
+
+    return {
+      cycleCurrentTransactions: curr,
+      cyclePreviousTransactions: prev,
+      cycleCurrentLabel: activeCycle.name || "Поточний цикл",
+      cyclePreviousLabel: previousCycle?.name || "Мин. цикл",
+    };
+  }, [
+    activeCycle,
+    previousCycle,
+    transactions,
+    monthTransactions,
+    previousMonthTransactions,
+    monthLabel,
+  ]);
 
   // Керування AI-аналізом (Шторка)
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
@@ -874,8 +942,8 @@ export default function Dashboard() {
       </div>
 
       {/* Основна сітка */}
-      <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-12">
-        {/* Ліва колонка */}
+      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-12">
+        {/* ЛІВА КОЛОНКА: Контур аналітики (Intelligence & Trends) */}
         <section
           className={`space-y-6 md:col-span-7 ${
             activeTab === "overview" ? "block" : "hidden md:block"
@@ -929,7 +997,8 @@ export default function Dashboard() {
                         return null;
                       }}
                     />
-                    <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                    {/* Фіксуємо ширину стовпчиків через maxBarSize */}
+                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={32}>
                       {dailyStats.map((_, index) => (
                         <Cell key={`cell-${index}`} fill="#3B82F6" />
                       ))}
@@ -1005,7 +1074,20 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* 3. Очищена картка AI Фінансового Аналітика */}
+          {/* 3. Порівняння MoM — ПОВИННО БУТИ ТУТ (як окрема картка) */}
+          <MoMComparison
+            currentTransactions={cycleCurrentTransactions}
+            previousTransactions={cyclePreviousTransactions}
+            currentMonthLabel={cycleCurrentLabel}
+            previousMonthLabel={cyclePreviousLabel}
+            title={
+              activeCycle
+                ? "Порівняння з минулим циклом"
+                : "Порівняння з минулим місяцем"
+            }
+          />
+
+          {/* 4. AI Фінансовий Аналітик */}
           <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-950 p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -1036,7 +1118,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Права колонка */}
+        {/* ПРАВА КОЛОНКА: Операційний контур (Daily Actions & Cash Flow) */}
         <section
           className={`space-y-6 md:col-span-5 ${
             activeTab === "history" ? "block" : "hidden md:block"
@@ -1049,7 +1131,6 @@ export default function Dashboard() {
                 <Receipt size={14} className="text-zinc-500" /> Транзакції за
                 місяць
               </h2>
-
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1152,13 +1233,12 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : (
-              <div className="max-h-[520px] [scrollbar-width:thin] space-y-2 overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent">
+              <div className="max-h-[420px] [scrollbar-width:thin] space-y-2 overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent">
                 {displayedTransactions.map((t: Transaction) => {
                   const IconComponent =
                     CATEGORY_ICONS[t.category_name] || HelpCircle;
                   const iconColor =
                     CATEGORY_COLORS[t.category_name] || "#71717A";
-                  // Від'ємний ID означає, що транзакція ще зберігається на сервері
                   const isSyncing = t.id < 0;
 
                   return (
@@ -1302,23 +1382,13 @@ export default function Dashboard() {
           </div>
 
           {/* 3. Графік темпу спалювання бюджету (Burn Rate) */}
-          <div className="mb-6">
+          <div>
             <BurnRateChart
               transactions={filteredTransactions}
               budgetLimit={effectiveLimit || budgetLimit}
               recurringTotal={recurringTotal}
               selectedMonthKey={selectedMonthKey}
               recurring={recurring}
-            />
-          </div>
-
-          {/* 4. Порівняння з минулим місяцем (MoM) */}
-          <div className="mb-6">
-            <MoMComparison
-              currentTransactions={monthTransactions}
-              previousTransactions={previousMonthTransactions}
-              currentMonthLabel="Цей місяць"
-              previousMonthLabel="Мин. місяць"
             />
           </div>
         </section>

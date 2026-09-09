@@ -16,6 +16,7 @@ interface MoMComparisonProps {
   previousTransactions: Transaction[];
   currentMonthLabel: string;
   previousMonthLabel: string;
+  title?: string;
 }
 
 interface CategoryDiff {
@@ -31,6 +32,7 @@ export function MoMComparison({
   previousTransactions,
   currentMonthLabel,
   previousMonthLabel,
+  title = "Порівняння з минулим циклом",
 }: MoMComparisonProps) {
   const {
     categoryDiffs,
@@ -106,7 +108,7 @@ export function MoMComparison({
         <div>
           <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
             <Scale size={14} className="text-zinc-500" />
-            Порівняння з минулим місяцем (MoM)
+            {title}
           </h2>
           <p className="mt-0.5 text-[11px] text-zinc-500">
             Динаміка витрат: {currentMonthLabel} проти {previousMonthLabel}
