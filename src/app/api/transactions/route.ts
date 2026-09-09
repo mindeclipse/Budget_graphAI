@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from("transactions")
       .select(
-        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags"
+        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency"
       )
       .order("created_at", { ascending: false });
 

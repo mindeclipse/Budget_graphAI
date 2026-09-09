@@ -19,11 +19,11 @@ interface UpdateTransactionPayload {
 
 interface CreateTransactionPayload {
   amount: number;
-  currency?: "UAH" | "USD" | "EUR";
+  currency?: "UAH" | "USD" | "EUR" | "PLN";
   merchant_raw: string;
   category_name?: string;
   source?: "manual" | "monobank" | "recurring" | "csv";
-  type?: "expense" | "income";
+  type?: "expense" | "income" | "investment";
   created_at?: string;
   exclude_from_budget?: boolean;
 }

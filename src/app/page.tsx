@@ -23,6 +23,9 @@ import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { AICard } from "@/components/dashboard/AICard";
 import { TransactionsList } from "@/components/dashboard/TransactionsList";
 import { RecurringSection } from "@/components/dashboard/RecurringSection";
+import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
+import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
+import { exportFinancialDataToExcel } from "@/lib/export-excel";
 
 import { BurnRateChart } from "@/components/BurnRateChart";
 import { MoMComparison } from "@/components/MoMComparison";
@@ -54,6 +57,13 @@ const TransactionActionSheet = dynamic(
     ),
   { ssr: false }
 );
+const SplitTransactionModal = dynamic(
+  () =>
+    import("@/components/SplitTransactionModal").then(
+      (m) => m.SplitTransactionModal
+    ),
+  { ssr: false }
+);
 const NewCycleModal = dynamic(
   () => import("@/components/NewCycleModal").then((m) => m.NewCycleModal),
   { ssr: false }
@@ -67,7 +77,12 @@ const CsvImportModal = dynamic(
   { ssr: false }
 );
 
-import { Transaction, RecurringItem } from "@/types/finance";
+import {
+  Transaction,
+  RecurringItem,
+  SavingsGoal,
+  InvestmentAsset,
+} from "@/types/finance";
 import {
   AIAnalysisResponse,
   SupportedGeminiModel,
@@ -103,12 +118,29 @@ export default function Dashboard() {
   }, [rawTransactions]);
 
   // 3. Стан тайтлів і розрахункових періодів
-  const [activeTab, setActiveTab] = useState<"overview" | "history">(
+  const [activeTab, setActiveTab] = useState<"overview" | "wealth" | "history">(
     "overview"
   );
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [activeCycle, setActiveCycle] = useState<any>(null);
   const [previousCycle, setPreviousCycle] = useState<any>(null);
+
+  // Стан для розширених фінансових можливостей
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [investments, setInvestments] = useState<InvestmentAsset[]>([]);
+  const [categoryBudgets, setCategoryBudgets] = useState<
+    Record<string, number>
+  >({});
+  const [commercialRates, setCommercialRates] = useState<{
+    USD: number;
+    EUR: number;
+    PLN: number;
+  }>({
+    USD: 41.5,
+    EUR: 45.3,
+    PLN: 10.6,
+  });
+  const [splitTx, setSplitTx] = useState<Transaction | null>(null);
 
   // 4. Оптимістичні мутації транзакцій
   const {
@@ -142,9 +174,49 @@ export default function Dashboard() {
     }
   };
 
+  // Завантаження скарбничок, інвестицій, лімітів категорій та курсів валют
+  const loadWealthData = async () => {
+    try {
+      const [goalsRes, investRes, catBudgetsRes, ratesRes] = await Promise.all([
+        fetch("/api/savings-goals").catch(() => null),
+        fetch("/api/investments").catch(() => null),
+        fetch("/api/category-budgets").catch(() => null),
+        fetch("/api/currency/rate").catch(() => null),
+      ]);
+
+      if (goalsRes?.ok) {
+        const data = await goalsRes.json();
+        setSavingsGoals(data.goals || []);
+      }
+      if (investRes?.ok) {
+        const data = await investRes.json();
+        setInvestments(data.investments || []);
+      }
+      if (catBudgetsRes?.ok) {
+        const data = await catBudgetsRes.json();
+        const map: Record<string, number> = {};
+        (data.budgets || []).forEach((b: any) => {
+          map[b.category_name] = Number(b.monthly_limit);
+        });
+        setCategoryBudgets(map);
+      }
+      if (ratesRes?.ok) {
+        const data = await ratesRes.json();
+        if (data.rates) {
+          setCommercialRates(data.rates);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load wealth data:", err);
+    }
+  };
+
   useEffect(() => {
-    loadCycles();
-  }, []);
+    if (isAuthenticated) {
+      loadCycles();
+      loadWealthData();
+    }
+  }, [isAuthenticated]);
 
   // 5. Розрахунок аналітичних показників через кастомний хук
   const {
@@ -469,6 +541,63 @@ export default function Dashboard() {
     });
   };
 
+  // Керування лімітами категорій
+  const handleSaveCategoryBudget = async (
+    categoryName: string,
+    limit: number
+  ) => {
+    setCategoryBudgets((prev) => ({ ...prev, [categoryName]: limit }));
+    try {
+      await fetch("/api/category-budgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category_name: categoryName,
+          monthly_limit: limit,
+        }),
+      });
+    } catch (err) {
+      console.error("Помилка збереження ліміту категорії:", err);
+    }
+  };
+
+  const handleDeleteCategoryBudget = async (categoryName: string) => {
+    setCategoryBudgets((prev) => {
+      const copy = { ...prev };
+      delete copy[categoryName];
+      return copy;
+    });
+    try {
+      await fetch(
+        `/api/category-budgets?category_name=${encodeURIComponent(categoryName)}`,
+        { method: "DELETE" }
+      );
+    } catch (err) {
+      console.error("Помилка видалення ліміту категорії:", err);
+    }
+  };
+
+  // Експорт у Excel (.xlsx)
+  const handleExportExcel = () => {
+    exportFinancialDataToExcel({
+      transactions,
+      investments,
+      savingsGoals,
+    });
+  };
+
+  // Відновлення бази даних з бекапу
+  const handleRestoreSuccess = async () => {
+    await Promise.all([loadCycles(), loadWealthData()]);
+    window.location.reload();
+  };
+
+  // Успішний спліт транзакції
+  const handleSplitSuccess = async () => {
+    await loadWealthData();
+    window.location.reload();
+  };
+
   // Екран автентифікації, якщо користувач не залогінений
   if (!isAuthenticated) {
     return (
@@ -512,6 +641,8 @@ export default function Dashboard() {
         onOpenImport={() => setIsImportModalOpen(true)}
         onRegisterDevice={handleRegisterDevice}
         onLogout={handleLogout}
+        onExportExcel={handleExportExcel}
+        onRestoreSuccess={handleRestoreSuccess}
       />
 
       {/* 3. Картка місячного ліміту бюджету */}
@@ -521,25 +652,36 @@ export default function Dashboard() {
         onSaveBudget={handleSaveBudgetLimit}
       />
 
-      {/* Мобільні таби */}
-      <div className="mb-6 flex rounded-xl border border-zinc-800 bg-zinc-900/80 p-1 md:hidden">
+      {/* Навігація між вкладками */}
+      <div className="mb-6 flex rounded-2xl border border-zinc-800 bg-zinc-900/80 p-1 backdrop-blur-md">
         <button
           type="button"
           onClick={() => setActiveTab("overview")}
-          className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all ${
+          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
             activeTab === "overview"
-              ? "bg-zinc-800 text-white shadow"
+              ? "bg-zinc-800 text-white shadow-md"
               : "text-zinc-400 hover:text-white"
           }`}
         >
-          Аналітика
+          Аналітика & Бюджет
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("wealth")}
+          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
+            activeTab === "wealth"
+              ? "bg-zinc-800 text-white shadow-md"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Капітал & Цілі
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("history")}
-          className={`flex-1 rounded-lg py-2 text-xs font-semibold transition-all ${
+          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
             activeTab === "history"
-              ? "bg-zinc-800 text-white shadow"
+              ? "bg-zinc-800 text-white shadow-md"
               : "text-zinc-400 hover:text-white"
           }`}
         >
@@ -547,81 +689,104 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Основна сітка */}
-      <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-12">
-        {/* ЛІВА КОЛОНКА (Аналітика) */}
-        <section
-          className={`space-y-6 md:col-span-7 ${
-            activeTab === "overview" ? "block" : "hidden md:block"
-          }`}
-        >
-          <DailyDynamicsChart dailyStats={dailyStats} />
-
-          <CategoryBreakdown
-            categoryStats={categoryStats}
-            onSelectCategory={setSelectedCategory}
-          />
-
-          <MoMComparison
-            currentTransactions={cycleCurrentTransactions}
-            previousTransactions={cyclePreviousTransactions}
-            currentMonthLabel={cycleCurrentLabel}
-            previousMonthLabel={cyclePreviousLabel}
-            title={
-              activeCycle
-                ? "Порівняння з минулим циклом"
-                : "Порівняння з минулим місяцем"
-            }
-          />
-
-          <AICard
-            aiAnalysis={aiAnalysis}
-            onOpenAiDrawer={() => handleRunAiAnalysis()}
-          />
-        </section>
-
-        {/* ПРАВА КОЛОНКА (Історія та Постійні витрати) */}
-        <section
-          className={`space-y-6 md:col-span-5 ${
-            activeTab === "history" ? "block" : "hidden md:block"
-          }`}
-        >
-          <TransactionsList
-            totalMonthTransactionsCount={filteredTransactions.length}
-            displayedTransactions={displayedTransactions}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            availableTags={availableTags}
-            activeTag={activeTag}
-            onTagChange={setActiveTag}
-            onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
-            onSelectTransaction={setSelectedTx}
-          />
-
-          <RecurringSection
-            recurring={recurring}
-            onAddRecurring={() => {
-              setEditingRecurring(null);
-              setIsAddingRecurring(true);
-            }}
-            onEditRecurring={(item) => {
-              setEditingRecurring(item);
-              setIsAddingRecurring(true);
-            }}
-            onExecuteRecurring={handleExecuteRecurring}
-          />
-
-          <div>
-            <BurnRateChart
-              transactions={filteredTransactions}
-              budgetLimit={effectiveLimit}
-              recurringTotal={recurringTotal}
-              selectedMonthKey={selectedMonthKey}
-              recurring={recurring}
+      {/* Вкладка: Капітал & Цілі (Скарбнички, Runway та Інвестиційний портфель) */}
+      {activeTab === "wealth" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <SavingsGoalsCard
+              goals={savingsGoals}
+              monthlyBurnRate={totalSpent > 0 ? totalSpent : effectiveLimit}
+              onRefresh={loadWealthData}
+            />
+            <InvestmentsCard
+              investments={investments}
+              rates={commercialRates}
+              onRefresh={loadWealthData}
             />
           </div>
-        </section>
-      </div>
+        </div>
+      )}
+
+      {/* Основна сітка */}
+      {activeTab !== "wealth" && (
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-12">
+          {/* ЛІВА КОЛОНКА (Аналітика) */}
+          <section
+            className={`space-y-6 md:col-span-7 ${
+              activeTab === "overview" ? "block" : "hidden md:block"
+            }`}
+          >
+            <DailyDynamicsChart dailyStats={dailyStats} />
+
+            <CategoryBreakdown
+              categoryStats={categoryStats}
+              categoryBudgets={categoryBudgets}
+              onSelectCategory={setSelectedCategory}
+              onSaveCategoryBudget={handleSaveCategoryBudget}
+              onDeleteCategoryBudget={handleDeleteCategoryBudget}
+            />
+
+            <MoMComparison
+              currentTransactions={cycleCurrentTransactions}
+              previousTransactions={cyclePreviousTransactions}
+              currentMonthLabel={cycleCurrentLabel}
+              previousMonthLabel={cyclePreviousLabel}
+              title={
+                activeCycle
+                  ? "Порівняння з минулим циклом"
+                  : "Порівняння з минулим місяцем"
+              }
+            />
+
+            <AICard
+              aiAnalysis={aiAnalysis}
+              onOpenAiDrawer={() => handleRunAiAnalysis()}
+            />
+          </section>
+
+          {/* ПРАВА КОЛОНКА (Історія та Постійні витрати) */}
+          <section
+            className={`space-y-6 md:col-span-5 ${
+              activeTab === "history" ? "block" : "hidden md:block"
+            }`}
+          >
+            <TransactionsList
+              totalMonthTransactionsCount={filteredTransactions.length}
+              displayedTransactions={displayedTransactions}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              availableTags={availableTags}
+              activeTag={activeTag}
+              onTagChange={setActiveTag}
+              onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
+              onSelectTransaction={setSelectedTx}
+            />
+
+            <RecurringSection
+              recurring={recurring}
+              onAddRecurring={() => {
+                setEditingRecurring(null);
+                setIsAddingRecurring(true);
+              }}
+              onEditRecurring={(item) => {
+                setEditingRecurring(item);
+                setIsAddingRecurring(true);
+              }}
+              onExecuteRecurring={handleExecuteRecurring}
+            />
+
+            <div>
+              <BurnRateChart
+                transactions={filteredTransactions}
+                budgetLimit={effectiveLimit}
+                recurringTotal={recurringTotal}
+                selectedMonthKey={selectedMonthKey}
+                recurring={recurring}
+              />
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Глобальні модальні вікна та шторки (завантажуються за вимогою) */}
       {selectedCategory && (
@@ -655,6 +820,15 @@ export default function Dashboard() {
           onUpdateCategory={handleUpdateCategory}
           onUpdateTags={handleUpdateTags}
           onDelete={handleDeleteTransaction}
+          onOpenSplit={(tx) => setSplitTx(tx)}
+        />
+      )}
+
+      {splitTx && (
+        <SplitTransactionModal
+          transaction={splitTx}
+          onClose={() => setSplitTx(null)}
+          onSplitSuccess={handleSplitSuccess}
         />
       )}
 

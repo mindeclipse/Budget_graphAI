@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   TrendingUp,
   Settings,
@@ -9,6 +9,9 @@ import {
   Fingerprint,
   LogOut,
   Send,
+  FileSpreadsheet,
+  Database,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,6 +24,8 @@ interface BudgetSummaryHeaderProps {
   onOpenImport: () => void;
   onRegisterDevice: () => void;
   onLogout: () => void;
+  onExportExcel?: () => void;
+  onRestoreSuccess?: () => void;
 }
 
 export function BudgetSummaryHeader({
@@ -32,9 +37,13 @@ export function BudgetSummaryHeader({
   onOpenImport,
   onRegisterDevice,
   onLogout,
+  onExportExcel,
+  onRestoreSuccess,
 }: BudgetSummaryHeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSendingDigest, setIsSendingDigest] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSendTestDigest = async () => {
     if (isSendingDigest) return;
@@ -67,6 +76,76 @@ export function BudgetSummaryHeader({
     } finally {
       setIsSendingDigest(false);
       setIsSettingsOpen(false);
+    }
+  };
+
+  const handleDownloadBackup = async () => {
+    setIsSettingsOpen(false);
+    const toastId = toast.loading("Створення резервної копії...");
+    try {
+      const res = await fetch("/api/backup");
+      if (!res.ok) throw new Error("Помилка завантаження бекапу");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `budgetgraph-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Резервну копію успішно збережено", { id: toastId });
+    } catch (err: any) {
+      toast.error("Не вдалося завантажити бекап", {
+        id: toastId,
+        description: err.message,
+      });
+    }
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm("Ви впевнені, що хочете відновити дані з вибраного файлу?")) {
+      e.target.value = "";
+      return;
+    }
+
+    setIsRestoring(true);
+    const toastId = toast.loading("Відновлення даних з бекапу...");
+
+    try {
+      const fileText = await file.text();
+      const parsedJson = JSON.parse(fileText);
+
+      const res = await fetch("/api/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsedJson),
+      });
+
+      const result = await res.json();
+      if (!res.ok || result.error) {
+        throw new Error(result.error || "Помилка відновлення");
+      }
+
+      toast.success("Дані успішно відновлено!", {
+        id: toastId,
+        description: `Відновлено таблиць: ${Object.keys(result.restored || {}).length}`,
+      });
+
+      if (onRestoreSuccess) {
+        await onRestoreSuccess();
+      }
+    } catch (err: any) {
+      toast.error("Помилка відновлення даних", {
+        id: toastId,
+        description: err.message,
+      });
+    } finally {
+      setIsRestoring(false);
+      e.target.value = "";
     }
   };
 
@@ -177,6 +256,49 @@ export function BudgetSummaryHeader({
 
                 <div className="my-1 border-t border-zinc-800/60" />
 
+                {onExportExcel && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      onExportExcel();
+                    }}
+                    title="Завантажити звіт у форматі .xlsx"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/10"
+                  >
+                    <FileSpreadsheet size={14} className="text-emerald-400" />
+                    <span>Експорт в Excel (.xlsx)</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleDownloadBackup}
+                  title="Завантажити повний зліпок бази даних у JSON"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
+                >
+                  <Database size={14} className="text-zinc-400" />
+                  <span>Резервна копія (JSON)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSettingsOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  disabled={isRestoring}
+                  title="Відновити базу даних із файлу бекапу"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900 disabled:opacity-50"
+                >
+                  <RotateCcw size={14} className="text-zinc-400" />
+                  <span>
+                    {isRestoring ? "Відновлення..." : "Відновити з бекапу"}
+                  </span>
+                </button>
+
+                <div className="my-1 border-t border-zinc-800/60" />
+
                 <button
                   type="button"
                   onClick={() => {
@@ -194,6 +316,14 @@ export function BudgetSummaryHeader({
           )}
         </div>
       </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelected}
+        accept=".json,application/json"
+        className="hidden"
+      />
     </header>
   );
 }

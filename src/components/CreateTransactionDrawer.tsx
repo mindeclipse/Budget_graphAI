@@ -65,14 +65,16 @@ export function CreateTransactionDrawer({
 
     const cleanMerchant = merchant.trim().slice(0, 255) || "Ручна витрата";
 
+    const isInvestment = category === "Інвестиції";
+
     createTransaction({
       amount: parsedAmount,
       merchant_raw: cleanMerchant,
       category_name: category,
-      type: "expense",
+      type: isInvestment ? "investment" : "expense",
       currency: "UAH",
       source: "manual",
-      exclude_from_budget: false,
+      exclude_from_budget: isInvestment,
       created_at: new Date().toISOString(),
     });
 

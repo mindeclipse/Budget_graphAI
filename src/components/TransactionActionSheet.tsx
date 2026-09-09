@@ -10,6 +10,7 @@ import {
   BookmarkCheck,
   Check,
   Loader2,
+  Split,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
 import {
@@ -29,6 +30,7 @@ interface TransactionActionSheetProps {
   ) => void | Promise<void>;
   onUpdateTags: (txId: number, newTags: string[]) => void | Promise<void>;
   onDelete: (txId: number) => void | Promise<void>;
+  onOpenSplit?: (tx: Transaction) => void;
 }
 
 export function TransactionActionSheet({
@@ -37,6 +39,7 @@ export function TransactionActionSheet({
   onUpdateCategory,
   onUpdateTags,
   onDelete,
+  onOpenSplit,
 }: TransactionActionSheetProps) {
   const [cleanTitleInput, setCleanTitleInput] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -293,6 +296,22 @@ export function TransactionActionSheet({
               </button>
             </form>
           </div>
+
+          {/* Розділити транзакцію (якщо це не вже розділена дочірня) */}
+          {onOpenSplit && !transaction.parent_transaction_id && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenSplit(transaction);
+                  onClose();
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 py-2.5 text-xs font-bold text-sky-400 transition-all hover:bg-sky-500/20 active:scale-[0.99]"
+              >
+                <Split size={14} /> Розділити на кілька категорій
+              </button>
+            </div>
+          )}
 
           {/* Видалення транзакції із захистом від випадкового натискання */}
           <div className="pt-2">
