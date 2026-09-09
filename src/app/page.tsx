@@ -1137,12 +1137,21 @@ export default function Dashboard() {
                     CATEGORY_ICONS[t.category_name] || HelpCircle;
                   const iconColor =
                     CATEGORY_COLORS[t.category_name] || "#71717A";
+                  // Від'ємний ID означає, що транзакція ще зберігається на сервері
+                  const isSyncing = t.id < 0;
 
                   return (
                     <div
                       key={t.id}
-                      onClick={() => setSelectedTx(t)}
-                      className="group flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3 transition-all hover:border-zinc-700 hover:bg-zinc-900/80 active:scale-[0.99]"
+                      onClick={() => {
+                        if (isSyncing) return;
+                        setSelectedTx(t);
+                      }}
+                      className={`group flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3 transition-all ${
+                        isSyncing
+                          ? "pointer-events-none opacity-50 select-none"
+                          : "cursor-pointer hover:border-zinc-700 hover:bg-zinc-900/80 active:scale-[0.99]"
+                      }`}
                     >
                       <div className="flex min-w-0 items-center space-x-3 pr-2">
                         <div
