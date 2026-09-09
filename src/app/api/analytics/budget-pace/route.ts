@@ -82,6 +82,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, pacing });
   } catch (err: any) {
     console.error("[API budget-pace error]:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Помилка розрахунку темпу"
+            : err.message,
+      },
+      { status: 500 }
+    );
   }
 }

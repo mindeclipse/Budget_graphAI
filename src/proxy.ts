@@ -5,11 +5,8 @@ import { verifySessionToken } from "@/lib/session";
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 1. Публічні винятки: автентифікація, вебхуки, крон, системні файли та ресурси PWA
+  // 1. Статичні ресурси PWA та Next.js
   if (
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/webhooks") ||
-    pathname.startsWith("/api/cron") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
     pathname === "/manifest.json" ||
@@ -20,7 +17,40 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Авторизація зовнішніх викликів для Apple Shortcuts через Bearer-токен
+  // 2. Захист від CSRF для всіх змінюючих запитів браузера (POST, PATCH, DELETE, PUT)
+  if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method)) {
+    const origin = req.headers.get("origin");
+    if (origin) {
+      try {
+        const originHost = new URL(origin).host;
+        const host =
+          req.headers.get("x-forwarded-host") || req.headers.get("host");
+
+        if (host && originHost !== host) {
+          return NextResponse.json(
+            { error: "Forbidden: Cross-Origin request blocked" },
+            { status: 403 }
+          );
+        }
+      } catch {
+        return NextResponse.json(
+          { error: "Forbidden: Invalid Origin header" },
+          { status: 403 }
+        );
+      }
+    }
+  }
+
+  // 3. Публічні винятки: автентифікація, вебхуки, крон
+  if (
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/cron")
+  ) {
+    return NextResponse.next();
+  }
+
+  // 4. Авторизація зовнішніх викликів для Apple Shortcuts через Bearer-токен
   if (pathname.startsWith("/api/classify")) {
     const authHeader = req.headers.get("authorization");
     const secretKey = process.env.APP_API_SECRET;
@@ -43,7 +73,7 @@ export async function proxy(req: NextRequest) {
   const session = req.cookies.get("finance_session")?.value;
   const { valid } = await verifySessionToken(session);
 
-  // 3. Блокування неавторизованих звернень до внутрішніх API веб-інтерфейсу
+  // 5. Блокування неавторизованих звернень до внутрішніх API веб-інтерфейсу
   if (!valid) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

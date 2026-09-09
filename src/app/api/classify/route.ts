@@ -1,9 +1,11 @@
 // src/app/api/classify/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { Type, Schema } from "@google/genai";
 import { cleanMerchantRaw } from "@/lib/normalize";
 import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
+import { timingSafeEqual } from "@/lib/security";
+import { z } from "zod";
 
 const classifySchema: Schema = {
   type: Type.OBJECT,
@@ -21,44 +23,84 @@ const classifySchema: Schema = {
   required: ["cleanTitle", "categoryName"],
 };
 
+const inputSchema = z.object({
+  rawMerchant: z.string().trim().min(1, "Назва мерчанта обов'язкова").max(255),
+  amount: z
+    .number()
+    .positive("Сума повинна бути більшою за нуль")
+    .max(10_000_000, "Сума перевищує допустимий ліміт"),
+  currency: z.enum(["UAH", "USD", "EUR"]).default("UAH"),
+  source: z.string().trim().max(50).default("apple_pay"),
+  type: z.enum(["expense", "income"]).default("expense"),
+});
+
 export async function POST(req: NextRequest) {
   try {
+    // 1. Внутрішня перевірка Bearer-токена (Defense-in-Depth)
+    const authHeader = req.headers.get("authorization");
+    const secretKey = process.env.APP_API_SECRET;
+
+    if (
+      !secretKey ||
+      !authHeader ||
+      !timingSafeEqual(authHeader, `Bearer ${secretKey}`)
+    ) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid or missing Bearer token" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
 
     // Підтримуємо обидва формати назви поля
     const rawMerchant = body.merchant_raw || body.rawMerchant;
-
-    // Парсимо суму (якщо надійшов рядок з комою чи крапкою)
     const rawAmount = body.amount;
-    const amount =
+    const parsedAmount =
       typeof rawAmount === "number"
         ? rawAmount
         : parseFloat(String(rawAmount || "0").replace(",", "."));
 
-    const currency = body.currency || "UAH";
-    const source = body.source || "apple_pay";
-    const type = body.type || "expense";
+    const validationResult = inputSchema.safeParse({
+      rawMerchant,
+      amount: parsedAmount,
+      currency: body.currency || "UAH",
+      source: body.source || "apple_pay",
+      type: body.type || "expense",
+    });
 
-    if (!rawMerchant) {
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: "merchant_raw або rawMerchant обов'язковий" },
+        {
+          error: "Помилка валідації даних",
+          details: validationResult.error.format(),
+        },
         { status: 400 }
       );
     }
 
-    const cleaned = cleanMerchantRaw(rawMerchant);
+    const {
+      rawMerchant: validMerchant,
+      amount,
+      currency,
+      source,
+      type,
+    } = validationResult.data;
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const cleaned = cleanMerchantRaw(validMerchant);
     let cleanTitle = cleaned;
     let categoryName = "Інше";
     let classificationSource = "fallback";
 
     // --- ЕШЕЛОН 1: Пошук у таблиці правил merchant_rules ---
-    const { data: rules } = await supabase
+    const { data: rules } = await supabaseAdmin
       .from("merchant_rules")
       .select("pattern, normalized_name, category_name");
 
     if (rules && rules.length > 0) {
       const lowerCleaned = cleaned.toLowerCase();
-      const lowerRaw = rawMerchant.toLowerCase();
+      const lowerRaw = validMerchant.toLowerCase();
 
       const matchedRule = rules.find((r) => {
         const p = r.pattern.toLowerCase();
@@ -100,7 +142,7 @@ export async function POST(req: NextRequest) {
 - Відповідай суворо за наданою JSON-схемою.
 `;
 
-      const prompt = `Мерчант: "${rawMerchant}". Очищений вигляд: "${cleaned}". Сума: ${amount || 0} ₴`;
+      const prompt = `Мерчант: "${validMerchant}". Очищений вигляд: "${cleaned}". Сума: ${amount || 0} ₴`;
 
       try {
         const ai = getGeminiClient();
@@ -121,7 +163,7 @@ export async function POST(req: NextRequest) {
         classificationSource = "gemini_ai";
 
         // Кешуємо нове правило в базу, щоб наступного разу спрацював Ешелон 1
-        await supabase.from("merchant_rules").upsert(
+        await supabaseAdmin.from("merchant_rules").upsert(
           {
             pattern: cleaned,
             normalized_name: cleanTitle,
@@ -135,7 +177,7 @@ export async function POST(req: NextRequest) {
     }
 
     // --- ЕШЕЛОН 3: Фіксація транзакції в таблиці transactions ---
-    const { data: insertedTx, error: insertError } = await supabase
+    const { data: insertedTx, error: insertError } = await supabaseAdmin
       .from("transactions")
       .insert({
         amount,
@@ -152,7 +194,7 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error("Supabase insert error:", insertError);
-      throw new Error(`Помилка запису транзакції: ${insertError.message}`);
+      throw new Error(`Помилка запису транзакції`);
     }
 
     // Повертаємо розширену відповідь для Apple Shortcuts
@@ -170,7 +212,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message || "Помилка обробки транзакції",
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Помилка обробки транзакції"
+            : error.message || "Помилка обробки транзакції",
       },
       { status: 500 }
     );

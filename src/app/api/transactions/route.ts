@@ -15,6 +15,12 @@ async function checkAuthSession(): Promise<boolean> {
   return valid;
 }
 
+function getSafeErrorMessage(error: any): string {
+  return process.env.NODE_ENV === "production"
+    ? "Помилка обробки запиту"
+    : error?.message || "Помилка сервера";
+}
+
 // GET: вибірка транзакцій з підтримкою фільтрації за датами та пагінацією
 export async function GET(req: NextRequest) {
   try {
@@ -88,7 +94,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (err: any) {
     console.error("Transaction GET error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: getSafeErrorMessage(err) },
+      { status: 500 }
+    );
   }
 }
 
@@ -117,12 +126,16 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("[API transactions POST] DB error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      throw error;
     }
 
     return NextResponse.json({ success: true, transaction: data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("Transaction POST error:", err);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(err) },
+      { status: 500 }
+    );
   }
 }
 
@@ -175,7 +188,10 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true, updated: updatedRows?.[0] });
   } catch (err: any) {
     console.error("Transaction PATCH error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: getSafeErrorMessage(err) },
+      { status: 500 }
+    );
   }
 }
 
@@ -206,6 +222,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Transaction DELETE error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: getSafeErrorMessage(err) },
+      { status: 500 }
+    );
   }
 }

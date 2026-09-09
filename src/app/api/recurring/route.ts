@@ -14,6 +14,12 @@ async function checkAuthSession(): Promise<boolean> {
   return valid;
 }
 
+function getSafeErrorMessage(error: any): string {
+  return process.env.NODE_ENV === "production"
+    ? "Помилка обробки запиту"
+    : error?.message || "Помилка сервера";
+}
+
 export async function GET() {
   try {
     if (!(await checkAuthSession())) {
@@ -29,7 +35,11 @@ export async function GET() {
     if (error) throw error;
     return NextResponse.json({ items: data || [] });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[API recurring GET error]:", error);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -60,7 +70,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, item: data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[API recurring POST error]:", error);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -92,7 +106,11 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[API recurring PATCH error]:", error);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -123,6 +141,10 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[API recurring DELETE error]:", error);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(error) },
+      { status: 500 }
+    );
   }
 }

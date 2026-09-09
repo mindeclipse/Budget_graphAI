@@ -10,6 +10,12 @@ async function checkAuthSession(): Promise<boolean> {
   return valid;
 }
 
+function getSafeErrorMessage(error: any): string {
+  return process.env.NODE_ENV === "production"
+    ? "Помилка обробки запиту"
+    : error?.message || "Помилка сервера";
+}
+
 // Отримати активний цикл та історію останніх
 export async function GET() {
   try {
@@ -33,7 +39,11 @@ export async function GET() {
 
     return NextResponse.json({ activeCycle, cycles: cycles || [] });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("[API cycles GET error]:", err);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(err) },
+      { status: 500 }
+    );
   }
 }
 
@@ -116,7 +126,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, cycle: newCycle });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("[API cycles POST error]:", err);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(err) },
+      { status: 500 }
+    );
   }
 }
 
@@ -159,6 +173,10 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ success: true, limit: numericLimit });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("[API cycles PATCH error]:", err);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(err) },
+      { status: 500 }
+    );
   }
 }
