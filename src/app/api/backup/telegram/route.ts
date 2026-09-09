@@ -6,6 +6,9 @@ import { sendBackupToTelegram } from "@/lib/backup-service";
 
 export const dynamic = "force-dynamic";
 
+let lastBackupTimestamp = 0;
+const BACKUP_COOLDOWN_MS = 30 * 1000; // 30 секунд захисту від спаму/флуду
+
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -37,6 +40,20 @@ export async function POST(req: NextRequest) {
     if (!(await isAuthorized(req))) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const now = Date.now();
+    if (now - lastBackupTimestamp < BACKUP_COOLDOWN_MS) {
+      const waitSeconds = Math.ceil(
+        (BACKUP_COOLDOWN_MS - (now - lastBackupTimestamp)) / 1000
+      );
+      return NextResponse.json(
+        {
+          error: `Зачекайте ${waitSeconds} сек. перед повторною відправкою бекапу`,
+        },
+        { status: 429 }
+      );
+    }
+    lastBackupTimestamp = now;
 
     const result = await sendBackupToTelegram();
 
