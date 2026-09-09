@@ -28,7 +28,7 @@ export const ASSET_TYPE_LABELS: Record<
 > = {
   bonds: { label: "ОВДП", color: "bg-indigo-500" },
   stocks: { label: "Акції / ETF", color: "bg-sky-500" },
-  reit: { label: "Нерухомість / REIT", color: "bg-teal-500" },
+  reit: { label: "REIT", color: "bg-teal-500" },
   crypto: { label: "Крипта", color: "bg-amber-500" },
   deposit: { label: "Депозит", color: "bg-emerald-500" },
   other: { label: "Інше", color: "bg-purple-500" },
@@ -375,7 +375,7 @@ export function InvestmentsCard({
       {investments.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-zinc-800 p-6 text-center text-xs text-zinc-500">
           У вас ще немає доданих інвестиційних активів. Додайте ваші ОВДП,
-          акції/ETF, нерухомість/REIT, криптовалюту чи банківські депозити.
+          акції/ETF, REIT, криптовалюту чи банківські депозити.
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -497,7 +497,7 @@ export function InvestmentsCard({
                 <input
                   type="text"
                   required
-                  placeholder="наприклад Inzhur REIT, ОВДП UA400... або S&P 500"
+                  placeholder="наприклад ОВДП UA400022... або S&P 500"
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
@@ -519,9 +519,7 @@ export function InvestmentsCard({
                   >
                     <option value="bonds">ОВДП (Облігації)</option>
                     <option value="stocks">Акції / ETF</option>
-                    <option value="reit">
-                      Нерухомість / REIT (Inzhur тощо)
-                    </option>
+                    <option value="reit">REIT</option>
                     <option value="crypto">Криптовалюта</option>
                     <option value="deposit">Депозит</option>
                     <option value="other">Інше</option>
@@ -553,7 +551,7 @@ export function InvestmentsCard({
                     type="text"
                     inputMode="decimal"
                     required
-                    placeholder="21059.29"
+                    placeholder="10000"
                     value={invested}
                     onChange={(e) => {
                       setInvested(e.target.value);
@@ -570,7 +568,7 @@ export function InvestmentsCard({
                     type="text"
                     inputMode="decimal"
                     required
-                    placeholder="23530.88"
+                    placeholder="11500"
                     value={currentVal}
                     onChange={(e) => {
                       setCurrentVal(e.target.value);
@@ -589,7 +587,7 @@ export function InvestmentsCard({
                   <input
                     type="text"
                     inputMode="decimal"
-                    placeholder="7.59"
+                    placeholder="16.5"
                     value={yieldPct}
                     onChange={(e) => {
                       setYieldPct(e.target.value);
@@ -651,7 +649,7 @@ export function InvestmentsCard({
                 </label>
                 <input
                   type="text"
-                  placeholder="наприклад: 2 047 сертифікатів (по 10.28 ₴), щомісячні дивіденди"
+                  placeholder="Брокер, рахунок, умови виплати тощо..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
