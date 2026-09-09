@@ -1,12 +1,9 @@
 // src/app/api/classify/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { Type, Schema } from "@google/genai";
 import { cleanMerchantRaw } from "@/lib/normalize";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
 
 const classifySchema: Schema = {
   type: Type.OBJECT,
@@ -106,8 +103,9 @@ export async function POST(req: NextRequest) {
       const prompt = `Мерчант: "${rawMerchant}". Очищений вигляд: "${cleaned}". Сума: ${amount || 0} ₴`;
 
       try {
+        const ai = getGeminiClient();
         const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: GEMINI_MODELS.CLASSIFICATION,
           contents: prompt,
           config: {
             systemInstruction,

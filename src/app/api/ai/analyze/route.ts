@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { cookies } from "next/headers";
+import { Type, Schema } from "@google/genai";
+import {
+  getGeminiClient,
+  GEMINI_MODELS,
+  MODEL_FALLBACK_MAP,
+} from "@/lib/gemini";
 import {
   AIAnalysisRequest,
   AIAnalysisResponse,
   SupportedGeminiModel,
 } from "@/types/ai";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
 
 const analysisSchema: Schema = {
   type: Type.OBJECT,
@@ -68,20 +70,25 @@ const analysisSchema: Schema = {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.GEMINI_API_KEY) {
+    // 1. Захист сесії (Zero Trust)
+    const cookieStore = await cookies();
+    const session = cookieStore.get("finance_session")?.value;
+    const correctPin = process.env.APP_ACCESS_PIN;
+
+    if (!correctPin || session !== correctPin) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY не налаштовано на сервері" },
-        { status: 500 }
+        { error: "Доступ заборонено: відсутня активна сесія" },
+        { status: 401 }
       );
     }
 
+    const ai = getGeminiClient();
+
     const payload: AIAnalysisRequest = await req.json();
     const targetModel: SupportedGeminiModel =
-      payload.preferredModel || "gemini-3.5-flash-lite";
+      payload.preferredModel || GEMINI_MODELS.FAST;
     const fallbackModel: SupportedGeminiModel =
-      targetModel === "gemini-3.5-flash-lite"
-        ? "gemini-3.5-flash"
-        : "gemini-3.7-flash";
+      MODEL_FALLBACK_MAP[targetModel] || GEMINI_MODELS.BALANCED;
 
     const systemInstruction = `
 Ти — фінансовий аналітик. Аналізуй поточні витрати раціонально, спираючись на цифри.
