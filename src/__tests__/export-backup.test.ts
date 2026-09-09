@@ -78,6 +78,17 @@ describe("Excel Export & JSON Backup Integrity", () => {
         category_budgets: [
           { id: 1, category_name: "Кафе", monthly_limit: 4000 },
         ],
+        wishlist_items: [
+          {
+            id: 1,
+            title: "Навушники",
+            target_amount: 5000,
+            saved_amount: 1500,
+          },
+        ],
+        cost_per_use_items: [
+          { id: 1, name: "Кавомашина", purchase_price: 12000, uses_count: 50 },
+        ],
       },
     };
 
@@ -89,5 +100,7 @@ describe("Excel Export & JSON Backup Integrity", () => {
     expect(Array.isArray(mockBackup.data.savings_goals)).toBe(true);
     expect(Array.isArray(mockBackup.data.investments)).toBe(true);
     expect(Array.isArray(mockBackup.data.category_budgets)).toBe(true);
+    expect(Array.isArray(mockBackup.data.wishlist_items)).toBe(true);
+    expect(Array.isArray(mockBackup.data.cost_per_use_items)).toBe(true);
   });
 });

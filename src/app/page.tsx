@@ -96,8 +96,6 @@ import {
   AIAnalysisRequest,
 } from "@/types/ai";
 
-const DEFAULT_USD_RATE = 44.5;
-
 export default function Dashboard() {
   // 1. Автентифікація та сесія
   const {
@@ -278,6 +276,7 @@ export default function Dashboard() {
     budgetLimit: activeCycle?.budget_limit || 30000,
     selectedDate,
     activeCycle,
+    usdRate: commercialRates.USD,
   });
 
   // Фільтрація транзакцій за зарплатними циклами для MoM-порівняння
@@ -606,7 +605,7 @@ export default function Dashboard() {
         const rateRes = await fetch("/api/currency/rate").catch(() => null);
         const rateData = rateRes?.ok
           ? await rateRes.json()
-          : { rate: DEFAULT_USD_RATE };
+          : { rate: commercialRates.USD };
         finalAmount = Math.round(Number(item.amount) * rateData.rate);
         merchantTitle = `${item.title} ($${item.amount})`;
       }
@@ -914,6 +913,7 @@ export default function Dashboard() {
               recurringTotal={recurringTotal}
               selectedMonthKey={selectedMonthKey}
               recurring={recurring}
+              usdRate={commercialRates.USD}
             />
 
             <MoMComparison

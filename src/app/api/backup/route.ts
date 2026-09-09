@@ -32,6 +32,8 @@ export async function GET() {
       goalsRes,
       investRes,
       catBudgetsRes,
+      wishlistRes,
+      costPerUseRes,
     ] = await Promise.all([
       supabase
         .from("transactions")
@@ -52,6 +54,14 @@ export async function GET() {
         .order("id", { ascending: true }),
       supabase.from("investments").select("*").order("id", { ascending: true }),
       supabase.from("category_budgets").select("*"),
+      supabase
+        .from("wishlist_items")
+        .select("*")
+        .order("id", { ascending: true }),
+      supabase
+        .from("cost_per_use_items")
+        .select("*")
+        .order("id", { ascending: true }),
     ]);
 
     const backupPayload = {
@@ -66,6 +76,8 @@ export async function GET() {
         savings_goals: goalsRes.data || [],
         investments: investRes.data || [],
         category_budgets: catBudgetsRes.data || [],
+        wishlist_items: wishlistRes.data || [],
+        cost_per_use_items: costPerUseRes.data || [],
       },
       counts: {
         transactions: txRes.data?.length || 0,
@@ -75,6 +87,8 @@ export async function GET() {
         savings_goals: goalsRes.data?.length || 0,
         investments: investRes.data?.length || 0,
         category_budgets: catBudgetsRes.data?.length || 0,
+        wishlist_items: wishlistRes.data?.length || 0,
+        cost_per_use_items: costPerUseRes.data?.length || 0,
       },
     };
 
@@ -175,6 +189,26 @@ export async function POST(req: Request) {
         .from("transactions")
         .upsert(data.transactions, { onConflict: "id" });
       if (!error) restoredSummary.transactions = data.transactions.length;
+    }
+
+    // 8. Відновлення листа бажань (wishlist_items)
+    if (Array.isArray(data.wishlist_items) && data.wishlist_items.length > 0) {
+      const { error } = await supabase
+        .from("wishlist_items")
+        .upsert(data.wishlist_items, { onConflict: "id" });
+      if (!error) restoredSummary.wishlist_items = data.wishlist_items.length;
+    }
+
+    // 9. Відновлення вартості за використання (cost_per_use_items)
+    if (
+      Array.isArray(data.cost_per_use_items) &&
+      data.cost_per_use_items.length > 0
+    ) {
+      const { error } = await supabase
+        .from("cost_per_use_items")
+        .upsert(data.cost_per_use_items, { onConflict: "id" });
+      if (!error)
+        restoredSummary.cost_per_use_items = data.cost_per_use_items.length;
     }
 
     return NextResponse.json({

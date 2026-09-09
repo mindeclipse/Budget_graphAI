@@ -5,8 +5,8 @@ import {
   TelegramReplyMarkup,
 } from "@/lib/telegram";
 import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
+import { getUsdRate } from "@/lib/currency";
 
-const ESTIMATED_USD_RATE = 44.5;
 const CYCLE_DURATION_DAYS = 30;
 
 function getAppUrl(): string {
@@ -186,9 +186,10 @@ export async function generateWeeklyDigest(options?: {
       .select("amount, currency")
       .eq("is_active", true);
 
+    const usdRate = await getUsdRate();
     const recurringTotal = (recurringItems || []).reduce((sum, r) => {
       const amt = Number(r.amount) || 0;
-      return sum + (r.currency === "USD" ? amt * ESTIMATED_USD_RATE : amt);
+      return sum + (r.currency === "USD" ? amt * usdRate : amt);
     }, 0);
 
     const limit = Number(activeCycle.budget_limit) || 35000;

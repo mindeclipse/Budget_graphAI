@@ -35,6 +35,7 @@ interface BurnRateChartProps {
   recurringTotal?: number;
   selectedMonthKey: string;
   recurring?: RecurringItem[];
+  usdRate?: number;
 }
 
 export function BurnRateChart({
@@ -43,6 +44,7 @@ export function BurnRateChart({
   recurringTotal = 0,
   selectedMonthKey,
   recurring = [],
+  usdRate = 41.5,
 }: BurnRateChartProps) {
   const variableBudget = Math.max(0, budgetLimit - recurringTotal);
 
@@ -88,7 +90,7 @@ export function BurnRateChart({
       const day = Math.min(Math.max(1, item.day_of_month), daysInMonth);
       const amount =
         item.currency === "USD"
-          ? Number(item.amount) * 44.5
+          ? Number(item.amount) * usdRate
           : Number(item.amount);
       recurringByDay[day] = (recurringByDay[day] || 0) + amount;
       totalRecurringParsed += amount;

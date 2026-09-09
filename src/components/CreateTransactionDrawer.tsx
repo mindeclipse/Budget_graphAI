@@ -3,23 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Check, ArrowDownLeft } from "lucide-react";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
-
-const CATEGORIES = [
-  "Продукти",
-  "Кафе та ресторани",
-  "Куріння",
-  "Транспорт",
-  "Авто",
-  "Одяг та взуття",
-  "Здоров'я",
-  "Оренда та комуналка",
-  "Підписки та сервіси",
-  "Освіта та книги",
-  "Розваги та хобі",
-  "Покупки",
-  "Інвестиції",
-  "Інше",
-];
+import { CATEGORIES } from "@/constants/categories";
 
 interface CreateTransactionDrawerProps {
   isOpen: boolean;

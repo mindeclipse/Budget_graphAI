@@ -69,14 +69,14 @@ function normalizePrivatCategory(rawCategory: string): string {
   )
     return "Транспорт";
   if (cat.includes("здоров") || cat.includes("аптек") || cat.includes("догляд"))
-    return "Здоров'я та догляд";
+    return "Здоров'я";
   if (
     cat.includes("підписк") ||
     cat.includes("комунал") ||
     cat.includes("зв'язок")
   )
     return "Підписки та сервіси";
-  if (cat.includes("розваг") || cat.includes("кіно")) return "Розваги";
+  if (cat.includes("розваг") || cat.includes("кіно")) return "Розваги та хобі";
   return rawCategory || "Інше";
 }
 

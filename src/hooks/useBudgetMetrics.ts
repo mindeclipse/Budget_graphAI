@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Transaction, RecurringItem } from "@/types/finance";
 import { CATEGORY_COLORS } from "@/constants/categories";
 
-const ESTIMATED_USD_RATE = 44.5;
 const CYCLE_DURATION_DAYS = 30; // Стандартна тривалість зарплатного циклу
 
 function getPreviousMonthKey(monthKey: string): string {
@@ -28,6 +27,7 @@ export interface BudgetMetricsParams {
   budgetLimit: number; // Сюди page.tsx вже передає правильний ліміт
   selectedDate: Date;
   activeCycle?: BudgetCycle | null;
+  usdRate?: number;
 }
 
 export interface CategoryStatItem {
@@ -58,6 +58,7 @@ export function useBudgetMetrics({
   budgetLimit,
   selectedDate,
   activeCycle,
+  usdRate = 41.5,
 }: BudgetMetricsParams) {
   // ✅ Оптимізація: Перевірка поточного місяця ізольована в useMemo
   const isCurrentMonth = useMemo(() => {
@@ -135,9 +136,9 @@ export function useBudgetMetrics({
       .filter((r) => r.is_active)
       .reduce((acc, r) => {
         const amt = Number(r.amount) || 0;
-        return acc + (r.currency === "USD" ? amt * ESTIMATED_USD_RATE : amt);
+        return acc + (r.currency === "USD" ? amt * usdRate : amt);
       }, 0);
-  }, [recurring]);
+  }, [recurring, usdRate]);
 
   // Фактично витрачено в межах активного вікна
   const totalSpent = useMemo(() => {

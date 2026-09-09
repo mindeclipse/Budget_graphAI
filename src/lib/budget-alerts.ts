@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { getUsdRate } from "@/lib/currency";
 
-const ESTIMATED_USD_RATE = 44.5;
 const CYCLE_DURATION_DAYS = 30; // Стандартна тривалість зарплатного циклу
 
 function getKyivDateString(date: Date | string): string {
@@ -53,9 +53,10 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
     .select("amount, currency, is_active")
     .eq("is_active", true);
 
+  const usdRate = await getUsdRate();
   const recurringTotal = (recurringItems || []).reduce((sum, r) => {
     const amt = Number(r.amount) || 0;
-    return sum + (r.currency === "USD" ? amt * ESTIMATED_USD_RATE : amt);
+    return sum + (r.currency === "USD" ? amt * usdRate : amt);
   }, 0);
 
   // 5. Розрахунок днів та початкової дати вибірки операцій
