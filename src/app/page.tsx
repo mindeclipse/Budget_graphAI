@@ -90,7 +90,6 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
 
   // Ліміт бюджету
-  const [budgetLimit, setBudgetLimit] = useState<number>(30000);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState("30000");
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
@@ -149,7 +148,7 @@ export default function Dashboard() {
   } = useBudgetMetrics({
     transactions,
     recurring,
-    budgetLimit,
+    budgetLimit: activeCycle?.budget_limit || 30000,
     selectedDate,
     activeCycle,
   });
@@ -338,34 +337,6 @@ export default function Dashboard() {
     };
     checkAuth();
   }, []);
-
-  // Синхронізація локального інпуту олівця з активним циклом (Zero Trust: лише in-memory)
-  useEffect(() => {
-    if (activeCycle?.budget_limit) {
-      setBudgetLimit(Number(activeCycle.budget_limit));
-      setTempBudgetInput(activeCycle.budget_limit.toString());
-    }
-  }, [activeCycle]);
-
-  // Realtime оновлення транзакцій
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const txChannel = supabase
-      .channel("realtime-transactions")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        () => {
-          invalidateTransactions();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(txChannel);
-    };
-  }, [isAuthenticated, invalidateTransactions]);
 
   // Обробка введення PIN-коду
   const handleLogin = async (e: React.FormEvent) => {
@@ -571,7 +542,7 @@ export default function Dashboard() {
       return;
     }
 
-    setBudgetLimit(newLimit);
+    // Залишаємо тільки оновлення циклу
     setActiveCycle((prev: any) =>
       prev ? { ...prev, budget_limit: newLimit } : prev
     );
@@ -581,17 +552,14 @@ export default function Dashboard() {
       const res = await fetch("/api/cycles", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cycleId: activeCycle.id,
-          limit: newLimit,
-        }),
+        body: JSON.stringify({ cycleId: activeCycle.id, limit: newLimit }),
       });
 
       if (!res.ok) throw new Error("Не вдалося оновити ліміт на сервері");
     } catch (error) {
       console.error("Помилка збереження бюджету:", error);
+      // Відкат
       if (activeCycle?.budget_limit) {
-        setBudgetLimit(Number(activeCycle.budget_limit));
         setActiveCycle((prev: any) => ({ ...prev }));
       }
     }
@@ -1451,7 +1419,7 @@ export default function Dashboard() {
           <div>
             <BurnRateChart
               transactions={filteredTransactions}
-              budgetLimit={effectiveLimit || budgetLimit}
+              budgetLimit={effectiveLimit}
               recurringTotal={recurringTotal}
               selectedMonthKey={selectedMonthKey}
               recurring={recurring}
@@ -1489,7 +1457,7 @@ export default function Dashboard() {
       <NewCycleModal
         isOpen={isCycleModalOpen}
         onClose={() => setIsCycleModalOpen(false)}
-        defaultLimit={activeCycle?.budget_limit || budgetLimit}
+        defaultLimit={activeCycle?.budget_limit || effectiveLimit || 35000}
         onCycleStarted={() => {
           loadCycles();
         }}
