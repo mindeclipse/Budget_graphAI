@@ -162,7 +162,7 @@ describe("Validations - Zod Schemas", () => {
   });
 
   describe("investmentAssetSchema", () => {
-    it("валідує актив (ОВДП, ETF, Crypto)", () => {
+    it("валідує актив (ОВДП, ETF, Crypto, REIT)", () => {
       const asset = {
         asset_name: "ОВДП UA4000226286",
         asset_type: "bonds",
@@ -174,6 +174,19 @@ describe("Validations - Zod Schemas", () => {
       };
       const result = investmentAssetSchema.safeParse(asset);
       expect(result.success).toBe(true);
+
+      const inzhurReit = {
+        asset_name: "Inzhur REIT",
+        asset_type: "reit",
+        invested_amount: 21059.29,
+        current_value: 23530.88,
+        currency: "UAH",
+        yield_percent: 7.59,
+        maturity_date: null,
+        notes: "2 047 сертифікатів (по 10.28 ₴), щомісячні дивіденди",
+      };
+      const reitResult = investmentAssetSchema.safeParse(inzhurReit);
+      expect(reitResult.success).toBe(true);
     });
 
     it("відхиляє невідомий тип активу або від'ємні оцінки", () => {

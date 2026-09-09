@@ -28,7 +28,7 @@ export interface SavingsGoal {
 export interface InvestmentAsset {
   id: number;
   asset_name: string;
-  asset_type: "bonds" | "stocks" | "crypto" | "deposit" | "other";
+  asset_type: "bonds" | "stocks" | "crypto" | "deposit" | "reit" | "other";
   invested_amount: number;
   current_value: number;
   currency: string;

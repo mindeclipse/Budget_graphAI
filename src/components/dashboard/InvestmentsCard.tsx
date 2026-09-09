@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   TrendingUp,
   Plus,
@@ -22,13 +22,70 @@ interface InvestmentsCardProps {
   onRefresh: () => void | Promise<void>;
 }
 
-const ASSET_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+export const ASSET_TYPE_LABELS: Record<
+  string,
+  { label: string; color: string }
+> = {
   bonds: { label: "ОВДП", color: "bg-indigo-500" },
   stocks: { label: "Акції / ETF", color: "bg-sky-500" },
+  reit: { label: "Нерухомість / REIT", color: "bg-teal-500" },
   crypto: { label: "Крипта", color: "bg-amber-500" },
   deposit: { label: "Депозит", color: "bg-emerald-500" },
   other: { label: "Інше", color: "bg-purple-500" },
 };
+
+/**
+ * Парсить довільний рядок дати (ДД.ММ.РРРР або РРРР-ММ-ДД) у валідний ISO формат (YYYY-MM-DD)
+ */
+export function parseDateInputToIso(raw?: string | null): string | null {
+  if (!raw) return null;
+  const str = raw.trim();
+  if (!str) return null;
+
+  // Формат YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return str;
+  }
+
+  // Формат DD.MM.YYYY або DD/MM/YYYY або DD-MM-YYYY
+  const matchDmy = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (matchDmy) {
+    const day = matchDmy[1].padStart(2, "0");
+    const month = matchDmy[2].padStart(2, "0");
+    const year = matchDmy[3];
+    const iso = `${year}-${month}-${day}`;
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) return iso;
+  }
+
+  return null;
+}
+
+/**
+ * Форматує дату з ISO (YYYY-MM-DD) у звичний вигляд для введення (DD.MM.YYYY)
+ */
+export function formatIsoToDisplayDate(iso?: string | null): string {
+  if (!iso) return "";
+  const parts = iso.split("-");
+  if (parts.length === 3) {
+    return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  }
+  return iso;
+}
+
+/**
+ * Очищує та парсить числові значення з підтримкою ком, пробілів та символів валют
+ */
+export function parseFlexibleNumber(val?: string | number | null): number {
+  if (val == null) return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const clean = String(val)
+    .replace(/[\s\u00A0₴$€]/g, "")
+    .replace(",", ".");
+  const num = parseFloat(clean);
+  return isNaN(num) ? 0 : num;
+}
 
 export function InvestmentsCard({
   investments,
@@ -38,6 +95,9 @@ export function InvestmentsCard({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editAsset, setEditAsset] = useState<InvestmentAsset | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const hiddenDatePickerRef = useRef<HTMLInputElement>(null);
 
   // Стейт нового/редагованого активу
   const [name, setName] = useState("");
@@ -47,7 +107,7 @@ export function InvestmentsCard({
   const [currentVal, setCurrentVal] = useState("");
   const [currency, setCurrency] = useState("UAH");
   const [yieldPct, setYieldPct] = useState("");
-  const [maturityDate, setMaturityDate] = useState("");
+  const [maturityDateInput, setMaturityDateInput] = useState("");
   const [notes, setNotes] = useState("");
 
   const convertToUah = (amount: number, curr: string) => {
@@ -64,6 +124,7 @@ export function InvestmentsCard({
   const typeDistribution: Record<string, number> = {
     bonds: 0,
     stocks: 0,
+    reit: 0,
     crypto: 0,
     deposit: 0,
     other: 0,
@@ -95,8 +156,9 @@ export function InvestmentsCard({
     setCurrentVal("");
     setCurrency("UAH");
     setYieldPct("");
-    setMaturityDate("");
+    setMaturityDateInput("");
     setNotes("");
+    setFormError("");
     setIsAddModalOpen(true);
   };
 
@@ -108,25 +170,48 @@ export function InvestmentsCard({
     setCurrentVal(String(asset.current_value));
     setCurrency(asset.currency);
     setYieldPct(asset.yield_percent ? String(asset.yield_percent) : "");
-    setMaturityDate(asset.maturity_date || "");
+    setMaturityDateInput(formatIsoToDisplayDate(asset.maturity_date));
     setNotes(asset.notes || "");
+    setFormError("");
     setIsAddModalOpen(true);
   };
 
   const handleSaveAsset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !invested || !currentVal || isSubmitting) return;
+    if (!name.trim() || isSubmitting) return;
+
+    const investedNum = parseFlexibleNumber(invested);
+    const currentNum = parseFlexibleNumber(currentVal);
+    const yieldNum = yieldPct.trim() ? parseFlexibleNumber(yieldPct) : null;
+
+    if (investedNum < 0 || currentNum < 0) {
+      setFormError("Сума не може бути від'ємною");
+      return;
+    }
+
+    let parsedMaturity: string | null = null;
+    if (maturityDateInput.trim()) {
+      parsedMaturity = parseDateInputToIso(maturityDateInput);
+      if (!parsedMaturity) {
+        setFormError(
+          "Вкажіть коректну дату погашення у форматі ДД.ММ.РРРР (наприклад, 25.04.2028)"
+        );
+        return;
+      }
+    }
 
     setIsSubmitting(true);
+    setFormError("");
+
     try {
       const payload = {
         asset_name: name.trim(),
         asset_type: assetType,
-        invested_amount: parseFloat(invested),
-        current_value: parseFloat(currentVal),
+        invested_amount: investedNum,
+        current_value: currentNum,
         currency,
-        yield_percent: yieldPct ? parseFloat(yieldPct) : null,
-        maturity_date: maturityDate || null,
+        yield_percent: yieldNum,
+        maturity_date: parsedMaturity,
         notes: notes.trim() || null,
       };
 
@@ -136,21 +221,24 @@ export function InvestmentsCard({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: editAsset.id, ...payload }),
         });
-        if (!res.ok) throw new Error("Помилка оновлення активу");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Помилка оновлення активу");
       } else {
         const res = await fetch("/api/investments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error("Помилка додавання активу");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Помилка додавання активу");
       }
 
       setIsAddModalOpen(false);
       setEditAsset(null);
       await onRefresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setFormError(err.message || "Помилка збереження активу");
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +268,9 @@ export function InvestmentsCard({
             <h3 className="text-sm font-bold text-white">
               Інвестиційний портфель
             </h3>
-            <p className="text-xs text-zinc-400">ОВДП, ETF, Депозити, Крипта</p>
+            <p className="text-xs text-zinc-400">
+              Капітал, активи та прибутковість
+            </p>
           </div>
         </div>
 
@@ -192,11 +282,11 @@ export function InvestmentsCard({
         </button>
       </div>
 
-      {/* Головна вартість та P&L */}
-      <div className="mb-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
-        <div className="flex items-start justify-between">
+      {/* Метрики портфеля */}
+      <div className="mb-5 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4">
+        <div className="flex items-baseline justify-between">
           <div>
-            <span className="text-[11px] font-medium text-zinc-400">
+            <span className="text-xs font-medium text-zinc-400">
               Загальна вартість портфеля
             </span>
             <div className="mt-1 flex items-baseline gap-1.5">
@@ -285,7 +375,7 @@ export function InvestmentsCard({
       {investments.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-zinc-800 p-6 text-center text-xs text-zinc-500">
           У вас ще немає доданих інвестиційних активів. Додайте ваші ОВДП,
-          акції/ETF, криптовалюту чи банківські депозити.
+          акції/ETF, нерухомість/REIT, криптовалюту чи банківські депозити.
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -355,16 +445,18 @@ export function InvestmentsCard({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEditModal(asset)}
-                      className="text-zinc-500 hover:text-zinc-200"
+                      className="rounded-lg p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+                      title="Редагувати актив"
                     >
                       <Edit2 size={13} />
                     </button>
                     <button
                       onClick={() => handleDeleteAsset(asset.id)}
-                      className="text-zinc-500 hover:text-rose-400"
+                      className="rounded-lg p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-rose-400"
+                      title="Видалити актив"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -392,6 +484,12 @@ export function InvestmentsCard({
               </button>
             </div>
             <form onSubmit={handleSaveAsset} className="space-y-3">
+              {formError && (
+                <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 text-xs text-rose-400">
+                  {formError}
+                </p>
+              )}
+
               <div>
                 <label className="mb-1 block text-xs text-zinc-400">
                   Назва активу
@@ -399,9 +497,12 @@ export function InvestmentsCard({
                 <input
                   type="text"
                   required
-                  placeholder="наприклад ОВДП UA400022... або S&P 500"
+                  placeholder="наприклад Inzhur REIT, ОВДП UA400... або S&P 500"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setFormError("");
+                  }}
                   className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
@@ -418,6 +519,9 @@ export function InvestmentsCard({
                   >
                     <option value="bonds">ОВДП (Облігації)</option>
                     <option value="stocks">Акції / ETF</option>
+                    <option value="reit">
+                      Нерухомість / REIT (Inzhur тощо)
+                    </option>
                     <option value="crypto">Криптовалюта</option>
                     <option value="deposit">Депозит</option>
                     <option value="other">Інше</option>
@@ -446,12 +550,15 @@ export function InvestmentsCard({
                     Вкладено (Cost)
                   </label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     required
-                    placeholder="10000"
+                    placeholder="21059.29"
                     value={invested}
-                    onChange={(e) => setInvested(e.target.value)}
+                    onChange={(e) => {
+                      setInvested(e.target.value);
+                      setFormError("");
+                    }}
                     className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
@@ -460,12 +567,15 @@ export function InvestmentsCard({
                     Поточна вартість
                   </label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     required
-                    placeholder="11500"
+                    placeholder="23530.88"
                     value={currentVal}
-                    onChange={(e) => setCurrentVal(e.target.value)}
+                    onChange={(e) => {
+                      setCurrentVal(e.target.value);
+                      setFormError("");
+                    }}
                     className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
@@ -477,24 +587,61 @@ export function InvestmentsCard({
                     Дохідність річна (%)
                   </label>
                   <input
-                    type="number"
-                    step="0.1"
-                    placeholder="16.5"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="7.59"
                     value={yieldPct}
-                    onChange={(e) => setYieldPct(e.target.value)}
+                    onChange={(e) => {
+                      setYieldPct(e.target.value);
+                      setFormError("");
+                    }}
                     className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Дата погашення
+                  <label className="mb-1 flex items-center justify-between text-xs text-zinc-400">
+                    <span>Дата погашення</span>
+                    <span className="text-[10px] text-zinc-500">
+                      ДД.ММ.РРРР
+                    </span>
                   </label>
-                  <input
-                    type="date"
-                    value={maturityDate}
-                    onChange={(e) => setMaturityDate(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="напр. 25.04.2028"
+                      value={maturityDateInput}
+                      onChange={(e) => {
+                        setMaturityDateInput(e.target.value);
+                        setFormError("");
+                      }}
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 py-2 pr-8 pl-3 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        hiddenDatePickerRef.current?.showPicker?.()
+                      }
+                      className="absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-400 transition-colors hover:text-white"
+                      title="Вибрати з календаря"
+                    >
+                      <Calendar size={14} />
+                    </button>
+                    <input
+                      ref={hiddenDatePickerRef}
+                      type="date"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute bottom-0 left-0 h-0 w-0 opacity-0"
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setMaturityDateInput(
+                            formatIsoToDisplayDate(e.target.value)
+                          );
+                          setFormError("");
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -504,10 +651,10 @@ export function InvestmentsCard({
                 </label>
                 <input
                   type="text"
-                  placeholder="Брокер ICU, рахунок #123..."
+                  placeholder="наприклад: 2 047 сертифікатів (по 10.28 ₴), щомісячні дивіденди"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 

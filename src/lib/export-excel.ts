@@ -128,6 +128,7 @@ export function exportFinancialDataToExcel({
       if (inv.asset_type === "stocks") typeLabel = "Акції / ETF";
       if (inv.asset_type === "crypto") typeLabel = "Криптовалюта";
       if (inv.asset_type === "deposit") typeLabel = "Депозит";
+      if (inv.asset_type === "reit") typeLabel = "Нерухомість / REIT";
 
       return {
         Актив: inv.asset_name,

@@ -70,7 +70,7 @@ export const savingsGoalUpdateSchema = savingsGoalSchema.partial().extend({
 
 export const investmentAssetSchema = z.object({
   asset_name: z.string().trim().min(1, "Назва активу обов'язкова").max(150),
-  asset_type: z.enum(["bonds", "stocks", "crypto", "deposit", "other"]),
+  asset_type: z.enum(["bonds", "stocks", "crypto", "deposit", "reit", "other"]),
   invested_amount: z.number().min(0, "Вкладена сума не може бути від'ємною"),
   current_value: z.number().min(0, "Поточна вартість не може бути від'ємною"),
   currency: z.enum(["UAH", "USD", "EUR", "PLN"]).default("UAH"),
