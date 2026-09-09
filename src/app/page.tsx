@@ -927,6 +927,7 @@ export default function Dashboard() {
               selectedMonthKey={selectedMonthKey}
               recurring={recurring}
               usdRate={commercialRates.USD}
+              activeCycle={activeCycle}
             />
 
             <MoMComparison
