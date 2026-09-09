@@ -62,7 +62,12 @@ describe("Behavioral Finance & Psychology Unit Tests", () => {
         { id: 1, title: "Годинник", estimated_price: 12000, status: "saved" },
         { id: 2, title: "Куртка", estimated_price: 4500, status: "saved" },
         { id: 3, title: "Ноутбук", estimated_price: 60000, status: "cooling" },
-        { id: 4, title: "Кавоварка", estimated_price: 18000, status: "purchased" },
+        {
+          id: 4,
+          title: "Кавоварка",
+          estimated_price: 18000,
+          status: "purchased",
+        },
       ];
 
       const savedAmount = items
@@ -74,7 +79,9 @@ describe("Behavioral Finance & Psychology Unit Tests", () => {
 
     it("коректно визначає статус ready коли дата охолодження в минулому", () => {
       const pastDate = new Date(Date.now() - 1000 * 60 * 60).toISOString(); // 1 година тому
-      const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(); // +5 днів
+      const futureDate = new Date(
+        Date.now() + 1000 * 60 * 60 * 24 * 5
+      ).toISOString(); // +5 днів
 
       const itemReady = {
         status: "cooling",
@@ -87,11 +94,13 @@ describe("Behavioral Finance & Psychology Unit Tests", () => {
 
       const now = new Date();
       const status1 =
-        itemReady.status === "cooling" && new Date(itemReady.cooling_end_date) <= now
+        itemReady.status === "cooling" &&
+        new Date(itemReady.cooling_end_date) <= now
           ? "ready"
           : itemReady.status;
       const status2 =
-        itemCooling.status === "cooling" && new Date(itemCooling.cooling_end_date) <= now
+        itemCooling.status === "cooling" &&
+        new Date(itemCooling.cooling_end_date) <= now
           ? "ready"
           : itemCooling.status;
 
@@ -136,12 +145,15 @@ describe("Behavioral Finance & Psychology Unit Tests", () => {
       const uses = 300;
       const benchmark = 70; // 70 грн за чашку
 
-      const currentCostPerUse = Math.round((purchasePrice / Math.max(1, uses)) * 100) / 100;
+      const currentCostPerUse =
+        Math.round((purchasePrice / Math.max(1, uses)) * 100) / 100;
       expect(currentCostPerUse).toBe(60); // 18000 / 300 = 60 грн/чашка (дешевше ніж 70 грн!)
 
       const totalBenchmarkValue = benchmark * uses; // 21 000 грн
       const moneySaved = Math.max(0, totalBenchmarkValue - purchasePrice); // 3 000 грн чистої економії
-      const roiPercent = Math.round((totalBenchmarkValue / purchasePrice) * 100); // 117%
+      const roiPercent = Math.round(
+        (totalBenchmarkValue / purchasePrice) * 100
+      ); // 117%
 
       expect(moneySaved).toBe(3000);
       expect(roiPercent).toBe(117);

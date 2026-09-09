@@ -42,7 +42,9 @@ export function CostPerUseCard({
     prefillItem?.purchase_price ? String(prefillItem.purchase_price) : ""
   );
   const [currency, setCurrency] = useState(prefillItem?.currency || "UAH");
-  const [categoryName, setCategoryName] = useState(prefillItem?.category_name || "Гаджети");
+  const [categoryName, setCategoryName] = useState(
+    prefillItem?.category_name || "Гаджети"
+  );
   const [purchaseDate, setPurchaseDate] = useState(
     prefillItem?.purchase_date || new Date().toISOString().split("T")[0]
   );
@@ -54,7 +56,10 @@ export function CostPerUseCard({
   // Підрахунок сумарної економії та вкладень
   const computedSaved = items.reduce((acc, item) => {
     const uses = Math.max(1, item.total_uses || 1);
-    if (item.benchmark_cost_per_use && Number(item.benchmark_cost_per_use) > 0) {
+    if (
+      item.benchmark_cost_per_use &&
+      Number(item.benchmark_cost_per_use) > 0
+    ) {
       const benchmarkTotal = Number(item.benchmark_cost_per_use) * uses;
       return acc + Math.max(0, benchmarkTotal - Number(item.purchase_price));
     }
@@ -79,7 +84,9 @@ export function CostPerUseCard({
           category_name: categoryName || "Інше",
           purchase_date: purchaseDate,
           total_uses: totalUses ? parseInt(totalUses, 10) : 1,
-          benchmark_cost_per_use: benchmarkCost ? parseFloat(benchmarkCost) : null,
+          benchmark_cost_per_use: benchmarkCost
+            ? parseFloat(benchmarkCost)
+            : null,
           target_cost_per_use: targetCost ? parseFloat(targetCost) : null,
           notes: notes.trim() || null,
         }),
@@ -133,16 +140,16 @@ export function CostPerUseCard({
   };
 
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur-xl shadow-xl flex flex-col justify-between">
+    <div className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 shadow-xl backdrop-blur-xl">
       <div>
         {/* Заголовок */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800/60">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/60 pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400">
               <TrendingDown className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-100">
                 Окупність речей (Cost-per-Use)
               </h3>
               <p className="text-xs text-slate-400">
@@ -161,13 +168,13 @@ export function CostPerUseCard({
         </div>
 
         {/* Банер сумарної економії */}
-        <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3.5 flex items-center justify-between gap-3">
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-3.5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-400">
               <Award className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-xs text-cyan-300 font-medium">
+              <span className="text-xs font-medium text-cyan-300">
                 Збережено на сервісах та закладах
               </span>
               <div className="text-lg font-bold text-cyan-400">
@@ -175,17 +182,24 @@ export function CostPerUseCard({
               </div>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-400 hidden sm:block">
-            <div>На обліку: <span className="font-semibold text-slate-200">{items.length}</span> речей</div>
+          <div className="hidden text-right text-xs text-slate-400 sm:block">
+            <div>
+              На обліку:{" "}
+              <span className="font-semibold text-slate-200">
+                {items.length}
+              </span>{" "}
+              речей
+            </div>
             <div>Ціна падає з кожним днем ⚡</div>
           </div>
         </div>
 
         {/* Список речей на обліку */}
-        <div className="mt-4 space-y-3 max-h-[430px] overflow-y-auto pr-1">
+        <div className="mt-4 max-h-[430px] space-y-3 overflow-y-auto pr-1">
           {items.length === 0 ? (
             <div className="py-8 text-center text-xs text-slate-500">
-              Ще немає речей на обліку. Додайте кофемашину, куртку чи робочі інструменти!
+              Ще немає речей на обліку. Додайте кофемашину, куртку чи робочі
+              інструменти!
             </div>
           ) : (
             items.map((item) => {
@@ -195,7 +209,10 @@ export function CostPerUseCard({
 
               let moneySaved = 0;
               let roiPercent = 0;
-              if (item.benchmark_cost_per_use && Number(item.benchmark_cost_per_use) > 0) {
+              if (
+                item.benchmark_cost_per_use &&
+                Number(item.benchmark_cost_per_use) > 0
+              ) {
                 const benchmark = Number(item.benchmark_cost_per_use);
                 moneySaved = Math.max(0, benchmark * uses - price);
                 roiPercent = Math.round(((benchmark * uses) / price) * 100);
@@ -211,7 +228,7 @@ export function CostPerUseCard({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-slate-100 truncate">
+                        <span className="truncate text-sm font-medium text-slate-100">
                           {item.item_name}
                         </span>
                         <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
@@ -220,17 +237,27 @@ export function CostPerUseCard({
                       </div>
 
                       <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                        <span>Куплено: {price.toLocaleString("uk-UA")} {item.currency}</span>
+                        <span>
+                          Куплено: {price.toLocaleString("uk-UA")}{" "}
+                          {item.currency}
+                        </span>
                         <span>•</span>
                         <span className="font-semibold text-slate-200">
-                          {uses} {uses === 1 ? "використання" : uses < 5 ? "використання" : "використань"}
+                          {uses}{" "}
+                          {uses === 1
+                            ? "використання"
+                            : uses < 5
+                              ? "використання"
+                              : "використань"}
                         </span>
                       </div>
                     </div>
 
                     {/* Поточна вартість за раз */}
                     <div className="text-right">
-                      <div className="text-xs text-slate-400">Ціна за 1 раз:</div>
+                      <div className="text-xs text-slate-400">
+                        Ціна за 1 раз:
+                      </div>
                       <div className="text-base font-bold text-cyan-400">
                         {currentCost.toLocaleString("uk-UA")} {item.currency}
                       </div>
@@ -243,11 +270,16 @@ export function CostPerUseCard({
                       <div className="flex items-center gap-1.5 text-slate-300">
                         <Coffee className="h-3 w-3 text-amber-400" />
                         <span>
-                          Аналог: {Number(item.benchmark_cost_per_use).toLocaleString("uk-UA")} {item.currency}
+                          Аналог:{" "}
+                          {Number(item.benchmark_cost_per_use).toLocaleString(
+                            "uk-UA"
+                          )}{" "}
+                          {item.currency}
                         </span>
                         {roiPercent >= 100 ? (
-                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
-                            Окупилася на {roiPercent}% (+{Math.round(moneySaved)} ₴)
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                            Окупилася на {roiPercent}% (+
+                            {Math.round(moneySaved)} ₴)
                           </span>
                         ) : (
                           <span className="text-cyan-400">
@@ -263,7 +295,7 @@ export function CostPerUseCard({
                     <button
                       onClick={() => handleLogUse(item.id)}
                       disabled={isLogging}
-                      className="flex items-center gap-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 active:scale-95 transition-all disabled:opacity-50"
+                      className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition-all hover:bg-cyan-500/20 active:scale-95 disabled:opacity-50"
                     >
                       {isLogging ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -275,7 +307,7 @@ export function CostPerUseCard({
 
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="text-slate-500 hover:text-rose-400 transition-colors p-1"
+                      className="p-1 text-slate-500 transition-colors hover:text-rose-400"
                       title="Видалити з трекера"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -291,9 +323,9 @@ export function CostPerUseCard({
       {/* Модальне вікно додавання нової речі */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
+          <div className="animate-in fade-in zoom-in-95 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-100">
                 <TrendingDown className="h-5 w-5 text-cyan-400" />
                 Нова річ для трекера окупності
               </h3>
@@ -310,7 +342,7 @@ export function CostPerUseCard({
 
             <form onSubmit={handleCreate} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Назва речі / обладнання *
                 </label>
                 <input
@@ -319,13 +351,13 @@ export function CostPerUseCard({
                   placeholder="напр. Кавоварка DeLonghi або Зимова куртка"
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="mb-1 block text-xs font-medium text-slate-300">
                     Вартість покупки *
                   </label>
                   <input
@@ -335,17 +367,17 @@ export function CostPerUseCard({
                     placeholder="0.00"
                     value={purchasePrice}
                     onChange={(e) => setPurchasePrice(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="mb-1 block text-xs font-medium text-slate-300">
                     Валюта
                   </label>
                   <select
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                   >
                     <option value="UAH">UAH ₴</option>
                     <option value="USD">USD $</option>
@@ -357,13 +389,13 @@ export function CostPerUseCard({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="mb-1 block text-xs font-medium text-slate-300">
                     Категорія
                   </label>
                   <select
                     value={categoryName}
                     onChange={(e) => setCategoryName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                   >
                     <option value="Гаджети">Гаджети та техніка</option>
                     <option value="Одяг">Одяг та взуття</option>
@@ -375,7 +407,7 @@ export function CostPerUseCard({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="mb-1 block text-xs font-medium text-slate-300">
                     Поточна к-ть використань
                   </label>
                   <input
@@ -383,13 +415,13 @@ export function CostPerUseCard({
                     min="1"
                     value={totalUses}
                     onChange={(e) => setTotalUses(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Альтернативна вартість послуги / разового використання
                 </label>
                 <div className="relative">
@@ -399,27 +431,28 @@ export function CostPerUseCard({
                     placeholder="напр. 70 ₴ за каву в кав'ярні чи 250 ₴ за зал"
                     value={benchmarkCost}
                     onChange={(e) => setBenchmarkCost(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                   />
                 </div>
                 <p className="mt-1 text-[10px] text-slate-400">
-                  Допомагає розрахувати чисту грошову економію та окупність у відсотках.
+                  Допомагає розрахувати чисту грошову економію та окупність у
+                  відсотках.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Дата покупки
                 </label>
                 <input
                   type="date"
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 border-t border-slate-800 pt-3">
                 <button
                   type="button"
                   onClick={() => {

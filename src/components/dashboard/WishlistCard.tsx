@@ -32,7 +32,9 @@ export function WishlistCard({
   onConvertToCostPerUse,
 }: WishlistCardProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [filter, setFilter] = useState<"all" | "cooling" | "ready" | "saved" | "purchased">("all");
+  const [filter, setFilter] = useState<
+    "all" | "cooling" | "ready" | "saved" | "purchased"
+  >("all");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Стейт форми нового бажання
@@ -141,24 +143,27 @@ export function WishlistCard({
     const diffMs = end - now;
     const diffDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     const passedDays = Math.max(0, totalDays - diffDays);
-    const progressPercent = Math.min(100, Math.max(0, Math.round((passedDays / totalDays) * 100)));
+    const progressPercent = Math.min(
+      100,
+      Math.max(0, Math.round((passedDays / totalDays) * 100))
+    );
     return { diffDays, progressPercent };
   };
 
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur-xl shadow-xl flex flex-col justify-between">
+    <div className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 shadow-xl backdrop-blur-xl">
       <div>
         {/* Заголовок */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800/60">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/60 pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/10 text-violet-400">
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-100">
                 Лист очікування (Анти-імпульс)
                 {readyItems.length > 0 && (
-                  <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="flex h-2 w-2 animate-pulse rounded-full bg-amber-400" />
                 )}
               </h3>
               <p className="text-xs text-slate-400">
@@ -177,13 +182,13 @@ export function WishlistCard({
         </div>
 
         {/* Банер заощаджених грошей */}
-        <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 flex items-center justify-between gap-3">
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
               <ShieldCheck className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-xs text-emerald-300 font-medium">
+              <span className="text-xs font-medium text-emerald-300">
                 Врятовано від імпульсивних покупок
               </span>
               <div className="text-lg font-bold text-emerald-400">
@@ -191,9 +196,19 @@ export function WishlistCard({
               </div>
             </div>
           </div>
-          <div className="text-right text-xs text-slate-400 hidden sm:block">
-            <div>На паузі: <span className="font-semibold text-slate-200">{coolingItems.length}</span></div>
-            <div>До рішення: <span className="font-semibold text-amber-400">{readyItems.length}</span></div>
+          <div className="hidden text-right text-xs text-slate-400 sm:block">
+            <div>
+              На паузі:{" "}
+              <span className="font-semibold text-slate-200">
+                {coolingItems.length}
+              </span>
+            </div>
+            <div>
+              До рішення:{" "}
+              <span className="font-semibold text-amber-400">
+                {readyItems.length}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -204,8 +219,14 @@ export function WishlistCard({
               { key: "all", label: `Всі (${items.length})` },
               { key: "cooling", label: `Охолодження (${coolingItems.length})` },
               { key: "ready", label: `Готові (${readyItems.length})` },
-              { key: "saved", label: `Врятовані (${items.filter((i) => i.status === "saved").length})` },
-              { key: "purchased", label: `Куплені (${items.filter((i) => i.status === "purchased").length})` },
+              {
+                key: "saved",
+                label: `Врятовані (${items.filter((i) => i.status === "saved").length})`,
+              },
+              {
+                key: "purchased",
+                label: `Куплені (${items.filter((i) => i.status === "purchased").length})`,
+              },
             ] as const
           ).map((t) => (
             <button
@@ -213,8 +234,8 @@ export function WishlistCard({
               onClick={() => setFilter(t.key)}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                 filter === t.key
-                  ? "bg-violet-600/20 text-violet-300 border border-violet-500/30"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                  ? "border border-violet-500/30 bg-violet-600/20 text-violet-300"
+                  : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
               }`}
             >
               {t.label}
@@ -223,7 +244,7 @@ export function WishlistCard({
         </div>
 
         {/* Список бажань */}
-        <div className="mt-4 space-y-3 max-h-[380px] overflow-y-auto pr-1">
+        <div className="mt-4 max-h-[380px] space-y-3 overflow-y-auto pr-1">
           {filteredItems.length === 0 ? (
             <div className="py-8 text-center text-xs text-slate-500">
               {filter === "all"
@@ -257,7 +278,7 @@ export function WishlistCard({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-slate-100 truncate">
+                        <span className="truncate text-sm font-medium text-slate-100">
                           {item.title}
                         </span>
                         <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
@@ -277,7 +298,7 @@ export function WishlistCard({
                       </div>
 
                       {item.notes && (
-                        <p className="mt-1 text-xs text-slate-400 italic line-clamp-1">
+                        <p className="mt-1 line-clamp-1 text-xs text-slate-400 italic">
                           «{item.notes}»
                         </p>
                       )}
@@ -285,7 +306,8 @@ export function WishlistCard({
 
                     <div className="text-right">
                       <div className="text-sm font-bold text-slate-100">
-                        {Number(item.estimated_price).toLocaleString("uk-UA")} {item.currency}
+                        {Number(item.estimated_price).toLocaleString("uk-UA")}{" "}
+                        {item.currency}
                       </div>
                     </div>
                   </div>
@@ -293,15 +315,15 @@ export function WishlistCard({
                   {/* Стан: Охолодження */}
                   {isCooling && (
                     <div className="mt-3">
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
-                        <span className="flex items-center gap-1 text-violet-400 font-medium">
+                      <div className="mb-1.5 flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="flex items-center gap-1 font-medium text-violet-400">
                           <Clock className="h-3 w-3" />
                           Залишилось: {diffDays} дн ({progressPercent}%)
                         </span>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleResolve(item.id, "extend", 7)}
-                            className="text-[10px] text-slate-400 hover:text-violet-300 underline"
+                            className="text-[10px] text-slate-400 underline hover:text-violet-300"
                           >
                             +7 днів
                           </button>
@@ -315,7 +337,7 @@ export function WishlistCard({
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
                         <div
-                          className="h-full bg-gradient-to-r from-violet-600 to-indigo-400 rounded-full transition-all duration-500"
+                          className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-400 transition-all duration-500"
                           style={{ width: `${progressPercent}%` }}
                         />
                       </div>
@@ -324,29 +346,33 @@ export function WishlistCard({
 
                   {/* Стан: Готово до рішення */}
                   {isReady && (
-                    <div className="mt-3 pt-2 border-t border-amber-500/20">
-                      <div className="text-[11px] text-amber-300 font-medium mb-2 flex items-center gap-1.5">
+                    <div className="mt-3 border-t border-amber-500/20 pt-2">
+                      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-300">
                         <Sparkles className="h-3.5 w-3.5 text-amber-400" />
                         Охолодження завершено! Бажання все ще актуальне?
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <button
-                          onClick={() => handleResolve(item.id, "saved", undefined, item)}
-                          className="flex items-center gap-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-600/30 active:scale-95 transition-all"
+                          onClick={() =>
+                            handleResolve(item.id, "saved", undefined, item)
+                          }
+                          className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-600/20 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition-all hover:bg-emerald-600/30 active:scale-95"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5" />
                           Передумав! Врятувати кошти
                         </button>
                         <button
-                          onClick={() => handleResolve(item.id, "purchased", undefined, item)}
-                          className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-violet-500 active:scale-95 transition-all shadow-md shadow-violet-600/20"
+                          onClick={() =>
+                            handleResolve(item.id, "purchased", undefined, item)
+                          }
+                          className="flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white shadow-md shadow-violet-600/20 transition-all hover:bg-violet-500 active:scale-95"
                         >
                           <ShoppingBag className="h-3.5 w-3.5" />
                           Свідомо купити
                         </button>
                         <button
                           onClick={() => handleResolve(item.id, "extend", 7)}
-                          className="text-[10px] text-slate-400 hover:text-slate-200 underline ml-auto"
+                          className="ml-auto text-[10px] text-slate-400 underline hover:text-slate-200"
                         >
                           +7 дн подумати
                         </button>
@@ -395,9 +421,9 @@ export function WishlistCard({
       {/* Модальне вікно додавання нового бажання */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
+          <div className="animate-in fade-in zoom-in-95 w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="flex items-center gap-2 text-base font-semibold text-slate-100">
                 <Clock className="h-5 w-5 text-violet-400" />
                 Нове бажання на охолодження
               </h3>
@@ -411,7 +437,7 @@ export function WishlistCard({
 
             <form onSubmit={handleCreateWish} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Що хочеться купити? *
                 </label>
                 <input
@@ -420,13 +446,13 @@ export function WishlistCard({
                   placeholder="напр. Навушники Sony WH-1000XM5"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="mb-1 block text-xs font-medium text-slate-300">
                     Орієнтовна ціна *
                   </label>
                   <input
@@ -436,17 +462,17 @@ export function WishlistCard({
                     placeholder="0.00"
                     value={estimatedPrice}
                     onChange={(e) => setEstimatedPrice(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="mb-1 block text-xs font-medium text-slate-300">
                     Валюта
                   </label>
                   <select
                     value={currency}
                     onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                   >
                     <option value="UAH">UAH ₴</option>
                     <option value="USD">USD $</option>
@@ -457,13 +483,13 @@ export function WishlistCard({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Категорія
                 </label>
                 <select
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                 >
                   <option value="Гаджети">Гаджети та техніка</option>
                   <option value="Одяг">Одяг та взуття</option>
@@ -476,7 +502,7 @@ export function WishlistCard({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Період охолодження
                 </label>
                 <div className="grid grid-cols-4 gap-2">
@@ -490,7 +516,7 @@ export function WishlistCard({
                       type="button"
                       key={p.days}
                       onClick={() => setCoolingDays(p.days)}
-                      className={`rounded-xl py-2 text-xs font-medium border transition-all ${
+                      className={`rounded-xl border py-2 text-xs font-medium transition-all ${
                         coolingDays === p.days
                           ? "border-violet-500 bg-violet-600/30 text-violet-200"
                           : "border-slate-700 bg-slate-800/40 text-slate-400 hover:border-slate-600"
@@ -503,7 +529,7 @@ export function WishlistCard({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Чому виникло це бажання? (Емоція / Тригер)
                 </label>
                 <input
@@ -511,12 +537,12 @@ export function WishlistCard({
                   placeholder="напр. Побачив огляд на YouTube, чи справді воно мені треба?"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
+                <label className="mb-1 block text-xs font-medium text-slate-300">
                   Посилання на товар (опціонально)
                 </label>
                 <input
@@ -524,11 +550,11 @@ export function WishlistCard({
                   placeholder="https://..."
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 border-t border-slate-800 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}

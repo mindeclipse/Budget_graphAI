@@ -47,7 +47,10 @@ export async function GET() {
       let moneySaved = 0;
       let roiPercent = 0;
 
-      if (item.benchmark_cost_per_use && Number(item.benchmark_cost_per_use) > 0) {
+      if (
+        item.benchmark_cost_per_use &&
+        Number(item.benchmark_cost_per_use) > 0
+      ) {
         const benchmark = Number(item.benchmark_cost_per_use);
         const totalBenchmarkValue = benchmark * uses;
         moneySaved = Math.max(0, totalBenchmarkValue - price);

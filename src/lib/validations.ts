@@ -116,7 +116,12 @@ export const wishlistItemSchema = z.object({
     .max(100_000_000),
   currency: z.enum(["UAH", "USD", "EUR", "PLN"]).default("UAH"),
   category_name: z.string().trim().min(1).max(100).default("Інше"),
-  url: z.string().url("Некоректне посилання").nullable().optional().or(z.literal("")),
+  url: z
+    .string()
+    .url("Некоректне посилання")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
   notes: z.string().trim().max(1000).nullable().optional(),
   cooling_days: z
     .number()
@@ -168,4 +173,3 @@ export const costPerUseActionSchema = z.object({
   action: z.literal("log_use"),
   increment: z.number().int().positive().default(1),
 });
-
