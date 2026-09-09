@@ -59,7 +59,10 @@ export const savingsGoalSchema = z.object({
       .nullable()
       .optional()
   ),
-  current_amount: z.number().min(0).default(0),
+  current_amount: z.preprocess(
+    (val) => (val === "" || val === undefined ? 0 : val),
+    z.coerce.number().min(0, "Сума не може бути від'ємною").default(0)
+  ),
   currency: z.enum(["UAH", "USD", "EUR", "PLN"]).default("UAH"),
   target_date: z.string().nullable().optional(),
 });

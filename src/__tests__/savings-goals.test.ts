@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { calculateSavingsMetrics } from "@/components/dashboard/SavingsGoalsCard";
+import {
+  calculateSavingsMetrics,
+  convertToUah,
+} from "@/components/dashboard/SavingsGoalsCard";
+import { savingsGoalUpdateSchema } from "@/lib/validations";
 import { SavingsGoal } from "@/types/finance";
 
 describe("SavingsGoalsCard - calculateSavingsMetrics", () => {
@@ -120,5 +124,57 @@ describe("SavingsGoalsCard - calculateSavingsMetrics", () => {
     expect(metrics.activeCurrencies).toEqual([]);
     expect(metrics.totalSavedUahEquivalent).toBe(0);
     expect(metrics.runwayMonths).toBe("0.0");
+  });
+
+  describe("convertToUah helper", () => {
+    it("правильно конвертує суми за курсом або повертає UAH", () => {
+      expect(convertToUah(100, "USD", mockRates)).toBe(4150);
+      expect(convertToUah(100, "EUR", mockRates)).toBe(4530);
+      expect(convertToUah(100, "PLN", mockRates)).toBe(1060);
+      expect(convertToUah(100, "UAH", mockRates)).toBe(100);
+      expect(convertToUah(0, "USD", mockRates)).toBe(0);
+    });
+  });
+
+  describe("savingsGoalUpdateSchema - редагування суми заощаджень", () => {
+    it("дозволяє оновлення поточної суми збережень (current_amount)", () => {
+      const updateData = {
+        id: 1,
+        name: "Збереження ₴ кеш",
+        current_amount: 15000,
+        target_amount: null,
+        currency: "UAH",
+      };
+
+      const result = savingsGoalUpdateSchema.safeParse(updateData);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.current_amount).toBe(15000);
+        expect(result.data.target_amount).toBeNull();
+      }
+    });
+
+    it("підтримує числове приведення рядкових сум при редагуванні", () => {
+      const updateStringData = {
+        id: 2,
+        current_amount: "2470.50",
+      };
+
+      const result = savingsGoalUpdateSchema.safeParse(updateStringData);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.current_amount).toBe(2470.5);
+      }
+    });
+
+    it("відхиляє від'ємні значення суми збережень", () => {
+      const invalidData = {
+        id: 3,
+        current_amount: -500,
+      };
+
+      const result = savingsGoalUpdateSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+    });
   });
 });

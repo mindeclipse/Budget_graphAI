@@ -12,8 +12,10 @@ import {
   Pencil,
   Loader2,
   CheckCircle2,
+  Infinity as InfinityIcon,
 } from "lucide-react";
 import { SavingsGoal } from "@/types/finance";
+import { parseFlexibleNumber } from "./InvestmentsCard";
 
 export const CURRENCY_SYMBOLS: Record<string, string> = {
   UAH: "₴",
@@ -35,6 +37,22 @@ export interface SavingsMetrics {
   runwayMonths: string;
 }
 
+export function convertToUah(
+  amount: number,
+  curr: string,
+  rates: { USD: number; EUR: number; PLN: number } = {
+    USD: 41.5,
+    EUR: 45.3,
+    PLN: 10.6,
+  }
+): number {
+  const c = (curr || "UAH").toUpperCase();
+  if (c === "USD") return amount * (rates.USD || 41.5);
+  if (c === "EUR") return amount * (rates.EUR || 45.3);
+  if (c === "PLN") return amount * (rates.PLN || 10.6);
+  return amount;
+}
+
 export function calculateSavingsMetrics(
   goals: SavingsGoal[],
   monthlyBurnRate: number = 30000,
@@ -44,14 +62,6 @@ export function calculateSavingsMetrics(
     PLN: 10.6,
   }
 ): SavingsMetrics {
-  const convertToUah = (amount: number, curr: string) => {
-    const c = (curr || "UAH").toUpperCase();
-    if (c === "USD") return amount * (rates.USD || 41.5);
-    if (c === "EUR") return amount * (rates.EUR || 45.3);
-    if (c === "PLN") return amount * (rates.PLN || 10.6);
-    return amount;
-  };
-
   const currencyTotals: Record<string, CurrencyTotalInfo> = {};
 
   goals.forEach((g) => {
@@ -69,7 +79,8 @@ export function calculateSavingsMetrics(
   const activeCurrencies = Object.keys(currencyTotals);
 
   const totalSavedUahEquivalent = goals.reduce(
-    (acc, g) => acc + convertToUah(Number(g.current_amount) || 0, g.currency),
+    (acc, g) =>
+      acc + convertToUah(Number(g.current_amount) || 0, g.currency, rates),
     0
   );
 
@@ -113,6 +124,7 @@ export function SavingsGoalsCard({
   // Стейт редагування цілі
   const [editGoal, setEditGoal] = useState<SavingsGoal | null>(null);
   const [editName, setEditName] = useState("");
+  const [editCurrent, setEditCurrent] = useState("");
   const [editTarget, setEditTarget] = useState("");
   const [editCurrency, setEditCurrency] = useState("UAH");
   const [editTargetDate, setEditTargetDate] = useState("");
@@ -130,6 +142,9 @@ export function SavingsGoalsCard({
   const handleOpenEdit = (goal: SavingsGoal) => {
     setEditGoal(goal);
     setEditName(goal.name);
+    setEditCurrent(
+      goal.current_amount != null ? String(goal.current_amount) : "0"
+    );
     setEditTarget(
       goal.target_amount != null && Number(goal.target_amount) > 0
         ? String(goal.target_amount)
@@ -152,8 +167,12 @@ export function SavingsGoalsCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newName.trim(),
-          target_amount: newTarget.trim() ? parseFloat(newTarget) : null,
-          current_amount: newCurrent ? parseFloat(newCurrent) : 0,
+          target_amount: newTarget.trim()
+            ? parseFlexibleNumber(newTarget)
+            : null,
+          current_amount: newCurrent.trim()
+            ? parseFlexibleNumber(newCurrent)
+            : 0,
           currency: newCurrency,
           target_date: newTargetDate || null,
         }),
@@ -189,7 +208,12 @@ export function SavingsGoalsCard({
         body: JSON.stringify({
           id: editGoal.id,
           name: editName.trim(),
-          target_amount: editTarget.trim() ? parseFloat(editTarget) : null,
+          current_amount: editCurrent.trim()
+            ? parseFlexibleNumber(editCurrent)
+            : 0,
+          target_amount: editTarget.trim()
+            ? parseFlexibleNumber(editTarget)
+            : null,
           currency: editCurrency,
           target_date: editTargetDate || null,
         }),
@@ -437,7 +461,7 @@ export function SavingsGoalsCard({
                   </div>
                 </div>
 
-                {/* Прогрес бар або індикатор скарбнички */}
+                {/* Прогрес бар для цілей або балансовий блок для безстрокових скарбничок */}
                 {hasTarget ? (
                   <>
                     <div className="mb-1.5 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
@@ -456,17 +480,35 @@ export function SavingsGoalsCard({
                     </div>
                   </>
                 ) : (
-                  <>
-                    <div className="mb-1.5 h-1.5 w-full rounded-full bg-emerald-500/20" />
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-mono font-medium text-zinc-300 tabular-nums">
-                        {current.toLocaleString()} {goal.currency}
+                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-3 py-2">
+                    <div className="flex flex-wrap items-baseline gap-1.5">
+                      <span className="text-xs font-medium text-zinc-400">
+                        Накопичено:
                       </span>
-                      <span className="text-[10px] font-medium text-emerald-400/80">
-                        Безстроково
+                      <span className="text-sm font-extrabold text-white tabular-nums">
+                        {current.toLocaleString()}{" "}
+                        <span className="text-xs font-semibold text-emerald-400">
+                          {CURRENCY_SYMBOLS[goal.currency] || goal.currency}
+                        </span>
                       </span>
+                      {goal.currency !== "UAH" && (
+                        <span className="text-[11px] text-zinc-500 tabular-nums">
+                          (≈{" "}
+                          {Math.round(
+                            convertToUah(current, goal.currency, rates)
+                          ).toLocaleString()}{" "}
+                          ₴)
+                        </span>
+                      )}
                     </div>
-                  </>
+
+                    <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                      <InfinityIcon size={12} />
+                      <span>
+                        {goal.target_date ? "Без ліміту" : "Безстроково"}
+                      </span>
+                    </span>
+                  </div>
                 )}
               </div>
             );
@@ -586,11 +628,28 @@ export function SavingsGoalsCard({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">
+                    Накопичено (сума)
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    placeholder="0"
+                    value={editCurrent}
+                    onChange={(e) => setEditCurrent(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  />
+                  <p className="mt-0.5 text-[9px] text-zinc-500">
+                    Поточні збереження
+                  </p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">
                     Цільова сума
                   </label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Без ліміту"
                     value={editTarget}
                     onChange={(e) => setEditTarget(e.target.value)}
@@ -600,6 +659,9 @@ export function SavingsGoalsCard({
                     Порожнє = безстроково
                   </p>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">
                     Валюта
@@ -615,18 +677,17 @@ export function SavingsGoalsCard({
                     <option value="PLN">PLN (zł)</option>
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">
-                  Дедлайн (опціонально)
-                </label>
-                <input
-                  type="date"
-                  value={editTargetDate}
-                  onChange={(e) => setEditTargetDate(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                />
+                <div>
+                  <label className="mb-1 block text-xs text-zinc-400">
+                    Дедлайн (опціонально)
+                  </label>
+                  <input
+                    type="date"
+                    value={editTargetDate}
+                    onChange={(e) => setEditTargetDate(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -703,8 +764,8 @@ export function SavingsGoalsCard({
                     Цільова сума (опціонально)
                   </label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="Без обмеження"
                     value={newTarget}
                     onChange={(e) => setNewTarget(e.target.value)}
@@ -719,8 +780,8 @@ export function SavingsGoalsCard({
                     Вже є (початкова)
                   </label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0"
                     value={newCurrent}
                     onChange={(e) => setNewCurrent(e.target.value)}
