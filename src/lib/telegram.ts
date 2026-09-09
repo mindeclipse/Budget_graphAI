@@ -1,6 +1,19 @@
 export { escapeHtml } from "@/lib/security";
 
-export async function sendTelegramMessage(text: string): Promise<boolean> {
+export interface TelegramInlineKeyboardButton {
+  text: string;
+  url?: string;
+  web_app?: { url: string };
+}
+
+export interface TelegramReplyMarkup {
+  inline_keyboard?: TelegramInlineKeyboardButton[][];
+}
+
+export async function sendTelegramMessage(
+  text: string,
+  replyMarkup?: TelegramReplyMarkup
+): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
@@ -10,16 +23,22 @@ export async function sendTelegramMessage(text: string): Promise<boolean> {
   }
 
   try {
+    const payload: Record<string, any> = {
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+    };
+
+    if (replyMarkup) {
+      payload.reply_markup = replyMarkup;
+    }
+
     const res = await fetch(
       `https://api.telegram.org/bot${token}/sendMessage`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          parse_mode: "HTML",
-        }),
+        body: JSON.stringify(payload),
       }
     );
 

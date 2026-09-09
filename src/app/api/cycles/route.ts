@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySessionToken } from "@/lib/session";
+import { generateCycleSummary } from "@/lib/telegram-digest";
 
 async function checkAuthSession(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -85,7 +86,14 @@ export async function POST(req: Request) {
       (typeof name === "string" ? name.trim().slice(0, 100) : "") ||
       "Новий цикл";
 
-    // 1. Закриваємо попередній активний цикл із обов'язковою перевіркою результату
+    // 1. Знаходимо попередній активний цикл для підсумкового дайджесту
+    const { data: previousCycle } = await supabase
+      .from("budget_cycles")
+      .select("id")
+      .eq("is_active", true)
+      .maybeSingle();
+
+    // 2. Закриваємо попередній активний цикл із обов'язковою перевіркою результату
     const { error: closeError } = await supabase
       .from("budget_cycles")
       .update({
@@ -102,7 +110,7 @@ export async function POST(req: Request) {
       throw closeError;
     }
 
-    // 2. Створюємо новий активний цикл
+    // 3. Створюємо новий активний цикл
     const { data: newCycle, error: insertError } = await supabase
       .from("budget_cycles")
       .insert([
@@ -122,6 +130,18 @@ export async function POST(req: Request) {
         insertError
       );
       throw insertError;
+    }
+
+    // 4. Надсилаємо підсумковий AI-звіт закритого циклу у Telegram
+    if (previousCycle?.id) {
+      generateCycleSummary(previousCycle.id, { force: true }).catch(
+        (summaryErr) => {
+          console.warn(
+            "[API cycles POST] Error generating end-of-cycle summary:",
+            summaryErr
+          );
+        }
+      );
     }
 
     return NextResponse.json({ success: true, cycle: newCycle });

@@ -8,7 +8,9 @@ import {
   Upload,
   Fingerprint,
   LogOut,
+  Send,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface BudgetSummaryHeaderProps {
   spentWhole: string;
@@ -32,6 +34,41 @@ export function BudgetSummaryHeader({
   onLogout,
 }: BudgetSummaryHeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSendingDigest, setIsSendingDigest] = useState(false);
+
+  const handleSendTestDigest = async () => {
+    if (isSendingDigest) return;
+    setIsSendingDigest(true);
+    const toastId = toast.loading("Формування AI-дайджесту...");
+    try {
+      const res = await fetch("/api/cron/digest?type=weekly&force=true");
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Помилка відправки");
+      }
+      if (data.sent) {
+        toast.success("AI-дайджест успішно надіслано в Telegram!", {
+          id: toastId,
+          description: "Перевірте чат вашого бота",
+        });
+      } else {
+        toast.info("Дайджест сформовано, але не відправлено", {
+          id: toastId,
+          description:
+            data.reason ||
+            "Перевірте налаштування TELEGRAM_BOT_TOKEN та TELEGRAM_CHAT_ID",
+        });
+      }
+    } catch (err: any) {
+      toast.error("Не вдалося надіслати дайджест", {
+        id: toastId,
+        description: err.message || "Помилка зв'язку із сервером",
+      });
+    } finally {
+      setIsSendingDigest(false);
+      setIsSettingsOpen(false);
+    }
+  };
 
   return (
     <header className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-800/80 pb-3 md:flex-row md:items-end">
@@ -123,6 +160,19 @@ export function BudgetSummaryHeader({
                 >
                   <Fingerprint size={14} className="text-zinc-400" />
                   <span>Face ID / Touch ID</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendTestDigest}
+                  disabled={isSendingDigest}
+                  title="Надіслати щотижневий звіт із порадами Gemini у Telegram"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900 disabled:opacity-50"
+                >
+                  <Send size={14} className="text-zinc-400" />
+                  <span>
+                    {isSendingDigest ? "Відправка..." : "Дайджест у Telegram"}
+                  </span>
                 </button>
 
                 <div className="my-1 border-t border-zinc-800/60" />
