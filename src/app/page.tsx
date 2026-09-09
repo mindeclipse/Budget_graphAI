@@ -305,9 +305,55 @@ export default function Dashboard() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [selectedAiModel, setSelectedAiModel] =
     useState<SupportedGeminiModel>("gemini-3.5-flash");
+  const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(
+    undefined
+  );
 
-  const handleRunAiAnalysis = async (modelToUse = selectedAiModel) => {
+  const aiFinancialContext = useMemo(() => {
+    return {
+      cycleName: activeCycle?.name,
+      budgetLimit: effectiveLimit,
+      totalSpent,
+      remaining: budgetMetrics.remaining,
+      safeDailySpend: budgetMetrics.safeDailySpend,
+      daysRemaining: budgetMetrics.daysRemaining,
+      topCategories: categoryStats.slice(0, 5).map((c) => ({
+        name: c.name,
+        amount: c.amount,
+        percentage: c.percentage,
+      })),
+      analysisSummary: aiAnalysis?.summary,
+      upcomingSubscriptions: (radarData?.upcoming || [])
+        .slice(0, 4)
+        .map((s) => ({
+          title: s.title,
+          amount: s.amount,
+          daysRemaining: s.days_remaining,
+        })),
+    };
+  }, [
+    activeCycle?.name,
+    effectiveLimit,
+    totalSpent,
+    budgetMetrics.remaining,
+    budgetMetrics.safeDailySpend,
+    budgetMetrics.daysRemaining,
+    categoryStats,
+    aiAnalysis?.summary,
+    radarData?.upcoming,
+  ]);
+
+  const handleRunAiAnalysis = async (
+    modelToUse = selectedAiModel,
+    initialPrompt?: string
+  ) => {
+    setAiInitialPrompt(initialPrompt);
     setIsAiDrawerOpen(true);
+
+    if (aiAnalysis && !initialPrompt) {
+      return;
+    }
+
     setIsAiLoading(true);
 
     try {
@@ -746,66 +792,92 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Вкладка 1: Аналітика & Бюджет */}
+      {/* Вкладка 1: Аналітика & Бюджет (Симетричний Bento Grid) */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-          {/* Ліва колонка: Щоденна динаміка, категорії з лімітами, AI */}
-          <section className="space-y-6 lg:col-span-7">
-            <DailyDynamicsChart dailyStats={dailyStats} />
+        <div className="space-y-6">
+          {/* Ряд 1: Графіки динаміки та прогнозу спалювання */}
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <DailyDynamicsChart dailyStats={dailyStats} />
+            </div>
+            <div className="lg:col-span-5">
+              <BurnRateChart
+                transactions={filteredTransactions}
+                budgetLimit={effectiveLimit}
+                recurringTotal={recurringTotal}
+                selectedMonthKey={selectedMonthKey}
+                recurring={recurring}
+              />
+            </div>
+          </div>
 
-            <CategoryBreakdown
-              categoryStats={categoryStats}
-              categoryBudgets={categoryBudgets}
-              onSelectCategory={setSelectedCategory}
-              onSaveCategoryBudget={handleSaveCategoryBudget}
-              onDeleteCategoryBudget={handleDeleteCategoryBudget}
-            />
+          {/* Ряд 2: Аналіз категорій та порівняння з минулим циклом */}
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7">
+              <CategoryBreakdown
+                categoryStats={categoryStats}
+                categoryBudgets={categoryBudgets}
+                onSelectCategory={setSelectedCategory}
+                onSaveCategoryBudget={handleSaveCategoryBudget}
+                onDeleteCategoryBudget={handleDeleteCategoryBudget}
+              />
+            </div>
+            <div className="lg:col-span-5">
+              <MoMComparison
+                currentTransactions={cycleCurrentTransactions}
+                previousTransactions={cyclePreviousTransactions}
+                currentMonthLabel={cycleCurrentLabel}
+                previousMonthLabel={cyclePreviousLabel}
+                title={
+                  activeCycle
+                    ? "Порівняння з минулим циклом"
+                    : "Порівняння з минулим місяцем"
+                }
+              />
+            </div>
+          </div>
 
-            <AICard
-              aiAnalysis={aiAnalysis}
-              onOpenAiDrawer={() => handleRunAiAnalysis()}
-            />
-          </section>
-
-          {/* Права колонка: Прогноз спалювання бюджету, Радар підписок та MoM-порівняння */}
-          <section className="space-y-6 lg:col-span-5">
-            <BurnRateChart
-              transactions={filteredTransactions}
-              budgetLimit={effectiveLimit}
-              recurringTotal={recurringTotal}
-              selectedMonthKey={selectedMonthKey}
-              recurring={recurring}
-            />
-
-            <RecurringSection
-              recurring={recurring}
-              radarData={radarData}
-              isLoadingRadar={isLoadingRadar}
-              onAddRecurring={() => {
-                setEditingRecurring(null);
-                setIsAddingRecurring(true);
-              }}
-              onEditRecurring={(item) => {
-                setEditingRecurring(item);
-                setIsAddingRecurring(true);
-              }}
-              onExecuteRecurring={handleExecuteRecurring}
-              onAddDetected={handleAddDetectedFromRadar}
-              onDismissDetected={handleDismissDetectedFromRadar}
-            />
-
-            <MoMComparison
-              currentTransactions={cycleCurrentTransactions}
-              previousTransactions={cyclePreviousTransactions}
-              currentMonthLabel={cycleCurrentLabel}
-              previousMonthLabel={cyclePreviousLabel}
-              title={
-                activeCycle
-                  ? "Порівняння з минулим циклом"
-                  : "Порівняння з минулим місяцем"
-              }
-            />
-          </section>
+          {/* Ряд 3: Повнорозмірний AI Радник & Радар підписок */}
+          <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
+            <div className="flex lg:col-span-7">
+              <div className="w-full">
+                <AICard
+                  aiAnalysis={aiAnalysis}
+                  isAiLoading={isAiLoading}
+                  budgetMetrics={budgetMetrics}
+                  categoryStats={categoryStats}
+                  categoryBudgets={categoryBudgets}
+                  radarUpcoming={radarData?.upcoming}
+                  selectedModel={selectedAiModel}
+                  onModelChange={(model) => {
+                    setSelectedAiModel(model);
+                    handleRunAiAnalysis(model);
+                  }}
+                  onOpenAiDrawer={(initialPrompt) =>
+                    handleRunAiAnalysis(selectedAiModel, initialPrompt)
+                  }
+                />
+              </div>
+            </div>
+            <div className="lg:col-span-5">
+              <RecurringSection
+                recurring={recurring}
+                radarData={radarData}
+                isLoadingRadar={isLoadingRadar}
+                onAddRecurring={() => {
+                  setEditingRecurring(null);
+                  setIsAddingRecurring(true);
+                }}
+                onEditRecurring={(item) => {
+                  setEditingRecurring(item);
+                  setIsAddingRecurring(true);
+                }}
+                onExecuteRecurring={handleExecuteRecurring}
+                onAddDetected={handleAddDetectedFromRadar}
+                onDismissDetected={handleDismissDetectedFromRadar}
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -924,7 +996,10 @@ export default function Dashboard() {
       {isAiDrawerOpen && (
         <AIAnalysisDrawer
           isOpen={isAiDrawerOpen}
-          onClose={() => setIsAiDrawerOpen(false)}
+          onClose={() => {
+            setIsAiDrawerOpen(false);
+            setAiInitialPrompt(undefined);
+          }}
           analysis={aiAnalysis}
           isLoading={isAiLoading}
           selectedModel={selectedAiModel}
@@ -933,6 +1008,8 @@ export default function Dashboard() {
             handleRunAiAnalysis(model);
           }}
           onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
+          initialPrompt={aiInitialPrompt}
+          financialContext={aiFinancialContext}
         />
       )}
 
