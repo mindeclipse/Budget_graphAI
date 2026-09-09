@@ -32,6 +32,7 @@ interface TransactionActionSheetProps {
   onUpdateTags: (txId: number, newTags: string[]) => void | Promise<void>;
   onDelete: (txId: number) => void | Promise<void>;
   onOpenSplit?: (tx: Transaction) => void;
+  onOpenTagProject?: (tag: string) => void;
 }
 
 export function TransactionActionSheet({
@@ -41,6 +42,7 @@ export function TransactionActionSheet({
   onUpdateTags,
   onDelete,
   onOpenSplit,
+  onOpenTagProject,
 }: TransactionActionSheetProps) {
   const [cleanTitleInput, setCleanTitleInput] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -261,9 +263,19 @@ export function TransactionActionSheet({
               {currentTags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-300"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-300"
                 >
-                  #{tag}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenTagProject?.(tag);
+                    }}
+                    title={`Аналітика проєкту #${tag} за весь час`}
+                    className="transition-colors hover:text-sky-400"
+                  >
+                    #{tag}
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}

@@ -90,6 +90,10 @@ const MerchantRulesModal = dynamic(
     import("@/components/MerchantRulesModal").then((m) => m.MerchantRulesModal),
   { ssr: false }
 );
+const TagProjectModal = dynamic(
+  () => import("@/components/TagProjectModal").then((m) => m.TagProjectModal),
+  { ssr: false }
+);
 
 import {
   Transaction,
@@ -455,6 +459,9 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [selectedProjectTag, setSelectedProjectTag] = useState<string | null>(
+    null
+  );
 
   const availableTags = useMemo<string[]>(() => {
     const tagsSet = new Set<string>();
@@ -979,6 +986,7 @@ export default function Dashboard() {
               onSelectTransaction={setSelectedTx}
               onOpenTrash={() => setIsTrashOpen(true)}
               onOpenMerchantRules={() => setIsMerchantRulesOpen(true)}
+              onOpenTagProject={setSelectedProjectTag}
             />
           </section>
 
@@ -1061,6 +1069,15 @@ export default function Dashboard() {
         />
       )}
 
+      {selectedProjectTag && (
+        <TagProjectModal
+          tag={selectedProjectTag}
+          transactions={transactions}
+          onClose={() => setSelectedProjectTag(null)}
+          onSelectTransaction={setSelectedTx}
+        />
+      )}
+
       <CreateTransactionDrawer
         isOpen={isCreateExpenseOpen}
         onClose={() => setIsCreateExpenseOpen(false)}
@@ -1084,6 +1101,7 @@ export default function Dashboard() {
           onUpdateTags={handleUpdateTags}
           onDelete={handleDeleteTransaction}
           onOpenSplit={(tx) => setSplitTx(tx)}
+          onOpenTagProject={setSelectedProjectTag}
         />
       )}
 

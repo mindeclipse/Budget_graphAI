@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Trash2,
   SlidersHorizontal,
+  FolderKanban,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
 import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/constants/categories";
@@ -26,6 +27,7 @@ interface TransactionsListProps {
   onSelectTransaction: (tx: Transaction) => void;
   onOpenTrash?: () => void;
   onOpenMerchantRules?: () => void;
+  onOpenTagProject?: (tag: string) => void;
 }
 
 export function TransactionsList({
@@ -40,6 +42,7 @@ export function TransactionsList({
   onSelectTransaction,
   onOpenTrash,
   onOpenMerchantRules,
+  onOpenTagProject,
 }: TransactionsListProps) {
   const INITIAL_BATCH_SIZE = 40;
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
@@ -164,13 +167,23 @@ export function TransactionsList({
               );
             })}
             {activeTag && (
-              <button
-                type="button"
-                onClick={() => onTagChange(null)}
-                className="rounded-lg px-2 py-1 text-[10px] text-zinc-500 underline underline-offset-2 hover:text-zinc-300"
-              >
-                Скинути
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenTagProject?.(activeTag)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/15 px-2.5 py-1 text-[11px] font-semibold text-sky-400 transition-all hover:bg-sky-500/25 active:scale-95"
+                >
+                  <FolderKanban size={12} />
+                  Аналітика проєкту #{activeTag}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTagChange(null)}
+                  className="rounded-lg px-2 py-1 text-[10px] text-zinc-500 underline underline-offset-2 hover:text-zinc-300"
+                >
+                  Скинути
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -251,12 +264,18 @@ export function TransactionsList({
                     {t.tags && t.tags.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {t.tags.map((tag: string) => (
-                          <span
+                          <button
                             key={tag}
-                            className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenTagProject?.(tag);
+                            }}
+                            title={`Аналітика проєкту #${tag} за всі періоди`}
+                            className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-sky-500/20 hover:text-sky-300"
                           >
                             #{tag}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     )}
