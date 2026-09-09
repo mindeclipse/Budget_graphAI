@@ -25,6 +25,6 @@ export async function getUsdRate(): Promise<number> {
   } catch (error) {
     console.error("Error fetching USD exchange rate from PrivatBank:", error);
     // Fallback: якщо API банку тимчасово недоступне, підтягуємо безпечний орієнтир
-    return 41.8;
+    return 44.5;
   }
 }
