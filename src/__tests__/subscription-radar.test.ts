@@ -121,6 +121,38 @@ describe("Subscription Radar Engine", () => {
       expect(detected.length).toBe(0);
     });
 
+    it("надійно блокує повернення підписки навіть якщо сума змінилася (по мерчанту)", () => {
+      const transactions: Transaction[] = [
+        {
+          id: 31,
+          merchant_raw: "Megogo",
+          amount: 199, // нова сума (раніше було 149)
+          currency: "UAH",
+          category_name: "Підписки та сервіси",
+          created_at: "2026-02-05T10:00:00Z",
+          source: "monobank",
+          type: "expense",
+        },
+      ];
+
+      // Користувач відхилив стару сигнатуру 149 грн або просто назву мерчанта
+      const dismissedWithOldAmount = ["radar-megogo-149-uah"];
+      const detected1 = detectSubscriptions(
+        transactions,
+        [],
+        dismissedWithOldAmount
+      );
+      expect(detected1.length).toBe(0);
+
+      const dismissedByCleanName = ["megogo"];
+      const detected2 = detectSubscriptions(
+        transactions,
+        [],
+        dismissedByCleanName
+      );
+      expect(detected2.length).toBe(0);
+    });
+
     it("ігнорує доходи, інвестиції та випадкові разові витрати", () => {
       const transactions: Transaction[] = [
         {

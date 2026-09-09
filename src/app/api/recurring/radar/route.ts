@@ -32,12 +32,22 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const dismissedParam = searchParams.get("dismissed") || "";
-    const dismissedSignatures = dismissedParam
-      ? dismissedParam
+    const cookieStore = await cookies();
+    const cookieDismissed =
+      cookieStore.get("budget_dismissed_radar")?.value || "";
+    const decodedCookie = cookieDismissed
+      ? decodeURIComponent(cookieDismissed)
+      : "";
+
+    const combinedRaw = `${dismissedParam},${decodedCookie}`;
+    const dismissedSignatures = Array.from(
+      new Set(
+        combinedRaw
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean)
-      : [];
+      )
+    );
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -110,6 +120,61 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[API recurring/radar GET error]:", error);
+    return NextResponse.json(
+      { error: getSafeErrorMessage(error) },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { action, signature, title, cleanId, cleanMerchant } = body || {};
+
+    if (action === "dismiss") {
+      const cookieStore = await cookies();
+      const existingCookie =
+        cookieStore.get("budget_dismissed_radar")?.value || "";
+      const existingList = existingCookie
+        ? decodeURIComponent(existingCookie).split(",")
+        : [];
+
+      const newItems = [signature, title, cleanId, cleanMerchant].filter(
+        Boolean
+      );
+      const combined = Array.from(
+        new Set(
+          [...existingList, ...newItems].map((s) => s.trim()).filter(Boolean)
+        )
+      );
+
+      const response = NextResponse.json({
+        success: true,
+        count: combined.length,
+      });
+
+      response.cookies.set(
+        "budget_dismissed_radar",
+        encodeURIComponent(combined.join(",")),
+        {
+          path: "/",
+          maxAge: 31536000, // 1 рік
+          sameSite: "lax",
+          httpOnly: false,
+        }
+      );
+
+      return response;
+    }
+
+    return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+  } catch (error: any) {
+    console.error("[API recurring/radar POST error]:", error);
     return NextResponse.json(
       { error: getSafeErrorMessage(error) },
       { status: 500 }

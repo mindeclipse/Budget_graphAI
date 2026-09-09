@@ -645,17 +645,47 @@ export default function Dashboard() {
     setIsAddingRecurring(true);
   };
 
-  const handleDismissDetectedFromRadar = (signature: string) => {
+  const handleDismissDetectedFromRadar = async (
+    signature: string,
+    title?: string
+  ) => {
     try {
+      const cleanId = signature.replace(/-[0-9]+-[a-z]+$/, "");
+      const cleanMerchant = cleanId.replace(/^radar-/, "");
+      const itemsToAdd = [signature, cleanId, cleanMerchant];
+      if (title) itemsToAdd.push(title);
+
       const stored = localStorage.getItem("budget_dismissed_radar_subs");
       const current: string[] = stored ? JSON.parse(stored) : [];
-      if (!current.includes(signature)) {
-        current.push(signature);
+      let changed = false;
+
+      for (const item of itemsToAdd) {
+        if (!current.includes(item)) {
+          current.push(item);
+          changed = true;
+        }
+      }
+
+      if (changed) {
         localStorage.setItem(
           "budget_dismissed_radar_subs",
           JSON.stringify(current)
         );
       }
+
+      // Синхронізуємо на сервер у cookie для довгострокового збереження між сесіями та пристроями
+      await fetch("/api/recurring/radar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "dismiss",
+          signature,
+          title,
+          cleanId,
+          cleanMerchant,
+        }),
+      }).catch(() => null);
+
       invalidateRadar();
     } catch (e) {
       console.error("Error dismissing radar subscription:", e);

@@ -227,7 +227,29 @@ export function detectSubscriptions(
       "UAH" | "USD";
 
     const signature = `radar-${cleanName.toLowerCase()}-${avgAmount}-${currency.toLowerCase()}`;
-    if (dismissedSet.has(signature)) continue;
+    const normalizedClean = cleanName.toLowerCase().trim();
+    const normalizedTitle = (title || "").toLowerCase().trim();
+    const cleanSignature = `radar-${normalizedClean}`;
+
+    const isDismissed =
+      dismissedSet.has(signature.toLowerCase()) ||
+      dismissedSet.has(normalizedClean) ||
+      dismissedSet.has(cleanSignature) ||
+      dismissedSet.has(normalizedTitle) ||
+      Array.from(dismissedSet).some((d) => {
+        const dl = d.toLowerCase().trim();
+        return (
+          dl === normalizedClean ||
+          dl === cleanSignature ||
+          dl === normalizedTitle ||
+          (dl.startsWith("radar-") &&
+            normalizedClean.length >= 3 &&
+            dl.includes(normalizedClean)) ||
+          (normalizedTitle.length >= 3 && dl.includes(normalizedTitle))
+        );
+      });
+
+    if (isDismissed) continue;
 
     const confidence: "high" | "medium" =
       sorted.length >= 3 && hasRegularCadence && isStableAmount

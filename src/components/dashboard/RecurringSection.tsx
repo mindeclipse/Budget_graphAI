@@ -16,7 +16,7 @@ interface RecurringSectionProps {
   onEditRecurring: (item: RecurringItem) => void;
   onExecuteRecurring: (item: RecurringItem) => void;
   onAddDetected?: (sub: DetectedSubscription) => void;
-  onDismissDetected?: (signature: string) => void;
+  onDismissDetected?: (signature: string, title?: string) => void;
 }
 
 export function RecurringSection({

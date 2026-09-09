@@ -29,7 +29,7 @@ export interface SubscriptionRadarProps {
   onEditRecurring: (item: RecurringItem) => void;
   onExecuteRecurring: (item: RecurringItem) => void;
   onAddDetected: (sub: DetectedSubscription) => void;
-  onDismissDetected: (signature: string) => void;
+  onDismissDetected: (signature: string, title?: string) => void;
 }
 
 export function SubscriptionRadar({
@@ -45,11 +45,51 @@ export function SubscriptionRadar({
   const [activeTab, setActiveTab] = useState<"calendar" | "radar" | "all">(
     "calendar"
   );
-  const [dismissedSignatures, setDismissedSignatures] = useState<string[]>([]);
+  const [dismissedSignatures, setDismissedSignatures] = useState<string[]>(
+    () => {
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("budget_dismissed_radar_subs");
+          return stored ? JSON.parse(stored) : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    }
+  );
 
   const detected = useMemo(() => {
     const raw = radarData?.detected || [];
-    return raw.filter((sub) => !dismissedSignatures.includes(sub.id));
+    const dismissedSet = new Set(
+      dismissedSignatures.map((s) => s.toLowerCase().trim())
+    );
+    return raw.filter((sub) => {
+      const subId = sub.id.toLowerCase().trim();
+      const subTitle = (sub.title || "").toLowerCase().trim();
+      const cleanId = subId.replace(/-[0-9]+-[a-z]+$/, "");
+      const cleanMerchant = cleanId.replace(/^radar-/, "");
+
+      return (
+        !dismissedSet.has(subId) &&
+        !dismissedSet.has(subTitle) &&
+        !dismissedSet.has(cleanId) &&
+        !dismissedSet.has(cleanMerchant) &&
+        !Array.from(dismissedSet).some((d) => {
+          const dl = d.toLowerCase().trim();
+          return (
+            dl === subId ||
+            dl === subTitle ||
+            dl === cleanId ||
+            dl === cleanMerchant ||
+            (dl.startsWith("radar-") &&
+              cleanMerchant.length >= 3 &&
+              dl.includes(cleanMerchant)) ||
+            (subTitle.length >= 3 && dl.includes(subTitle))
+          );
+        })
+      );
+    });
   }, [radarData?.detected, dismissedSignatures]);
   const upcoming = radarData?.upcoming || [];
   const metrics = radarData?.metrics;
@@ -318,8 +358,19 @@ export function SubscriptionRadar({
                   <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-violet-900/20 pt-2">
                     <button
                       onClick={() => {
-                        setDismissedSignatures((prev) => [...prev, sub.id]);
-                        onDismissDetected(sub.id);
+                        const subId = sub.id;
+                        const cleanId = sub.id.replace(/-[0-9]+-[a-z]+$/, "");
+                        const cleanMerchant = cleanId.replace(/^radar-/, "");
+                        const title = sub.title;
+
+                        setDismissedSignatures((prev) => [
+                          ...prev,
+                          subId,
+                          cleanId,
+                          cleanMerchant,
+                          title,
+                        ]);
+                        onDismissDetected(sub.id, sub.title);
                       }}
                       className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400 transition-all hover:bg-zinc-800 hover:text-zinc-200"
                     >
