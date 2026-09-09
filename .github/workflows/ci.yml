@@ -1,0 +1,81 @@
+name: CI / CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-quality:
+    name: Code Quality & Type Safety
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Check code formatting (Prettier)
+        run: npm run format:check
+
+      - name: Check TypeScript types
+        run: npx tsc --noEmit
+
+  test:
+    name: Automated Unit & Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Vitest test suite
+        run: npm run test
+
+  build:
+    name: Production Build Verification
+    needs: [code-quality, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Next.js application
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://mock-project.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "mock-anon-key"
+          SUPABASE_SERVICE_ROLE_KEY: "mock-service-role-key"
+          APP_ACCESS_PIN: "1234"
+          APP_API_SECRET: "ci-mock-secret-key-at-least-32-bytes-long"
+          TELEGRAM_BOT_TOKEN: "mock-bot-token"
+          TELEGRAM_CHAT_ID: "mock-chat-id"
+        run: npx next build --webpack

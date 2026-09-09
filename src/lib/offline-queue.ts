@@ -43,12 +43,14 @@ export function saveOfflineQueue(queue: QueuedTransaction[]): void {
   }
 }
 
+let queueCounter = 0;
+
 export function enqueueTransaction(
   payload: QueuedTransactionPayload,
   tempId?: number
 ): QueuedTransaction {
   const queue = getOfflineQueue();
-  const id = tempId || -Date.now();
+  const id = tempId || -(Date.now() * 1000 + (++queueCounter % 1000));
   const item: QueuedTransaction = {
     tempId: id,
     payload,
