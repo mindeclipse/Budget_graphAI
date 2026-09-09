@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Transaction } from "@/types/finance";
+import { triggerHaptic } from "@/lib/haptics";
 import {
   enqueueTransaction,
   syncOfflineQueue,
@@ -171,9 +172,52 @@ export function useTransactionMutations() {
         },
       });
     },
+    onSuccess: (_, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ["trash"] });
+      toast("Переміщено в кошик", {
+        id: `trash-tx-${deletedId}`,
+        description: "Зберігатиметься 10 днів.",
+        duration: 6000,
+        action: {
+          label: "Скасувати",
+          onClick: () => restoreMutation.mutate(deletedId),
+        },
+      });
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+
+  // 2b. Відновлення транзакції з кошика
+  const restoreMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch("/api/transactions/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Не вдалося відновити транзакцію");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      triggerHaptic("success");
+      toast.success("Транзакцію відновлено", {
+        id: "tx-restored",
+      });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["trash"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    },
+    onError: (err: any) => {
+      triggerHaptic("error");
+      toast.error("Не вдалося відновити транзакцію", {
+        description: err.message,
+      });
     },
   });
 
@@ -271,10 +315,12 @@ export function useTransactionMutations() {
   return {
     updateTransaction: updateMutation.mutate,
     deleteTransaction: deleteMutation.mutate,
+    restoreTransaction: restoreMutation.mutate,
     createTransaction: createMutation.mutate,
     syncQueue: handleSyncQueue,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isRestoring: restoreMutation.isPending,
     isCreating: createMutation.isPending,
     isSyncing,
   };

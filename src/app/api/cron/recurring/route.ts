@@ -42,6 +42,34 @@ export async function GET(req: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
+    // 1. Автоматичне очищення кошика: остаточне видалення транзакцій, які перебувають у кошику понад 10 днів
+    const tenDaysAgo = new Date(
+      Date.now() - 10 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    let purgedTrashCount = 0;
+    try {
+      const { data: purgedData, error: purgeError } = await supabaseAdmin
+        .from("transactions")
+        .delete()
+        .not("deleted_at", "is", null)
+        .lt("deleted_at", tenDaysAgo)
+        .select("id");
+
+      if (!purgeError && purgedData) {
+        purgedTrashCount = purgedData.length;
+        if (purgedTrashCount > 0) {
+          console.log(
+            `[Cron recurring] Автоматично очищено з кошика ${purgedTrashCount} транзакцій (>10 днів)`
+          );
+        }
+      }
+    } catch (trashErr) {
+      console.warn(
+        "[Cron recurring] Trash purge check skipped or failed:",
+        trashErr
+      );
+    }
+
     const { data: templates, error: templatesError } = await supabaseAdmin
       .from("recurring_templates")
       .select("*")
@@ -53,6 +81,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         message: "No recurring expenses scheduled for today",
         processed: 0,
+        purgedTrashCount,
       });
     }
 

@@ -18,6 +18,7 @@ import {
   SubscriptionRadarResult,
   DetectedSubscription,
 } from "@/lib/subscription-radar";
+import { triggerHaptic } from "@/lib/haptics";
 
 export interface SubscriptionRadarProps {
   recurring: RecurringItem[];
@@ -430,7 +431,10 @@ export function SubscriptionRadar({
                   </span>
                   <button
                     type="button"
-                    onClick={() => onExecuteRecurring(item)}
+                    onClick={() => {
+                      triggerHaptic("success");
+                      onExecuteRecurring(item);
+                    }}
                     title="Провести платіж зараз"
                     className="rounded-lg border border-zinc-800 bg-zinc-800/60 p-1.5 text-zinc-400 transition-all hover:border-emerald-700/60 hover:bg-emerald-950/60 hover:text-emerald-400"
                   >

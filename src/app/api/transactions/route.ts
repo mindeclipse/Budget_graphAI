@@ -53,13 +53,22 @@ export async function GET(req: NextRequest) {
       ? Math.min(Math.max(Number(limitParam) || 0, 1), 5000)
       : 1500;
 
+    const isTrash = searchParams.get("trash") === "true";
+
     // Оптимізація та безпека: вибірка лише необхідних полів (Strict Column Projection)
     let query = supabase
       .from("transactions")
       .select(
-        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency"
+        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency, deleted_at"
       )
       .order("created_at", { ascending: false });
+
+    // Фільтрація за кошиком: або лише видалені, або лише активні
+    if (isTrash) {
+      query = query.not("deleted_at", "is", null);
+    } else {
+      query = query.is("deleted_at", null);
+    }
 
     // Фільтрація за періодом (використовує idx_transactions_created_at_desc або idx_transactions_budget_filter)
     if (fromDate) {
@@ -69,10 +78,46 @@ export async function GET(req: NextRequest) {
       query = query.lte("created_at", toDate);
     }
 
-    const { data, error } = await query.range(
+    let { data, error } = await query.range(
       offset,
       offset + requestedLimit - 1
     );
+
+    // Захисний механізм: якщо колонка deleted_at ще не створена в Supabase через міграцію
+    if (
+      error &&
+      (error.code === "42703" ||
+        error.message?.includes("deleted_at") ||
+        error.message?.includes("column"))
+    ) {
+      console.warn(
+        "[API transactions GET] Column deleted_at missing in DB, fallback without filter."
+      );
+      if (isTrash) {
+        return NextResponse.json({
+          transactions: [],
+          count: 0,
+          hasMore: false,
+        });
+      }
+
+      let fallbackQuery = supabase
+        .from("transactions")
+        .select(
+          "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency"
+        )
+        .order("created_at", { ascending: false });
+
+      if (fromDate) fallbackQuery = fallbackQuery.gte("created_at", fromDate);
+      if (toDate) fallbackQuery = fallbackQuery.lte("created_at", toDate);
+
+      const fallbackRes = await fallbackQuery.range(
+        offset,
+        offset + requestedLimit - 1
+      );
+      data = (fallbackRes.data || []).map((t) => ({ ...t, deleted_at: null }));
+      error = fallbackRes.error;
+    }
 
     if (error) {
       console.error("[API transactions GET] DB error:", error);
@@ -198,8 +243,31 @@ export async function DELETE(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-    const numId = Number(id);
+    const clearTrash = searchParams.get("clear_trash") === "true";
+    const permanent = searchParams.get("permanent") === "true";
 
+    // 1. Очищення всього кошика
+    if (clearTrash) {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .not("deleted_at", "is", null);
+
+      if (
+        error &&
+        (error.code === "42703" || error.message?.includes("deleted_at"))
+      ) {
+        return NextResponse.json({ success: true, cleared: 0 });
+      }
+      if (error) throw error;
+      return NextResponse.json({
+        success: true,
+        message: "Кошик успішно очищено",
+      });
+    }
+
+    // 2. Видалення конкретної транзакції
+    const numId = Number(id);
     if (!id || isNaN(numId) || numId <= 0 || !Number.isInteger(numId)) {
       return NextResponse.json(
         { error: "Valid numeric Transaction ID required" },
@@ -207,13 +275,40 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const { error } = await supabase
-      .from("transactions")
-      .delete()
-      .eq("id", numId);
-    if (error) throw error;
+    if (permanent) {
+      // Безповоротне видалення
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", numId);
+      if (error) throw error;
+      return NextResponse.json({ success: true, permanent: true });
+    } else {
+      // Soft Delete: переміщення в кошик на 10 днів
+      const { error: softErr } = await supabase
+        .from("transactions")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", numId);
 
-    return NextResponse.json({ success: true });
+      // Захисний fallback: якщо колонка deleted_at ще не додана в БД
+      if (
+        softErr &&
+        (softErr.code === "42703" || softErr.message?.includes("deleted_at"))
+      ) {
+        console.warn(
+          "[API transactions DELETE] deleted_at column missing, falling back to permanent delete"
+        );
+        const { error: permErr } = await supabase
+          .from("transactions")
+          .delete()
+          .eq("id", numId);
+        if (permErr) throw permErr;
+        return NextResponse.json({ success: true, fallbackPermanent: true });
+      }
+
+      if (softErr) throw softErr;
+      return NextResponse.json({ success: true, softDeleted: true });
+    }
   } catch (err: any) {
     console.error("Transaction DELETE error:", err);
     return NextResponse.json(

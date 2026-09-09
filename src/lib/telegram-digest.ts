@@ -4,6 +4,7 @@ import {
   escapeHtml,
   TelegramReplyMarkup,
 } from "@/lib/telegram";
+import { sendBackupToTelegram } from "@/lib/backup-service";
 import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
 import { getUsdRate } from "@/lib/currency";
 
@@ -291,6 +292,24 @@ ${largestTx ? `- Найбільша разова витрата: ${largestTx.mer
       alert_type: weekKey,
     });
     console.log("[WeeklyDigest] Telegram message sent successfully.");
+
+    // Автоматичний щотижневий бекап бази даних у Telegram
+    try {
+      const backupRes = await sendBackupToTelegram();
+      if (backupRes.success) {
+        console.log("[WeeklyDigest] Weekly backup file sent to Telegram.");
+      } else {
+        console.warn(
+          "[WeeklyDigest] Failed to send weekly backup:",
+          backupRes.error
+        );
+      }
+    } catch (backupErr) {
+      console.error(
+        "[WeeklyDigest] Error sending weekly backup to Telegram:",
+        backupErr
+      );
+    }
   }
 
   return {

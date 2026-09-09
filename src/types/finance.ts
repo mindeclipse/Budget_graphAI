@@ -12,6 +12,7 @@ export interface Transaction {
   parent_transaction_id?: number | null;
   original_amount?: number | null;
   original_currency?: string | null;
+  deleted_at?: string | null;
 }
 
 export interface SavingsGoal {
@@ -82,4 +83,11 @@ export interface CostPerUseItem {
   notes?: string | null;
   last_used_at?: string | null;
   created_at: string;
+}
+
+export interface MerchantRule {
+  pattern: string;
+  normalized_name: string;
+  category_name: string;
+  created_at?: string;
 }

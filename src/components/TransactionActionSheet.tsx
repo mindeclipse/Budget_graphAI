@@ -13,6 +13,7 @@ import {
   Split,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
+import { triggerHaptic } from "@/lib/haptics";
 import {
   CATEGORIES,
   CATEGORY_ICONS,
@@ -71,6 +72,7 @@ export function TransactionActionSheet({
 
     setIsSubmitting(true);
     try {
+      triggerHaptic("success");
       await onUpdateCategory(
         transaction.id,
         targetCategory,
@@ -79,6 +81,7 @@ export function TransactionActionSheet({
       );
       onClose();
     } catch (err) {
+      triggerHaptic("error");
       console.error("Не вдалося оновити транзакцію:", err);
     } finally {
       setIsSubmitting(false);
@@ -95,6 +98,7 @@ export function TransactionActionSheet({
     if (!cleanTag || currentTags.includes(cleanTag) || currentTags.length >= 30)
       return;
 
+    triggerHaptic("selection");
     const updated = [...currentTags, cleanTag];
     setCurrentTags(updated);
     setTagInput("");
@@ -102,6 +106,7 @@ export function TransactionActionSheet({
   };
 
   const handleRemoveTag = async (tagToRemove: string) => {
+    triggerHaptic("selection");
     const updated = currentTags.filter((t) => t !== tagToRemove);
     setCurrentTags(updated);
     await onUpdateTags(transaction.id, updated);
@@ -319,14 +324,20 @@ export function TransactionActionSheet({
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsConfirmingDelete(false)}
+                  onClick={() => {
+                    triggerHaptic("selection");
+                    setIsConfirmingDelete(false);
+                  }}
                   className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/80 py-2.5 text-xs font-semibold text-zinc-400 transition-all hover:bg-zinc-800 active:scale-95"
                 >
                   Скасувати
                 </button>
                 <button
                   type="button"
-                  onClick={() => onDelete(transaction.id)}
+                  onClick={() => {
+                    triggerHaptic("heavy");
+                    onDelete(transaction.id);
+                  }}
                   className="flex-1 items-center justify-center gap-1.5 rounded-2xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-rose-950/40 transition-all hover:bg-rose-500 active:scale-95"
                 >
                   <Trash2 size={14} className="mr-1 inline" />
@@ -336,7 +347,10 @@ export function TransactionActionSheet({
             ) : (
               <button
                 type="button"
-                onClick={() => setIsConfirmingDelete(true)}
+                onClick={() => {
+                  triggerHaptic("warning");
+                  setIsConfirmingDelete(true);
+                }}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-900/40 bg-rose-950/20 py-2.5 text-xs font-bold text-rose-400 transition-all hover:bg-rose-900/30 active:scale-[0.99]"
               >
                 <Trash2 size={14} /> Видалити транзакцію

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Lock, Fingerprint } from "lucide-react";
+import { triggerHaptic } from "@/lib/haptics";
 
 interface PinAuthScreenProps {
   isLoading: boolean;
@@ -47,7 +48,10 @@ export function PinAuthScreen({
             inputMode="numeric"
             maxLength={12}
             value={pinInput}
-            onChange={(e) => onPinChange(e.target.value)}
+            onChange={(e) => {
+              triggerHaptic("light");
+              onPinChange(e.target.value);
+            }}
             placeholder="••••"
             autoFocus
             className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 py-3 text-center font-mono text-xl tracking-[0.4em] text-white transition-all focus:border-zinc-600 focus:outline-none"
@@ -60,7 +64,10 @@ export function PinAuthScreen({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={onBiometricLogin}
+              onClick={() => {
+                triggerHaptic("medium");
+                onBiometricLogin();
+              }}
               disabled={isVerifyingPin}
               className="flex items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-300 transition-all hover:border-zinc-700 hover:text-white disabled:opacity-40"
               title="Увійти за допомогою Face ID / Touch ID"

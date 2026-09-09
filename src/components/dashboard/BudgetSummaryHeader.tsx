@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   TrendingUp,
   Settings,
@@ -12,8 +12,11 @@ import {
   FileSpreadsheet,
   Database,
   RotateCcw,
+  Trash2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
+import { triggerHaptic } from "@/lib/haptics";
 
 interface BudgetSummaryHeaderProps {
   spentWhole: string;
@@ -26,6 +29,8 @@ interface BudgetSummaryHeaderProps {
   onLogout: () => void;
   onExportExcel?: () => void;
   onRestoreSuccess?: () => void;
+  onOpenTrash?: () => void;
+  onOpenMerchantRules?: () => void;
 }
 
 export function BudgetSummaryHeader({
@@ -39,9 +44,12 @@ export function BudgetSummaryHeader({
   onLogout,
   onExportExcel,
   onRestoreSuccess,
+  onOpenTrash,
+  onOpenMerchantRules,
 }: BudgetSummaryHeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSendingDigest, setIsSendingDigest] = useState(false);
+  const [isSendingBackupTelegram, setIsSendingBackupTelegram] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,6 +84,35 @@ export function BudgetSummaryHeader({
     } finally {
       setIsSendingDigest(false);
       setIsSettingsOpen(false);
+    }
+  };
+
+  const handleSendBackupToTelegram = async () => {
+    if (isSendingBackupTelegram) return;
+    setIsSendingBackupTelegram(true);
+    setIsSettingsOpen(false);
+    const toastId = toast.loading(
+      "Створення та надсилання бекапу в Telegram..."
+    );
+    try {
+      const res = await fetch("/api/backup/telegram", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Не вдалося надіслати бекап");
+      }
+      triggerHaptic("success");
+      toast.success("Бекап надіслано в Telegram!", {
+        id: toastId,
+        description: data.fileName,
+      });
+    } catch (err: any) {
+      triggerHaptic("error");
+      toast.error("Помилка відправки в Telegram", {
+        id: toastId,
+        description: err.message,
+      });
+    } finally {
+      setIsSendingBackupTelegram(false);
     }
   };
 
@@ -241,6 +278,36 @@ export function BudgetSummaryHeader({
                   <span>Face ID / Touch ID</span>
                 </button>
 
+                {onOpenMerchantRules && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      onOpenMerchantRules();
+                    }}
+                    title="Керування правилами автокатегоризації мерчантів"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-sky-300 transition-colors hover:bg-sky-500/10"
+                  >
+                    <SlidersHorizontal size={14} className="text-sky-400" />
+                    <span>Правила мерчантів</span>
+                  </button>
+                )}
+
+                {onOpenTrash && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      onOpenTrash();
+                    }}
+                    title="Кошик нещодавно видалених операцій (10 днів)"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-300 transition-colors hover:bg-rose-500/10"
+                  >
+                    <Trash2 size={14} className="text-rose-400" />
+                    <span>Кошик (10 днів)</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleSendTestDigest}
@@ -251,6 +318,21 @@ export function BudgetSummaryHeader({
                   <Send size={14} className="text-zinc-400" />
                   <span>
                     {isSendingDigest ? "Відправка..." : "Дайджест у Telegram"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendBackupToTelegram}
+                  disabled={isSendingBackupTelegram}
+                  title="Сформувати та надіслати резервну копію бази файлом JSON у Telegram"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900 disabled:opacity-50"
+                >
+                  <Database size={14} className="text-indigo-400" />
+                  <span>
+                    {isSendingBackupTelegram
+                      ? "Надсилання..."
+                      : "Бекап у Telegram (файл)"}
                   </span>
                 </button>
 

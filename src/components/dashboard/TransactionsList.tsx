@@ -8,6 +8,8 @@ import {
   X,
   HelpCircle,
   ChevronDown,
+  Trash2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
 import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/constants/categories";
@@ -22,6 +24,8 @@ interface TransactionsListProps {
   onTagChange: (tag: string | null) => void;
   onOpenCreateExpense: () => void;
   onSelectTransaction: (tx: Transaction) => void;
+  onOpenTrash?: () => void;
+  onOpenMerchantRules?: () => void;
 }
 
 export function TransactionsList({
@@ -34,6 +38,8 @@ export function TransactionsList({
   onTagChange,
   onOpenCreateExpense,
   onSelectTransaction,
+  onOpenTrash,
+  onOpenMerchantRules,
 }: TransactionsListProps) {
   const INITIAL_BATCH_SIZE = 40;
   const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
@@ -73,7 +79,31 @@ export function TransactionsList({
         <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
           <Receipt size={14} className="text-zinc-500" /> Транзакції
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Маленька іконка: Правила мерчантів */}
+          {onOpenMerchantRules && (
+            <button
+              type="button"
+              onClick={onOpenMerchantRules}
+              title="Правила автокатегоризації"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:text-sky-400 active:scale-95"
+            >
+              <SlidersHorizontal size={13} />
+            </button>
+          )}
+
+          {/* Маленька іконка: Кошик транзакцій */}
+          {onOpenTrash && (
+            <button
+              type="button"
+              onClick={onOpenTrash}
+              title="Кошик (Нещодавно видалені, 10 днів)"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:text-rose-400 active:scale-95"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onOpenCreateExpense}

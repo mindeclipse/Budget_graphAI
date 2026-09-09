@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySessionToken } from "@/lib/session";
 
+import { generateBackupData } from "@/lib/backup-service";
+
 async function checkAuthSession(): Promise<boolean> {
   const cookieStore = await cookies();
   const session = cookieStore.get("finance_session")?.value;
@@ -22,75 +24,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = getSupabaseAdmin();
-
-    const [
-      txRes,
-      cyclesRes,
-      recurringRes,
-      rulesRes,
-      goalsRes,
-      investRes,
-      catBudgetsRes,
-      wishlistRes,
-      costPerUseRes,
-    ] = await Promise.all([
-      supabase
-        .from("transactions")
-        .select("*")
-        .order("id", { ascending: true }),
-      supabase
-        .from("budget_cycles")
-        .select("*")
-        .order("start_date", { ascending: true }),
-      supabase
-        .from("recurring_templates")
-        .select("*")
-        .order("id", { ascending: true }),
-      supabase.from("merchant_rules").select("*"),
-      supabase
-        .from("savings_goals")
-        .select("*")
-        .order("id", { ascending: true }),
-      supabase.from("investments").select("*").order("id", { ascending: true }),
-      supabase.from("category_budgets").select("*"),
-      supabase
-        .from("wishlist_items")
-        .select("*")
-        .order("id", { ascending: true }),
-      supabase
-        .from("cost_per_use_items")
-        .select("*")
-        .order("id", { ascending: true }),
-    ]);
-
-    const backupPayload = {
-      version: "1.0",
-      timestamp: new Date().toISOString(),
-      app: "BudgetGraph AI",
-      data: {
-        transactions: txRes.data || [],
-        budget_cycles: cyclesRes.data || [],
-        recurring_templates: recurringRes.data || [],
-        merchant_rules: rulesRes.data || [],
-        savings_goals: goalsRes.data || [],
-        investments: investRes.data || [],
-        category_budgets: catBudgetsRes.data || [],
-        wishlist_items: wishlistRes.data || [],
-        cost_per_use_items: costPerUseRes.data || [],
-      },
-      counts: {
-        transactions: txRes.data?.length || 0,
-        budget_cycles: cyclesRes.data?.length || 0,
-        recurring_templates: recurringRes.data?.length || 0,
-        merchant_rules: rulesRes.data?.length || 0,
-        savings_goals: goalsRes.data?.length || 0,
-        investments: investRes.data?.length || 0,
-        category_budgets: catBudgetsRes.data?.length || 0,
-        wishlist_items: wishlistRes.data?.length || 0,
-        cost_per_use_items: costPerUseRes.data?.length || 0,
-      },
-    };
+    const backupPayload = await generateBackupData();
 
     return new Response(JSON.stringify(backupPayload, null, 2), {
       status: 200,

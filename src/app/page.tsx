@@ -81,6 +81,15 @@ const CsvImportModal = dynamic(
   () => import("@/components/CsvImportModal").then((m) => m.CsvImportModal),
   { ssr: false }
 );
+const TrashModal = dynamic(
+  () => import("@/components/TrashModal").then((m) => m.TrashModal),
+  { ssr: false }
+);
+const MerchantRulesModal = dynamic(
+  () =>
+    import("@/components/MerchantRulesModal").then((m) => m.MerchantRulesModal),
+  { ssr: false }
+);
 
 import {
   Transaction,
@@ -496,6 +505,8 @@ export default function Dashboard() {
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [isMerchantRulesOpen, setIsMerchantRulesOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddingRecurring, setIsAddingRecurring] = useState(false);
@@ -826,6 +837,8 @@ export default function Dashboard() {
         onLogout={handleLogout}
         onExportExcel={handleExportExcel}
         onRestoreSuccess={handleRestoreSuccess}
+        onOpenTrash={() => setIsTrashOpen(true)}
+        onOpenMerchantRules={() => setIsMerchantRulesOpen(true)}
       />
 
       {/* 3. Картка місячного ліміту бюджету */}
@@ -963,6 +976,8 @@ export default function Dashboard() {
               onTagChange={setActiveTag}
               onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
               onSelectTransaction={setSelectedTx}
+              onOpenTrash={() => setIsTrashOpen(true)}
+              onOpenMerchantRules={() => setIsMerchantRulesOpen(true)}
             />
           </section>
 
@@ -1116,6 +1131,20 @@ export default function Dashboard() {
             setIsImportModalOpen(false);
             window.location.reload();
           }}
+        />
+      )}
+
+      {isTrashOpen && (
+        <TrashModal
+          isOpen={isTrashOpen}
+          onClose={() => setIsTrashOpen(false)}
+        />
+      )}
+
+      {isMerchantRulesOpen && (
+        <MerchantRulesModal
+          isOpen={isMerchantRulesOpen}
+          onClose={() => setIsMerchantRulesOpen(false)}
         />
       )}
     </main>

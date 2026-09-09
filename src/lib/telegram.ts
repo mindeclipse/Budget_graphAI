@@ -54,3 +54,52 @@ export async function sendTelegramMessage(
     return false;
   }
 }
+
+export async function sendTelegramDocument(
+  fileData: string | Buffer | Uint8Array,
+  fileName: string,
+  caption?: string
+): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!token || !chatId) {
+    console.warn(
+      "Telegram document skipped: missing credentials in environment."
+    );
+    return false;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("chat_id", chatId);
+    const blob =
+      typeof fileData === "string"
+        ? new Blob([fileData], { type: "application/json" })
+        : new Blob([fileData as any]);
+    formData.append("document", blob, fileName);
+    if (caption) {
+      formData.append("caption", caption);
+      formData.append("parse_mode", "HTML");
+    }
+
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/sendDocument`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Failed to send Telegram document:", err);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Network error sending Telegram document:", error);
+    return false;
+  }
+}

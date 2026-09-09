@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Check, ArrowDownLeft } from "lucide-react";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
 import { CATEGORIES } from "@/constants/categories";
+import { triggerHaptic } from "@/lib/haptics";
 
 interface CreateTransactionDrawerProps {
   isOpen: boolean;
@@ -51,6 +52,7 @@ export function CreateTransactionDrawer({
 
     const isInvestment = category === "Інвестиції";
 
+    triggerHaptic("success");
     createTransaction({
       amount: parsedAmount,
       merchant_raw: cleanMerchant,

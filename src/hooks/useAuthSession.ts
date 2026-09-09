@@ -4,6 +4,7 @@ import {
   startRegistration,
 } from "@simplewebauthn/browser";
 import { useAutoLock } from "@/hooks/useAutoLock";
+import { triggerHaptic } from "@/lib/haptics";
 
 export function useAuthSession() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -47,15 +48,18 @@ export function useAuthSession() {
         });
 
         if (res.ok) {
+          triggerHaptic("success");
           if (typeof window !== "undefined") {
             sessionStorage.removeItem("budget_auto_locked");
           }
           setIsAuthenticated(true);
         } else {
+          triggerHaptic("error");
           const errData = await res.json().catch(() => null);
           setPinError(errData?.error || "Невірний PIN-код");
         }
       } catch {
+        triggerHaptic("error");
         setPinError("Помилка підключення");
       } finally {
         setIsVerifyingPin(false);
@@ -83,15 +87,18 @@ export function useAuthSession() {
       });
 
       if (verifyRes.ok) {
+        triggerHaptic("success");
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("budget_auto_locked");
         }
         setIsAuthenticated(true);
       } else {
+        triggerHaptic("error");
         setPinError("Не вдалося розпізнати");
       }
     } catch (err: any) {
       if (err.name !== "NotAllowedError") {
+        triggerHaptic("error");
         setPinError(err.message || "Помилка Face ID");
       }
     } finally {
