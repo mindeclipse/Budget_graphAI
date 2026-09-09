@@ -1,6 +1,12 @@
+import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Transaction } from "@/types/finance";
+import {
+  enqueueTransaction,
+  syncOfflineQueue,
+  getOfflineQueue,
+} from "@/lib/offline-queue";
 
 interface UpdateTransactionPayload {
   id: number;
@@ -24,6 +30,41 @@ interface CreateTransactionPayload {
 
 export function useTransactionMutations() {
   const queryClient = useQueryClient();
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Ручна або автоматична синхронізація черги
+  const handleSyncQueue = useCallback(async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const res = await syncOfflineQueue();
+      if (res.synced > 0) {
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        queryClient.invalidateQueries({ queryKey: ["analytics"] });
+        toast.success("Синхронізація успішна", {
+          id: "offline-sync-success",
+          description: `Офлайн-операцій збережено на сервері: ${res.synced}`,
+        });
+      }
+    } catch (err) {
+      console.error("[useTransactionMutations] Error during queue sync:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isSyncing, queryClient]);
+
+  // Слухач відновлення мережі
+  useEffect(() => {
+    const onOnline = () => {
+      const queue = getOfflineQueue();
+      if (queue.length > 0) {
+        handleSyncQueue();
+      }
+    };
+
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [handleSyncQueue]);
 
   // 1. Оновлення транзакції
   const updateMutation = useMutation({
@@ -136,14 +177,20 @@ export function useTransactionMutations() {
     },
   });
 
-  // 3. Створення нової транзакції
+  // 3. Створення нової транзакції (з підтримкою Offline-First черги)
   const createMutation = useMutation({
     mutationFn: async (payload: CreateTransactionPayload) => {
+      // Якщо браузер вже перебуває в офлайні, одразу переходимо до черги
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        throw new TypeError("Failed to fetch: Browser is offline");
+      }
+
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Не вдалося зберегти транзакцію");
@@ -157,8 +204,9 @@ export function useTransactionMutations() {
         queryKey: ["transactions"],
       });
 
+      const tempId = -Date.now();
       const optimisticItem: Transaction = {
-        id: -Date.now(),
+        id: tempId,
         amount: newTx.amount,
         currency: newTx.currency || "UAH",
         merchant_raw: newTx.merchant_raw,
@@ -174,9 +222,31 @@ export function useTransactionMutations() {
         (old = []) => [optimisticItem, ...old]
       );
 
-      return { previousData };
+      return { previousData, tempId };
     },
     onError: (err: any, variables, context) => {
+      const isNetworkError =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        err?.name === "TypeError" ||
+        err?.message?.includes("Failed to fetch") ||
+        err?.message?.includes("NetworkError") ||
+        err?.message?.includes("Load failed") ||
+        err?.message?.includes("offline");
+
+      if (isNetworkError) {
+        // Зберігаємо в офлайн-чергу, НЕ видаляючи оптимістичний запис з UI
+        enqueueTransaction(variables, context?.tempId);
+
+        toast.info("Збережено офлайн", {
+          id: "offline-tx-enqueued",
+          description:
+            "Витрата врахована в бюджеті та передасться на сервер автоматично при появі інтернету.",
+          duration: 4000,
+        });
+        return;
+      }
+
+      // Якщо помилка валідації чи 4xx від сервера — відкочуємо оптимістичні дані
       if (context?.previousData) {
         context.previousData.forEach(([key, data]) => {
           queryClient.setQueryData(key, data);
@@ -202,8 +272,10 @@ export function useTransactionMutations() {
     updateTransaction: updateMutation.mutate,
     deleteTransaction: deleteMutation.mutate,
     createTransaction: createMutation.mutate,
+    syncQueue: handleSyncQueue,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isCreating: createMutation.isPending,
+    isSyncing,
   };
 }

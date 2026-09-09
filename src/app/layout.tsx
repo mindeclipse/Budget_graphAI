@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/Providers";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="uk" className="bg-zinc-950">
       <body className="bg-zinc-950 text-zinc-100 antialiased">
+        <ServiceWorkerRegister />
         <Providers>{children}</Providers>
         <Toaster position="top-center" richColors closeButton />
       </body>

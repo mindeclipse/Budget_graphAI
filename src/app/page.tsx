@@ -7,6 +7,7 @@ import { useBudgetMetrics } from "@/hooks/useBudgetMetrics";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
 
 import { PinAuthScreen } from "@/components/auth/PinAuthScreen";
+import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
 import { PeriodNav } from "@/components/dashboard/PeriodNav";
 import { BudgetSummaryHeader } from "@/components/dashboard/BudgetSummaryHeader";
 import { BudgetLimitCard } from "@/components/dashboard/BudgetLimitCard";
@@ -71,8 +72,13 @@ export default function Dashboard() {
   const [previousCycle, setPreviousCycle] = useState<any>(null);
 
   // 4. Оптимістичні мутації транзакцій
-  const { updateTransaction, createTransaction, deleteTransaction } =
-    useTransactionMutations();
+  const {
+    updateTransaction,
+    createTransaction,
+    deleteTransaction,
+    syncQueue,
+    isSyncing,
+  } = useTransactionMutations();
 
   // Завантаження розрахункових циклів
   const loadCycles = async () => {
@@ -445,6 +451,9 @@ export default function Dashboard() {
           onAddExpense={() => setIsCreateExpenseOpen(true)}
         />
       </Suspense>
+
+      {/* Офлайн банер та черга несинхронізованих транзакцій */}
+      <OfflineBanner onSync={syncQueue} isSyncing={isSyncing} />
 
       {/* 1. Компактний навігатор періодів */}
       <PeriodNav

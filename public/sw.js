@@ -1,0 +1,163 @@
+// Service Worker for BudgetGraph AI PWA
+const CACHE_VERSION = "v1";
+const STATIC_CACHE = `budget-static-${CACHE_VERSION}`;
+const DATA_CACHE = `budget-data-${CACHE_VERSION}`;
+
+// Базові ресурси App Shell для попереднього кешування
+const APP_SHELL_ASSETS = [
+  "/",
+  "/manifest.json",
+  "/favicon.ico",
+];
+
+// Встановлення Service Worker: кешуємо App Shell
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(STATIC_CACHE).then((cache) => {
+      return cache.addAll(APP_SHELL_ASSETS).catch((err) => {
+        console.warn("[SW] Попереднє кешування деяких ресурсів пропущено:", err);
+      });
+    }).then(() => self.skipWaiting())
+  );
+});
+
+// Активація Service Worker: очищення застарілих кешів
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name.startsWith("budget-") && name !== STATIC_CACHE && name !== DATA_CACHE)
+          .map((name) => {
+            console.log("[SW] Видалення старого кешу:", name);
+            return caches.delete(name);
+          })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Обробка мережевих запитів (Fetch)
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Ігноруємо протоколи, що не є HTTP/HTTPS (наприклад chrome-extension:)
+  if (!url.protocol.startsWith("http")) {
+    return;
+  }
+
+  // Ігноруємо Next.js Dev HMR (Hot Module Replacement)
+  if (url.pathname.includes("/_next/webpack-hmr")) {
+    return;
+  }
+
+  // Тільки GET запити підлягають кешуванню. POST/PATCH/DELETE/PUT обробляються безпосередньо (офлайн-чергою)
+  if (request.method !== "GET") {
+    return;
+  }
+
+  // 1. Навігаційні запити (HTML сторінки): Network-First з fallback на кешований App Shell
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(request);
+          if (cachedResponse) return cachedResponse;
+
+          const rootCache = await caches.match("/");
+          if (rootCache) return rootCache;
+
+          return new Response(
+            `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"/><title>Офлайн | BudgetGraph AI</title><meta name="viewport" content="width=device-width, initial-scale=1"/></head><body style="background:#09090b;color:#f4f4f5;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:1rem;"><div><h1 style="font-size:1.5rem;margin-bottom:0.5rem;">Офлайн режим</h1><p style="color:#a1a1aa;font-size:0.875rem;">Немає підключення до мережі. Перевірте зв'язок та оновіть сторінку.</p></div></body></html>`,
+            { headers: { "Content-Type": "text/html; charset=utf-8" } }
+          );
+        })
+    );
+    return;
+  }
+
+  // 2. Статичні ресурси Next.js (_next/static, fonts, svg, favicon): Cache-First з оновленням
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.endsWith(".svg") ||
+    url.pathname.endsWith(".ico") ||
+    url.pathname.endsWith(".png") ||
+    url.pathname.endsWith(".woff2")
+  ) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          // Запускаємо фонове оновлення (Stale-While-Revalidate)
+          fetch(request)
+            .then((networkResponse) => {
+              if (networkResponse.ok) {
+                caches.open(STATIC_CACHE).then((cache) => cache.put(request, networkResponse));
+              }
+            })
+            .catch(() => {});
+          return cachedResponse;
+        }
+
+        return fetch(request).then((networkResponse) => {
+          if (networkResponse.ok) {
+            const clone = networkResponse.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // 3. GET API запити даних (transactions, cycles, recurring, currency): Network-First з кеш fallback
+  if (
+    url.pathname.startsWith("/api/transactions") ||
+    url.pathname.startsWith("/api/cycles") ||
+    url.pathname.startsWith("/api/recurring") ||
+    url.pathname.startsWith("/api/currency")
+  ) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(DATA_CACHE).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cachedData = await caches.match(request);
+          if (cachedData) {
+            return cachedData;
+          }
+          return new Response(
+            JSON.stringify({ error: "Offline: Network unavailable and no cached data found" }),
+            { status: 503, headers: { "Content-Type": "application/json" } }
+          );
+        })
+    );
+    return;
+  }
+
+  // 4. Решта GET запитів: спроба мережі з fallback на кеш
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request))
+  );
+});
