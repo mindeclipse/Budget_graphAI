@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -43,13 +43,7 @@ export function MoMComparison({
 }: MoMComparisonProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const DEFAULT_VISIBLE_COUNT = 5;
-  const {
-    categoryDiffs,
-    totalCurrent,
-    totalPrev,
-    totalDiffAmount,
-    totalPercentChange,
-  } = useMemo(() => {
+  const { categoryDiffs, totalDiffAmount, totalPercentChange } = useMemo(() => {
     // 1. Агрегація поточного місяця
     const currMap: Record<string, number> = {};
     let currTotal = 0;

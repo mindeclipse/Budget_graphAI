@@ -1,17 +1,14 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   Sparkles,
   AlertTriangle,
   CheckCircle2,
   AlertOctagon,
   MessageSquare,
-  ArrowRight,
-  TrendingUp,
   Clock,
   Send,
-  Zap,
 } from "lucide-react";
 import { AIAnalysisResponse, SupportedGeminiModel } from "@/types/ai";
 import { generateProactiveAlerts } from "@/lib/client-proactive-alerts";
@@ -48,7 +45,7 @@ interface AICardProps {
 export function AICard({
   aiAnalysis,
   onOpenAiDrawer,
-  isAiLoading = false,
+  isAiLoading: _isAiLoading = false,
   budgetMetrics = {
     remaining: 0,
     safeDailySpend: 0,
@@ -117,9 +114,7 @@ export function AICard({
         ? statusConfig.warning
         : statusConfig[derivedBudgetStatus] || statusConfig.healthy;
 
-  const StatusIcon = currentStatus.icon;
-
-  const handleQuickSubmit = (e: React.FormEvent) => {
+  const handleQuickSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!quickInput.trim()) return;
     onOpenAiDrawer(quickInput.trim());

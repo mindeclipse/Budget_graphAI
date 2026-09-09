@@ -1,16 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import {
-  Landmark,
-  Plus,
-  Search,
-  ArrowUpRight,
-  PiggyBank,
-  TrendingUp,
-  Receipt,
-  Calendar,
-} from "lucide-react";
+import { useState, useMemo } from "react";
+import { Landmark, Plus, Search, PiggyBank, TrendingUp } from "lucide-react";
 import { Transaction } from "@/types/finance";
 
 interface CapitalHistoryCardProps {

@@ -62,6 +62,7 @@ describe("Offline Queue Management (PWA)", () => {
       merchant_raw: "Метро",
       type: "expense",
     });
+    expect(item.retryCount).toBe(0);
 
     const queue = getOfflineQueue();
     queue[0].retryCount += 1;

@@ -11,11 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
-import {
-  CATEGORIES,
-  CATEGORY_ICONS,
-  CATEGORY_COLORS,
-} from "@/constants/categories";
+import { CATEGORIES } from "@/constants/categories";
 
 interface SplitItem {
   amount: string;

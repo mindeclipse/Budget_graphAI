@@ -1,12 +1,3 @@
-function getKyivDateString(date: Date | string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Kyiv",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(date));
-}
-
 export function formatQuickSummary(
   cleanTitle: string,
   amount: number,

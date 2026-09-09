@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, Pencil, Check, Calendar } from "lucide-react";
 import { BudgetMetricsResult } from "@/hooks/useBudgetMetrics";
 

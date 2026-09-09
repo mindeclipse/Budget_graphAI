@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
 interface PeriodNavProps {

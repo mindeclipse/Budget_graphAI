@@ -10,9 +10,6 @@ import {
   Trash2,
   CheckCircle2,
   ShoppingBag,
-  RefreshCw,
-  HelpCircle,
-  AlertCircle,
   X,
   Loader2,
 } from "lucide-react";
@@ -55,10 +52,6 @@ export function WishlistCard({
 
   const coolingItems = items.filter((i) => i.status === "cooling");
   const readyItems = items.filter((i) => i.status === "ready");
-  const pendingAmount = [...coolingItems, ...readyItems].reduce(
-    (sum, i) => sum + Number(i.estimated_price || 0),
-    0
-  );
 
   const filteredItems = items.filter((i) => {
     if (filter === "all") return true;

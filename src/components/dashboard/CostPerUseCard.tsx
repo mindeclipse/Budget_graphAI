@@ -2,18 +2,14 @@
 
 import { useState } from "react";
 import {
-  Sparkles,
   Plus,
   Zap,
   TrendingDown,
   Award,
   Trash2,
   Coffee,
-  CheckCircle2,
-  Calendar,
   X,
   Loader2,
-  Tag,
 } from "lucide-react";
 import { CostPerUseItem } from "@/types/finance";
 

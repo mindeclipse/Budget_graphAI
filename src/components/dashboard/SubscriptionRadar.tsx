@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   CalendarClock,
   Radio,
@@ -12,13 +12,11 @@ import {
   EyeOff,
   Sparkles,
   Layers,
-  ArrowUpRight,
 } from "lucide-react";
 import { RecurringItem } from "@/types/finance";
 import {
   SubscriptionRadarResult,
   DetectedSubscription,
-  UpcomingScheduleItem,
 } from "@/lib/subscription-radar";
 
 export interface SubscriptionRadarProps {
@@ -35,7 +33,7 @@ export interface SubscriptionRadarProps {
 export function SubscriptionRadar({
   recurring,
   radarData,
-  isLoading,
+  isLoading: _isLoading,
   onAddRecurring,
   onEditRecurring,
   onExecuteRecurring,

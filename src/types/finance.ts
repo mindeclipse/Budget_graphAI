@@ -54,14 +54,6 @@ export interface RecurringItem {
   is_active: boolean;
 }
 
-export interface AIInsightData {
-  status: "safe" | "warning" | "danger";
-  summary: string;
-  anomalies: string[];
-  saving_tactics: string[];
-  forecast: string;
-}
-
 export interface WishlistItem {
   id: number;
   title: string;

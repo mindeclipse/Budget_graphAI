@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
 import { RecurringItem } from "@/types/finance";
-import { SubscriptionRadar, SubscriptionRadarProps } from "./SubscriptionRadar";
+import { SubscriptionRadar } from "./SubscriptionRadar";
 import {
   SubscriptionRadarResult,
   DetectedSubscription,
