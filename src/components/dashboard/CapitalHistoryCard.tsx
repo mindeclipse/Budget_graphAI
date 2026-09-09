@@ -1,0 +1,188 @@
+"use client";
+
+import React, { useState, useMemo } from "react";
+import {
+  Landmark,
+  Plus,
+  Search,
+  ArrowUpRight,
+  PiggyBank,
+  TrendingUp,
+  Receipt,
+  Calendar,
+} from "lucide-react";
+import { Transaction } from "@/types/finance";
+
+interface CapitalHistoryCardProps {
+  transactions: Transaction[];
+  onSelectTransaction: (tx: Transaction) => void;
+  onAddCapital?: () => void;
+}
+
+export function CapitalHistoryCard({
+  transactions,
+  onSelectTransaction,
+  onAddCapital,
+}: CapitalHistoryCardProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return transactions;
+    return transactions.filter(
+      (tx) =>
+        tx.merchant_raw.toLowerCase().includes(q) ||
+        tx.category_name?.toLowerCase().includes(q) ||
+        String(tx.amount).includes(q)
+    );
+  }, [transactions, searchQuery]);
+
+  const totalCapitalMoved = useMemo(() => {
+    return transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }, [transactions]);
+
+  return (
+    <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
+      {/* Шапка картки */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-900 pb-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+            <Landmark size={15} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-semibold tracking-wider text-zinc-300 uppercase">
+                Історія операцій капіталу
+              </h2>
+              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                {transactions.length}
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              Поповнення скарбничок, інвестиції та рух капіталу
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-[10px] text-zinc-500">Загальний рух</p>
+            <p className="text-xs font-bold text-emerald-400">
+              {totalCapitalMoved.toLocaleString("uk-UA")} ₴
+            </p>
+          </div>
+          {onAddCapital && (
+            <button
+              onClick={onAddCapital}
+              className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
+            >
+              <Plus size={13} /> Додати
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Пошуковий рядок (якщо є транзакції) */}
+      {transactions.length > 0 && (
+        <div className="relative mb-3">
+          <Search
+            size={13}
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-zinc-500"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Пошук активу, скарбнички або суми..."
+            className="w-full rounded-xl border border-zinc-800/80 bg-zinc-900/50 py-1.5 pr-3 pl-8 text-xs text-zinc-200 placeholder-zinc-500 transition-all outline-none focus:border-emerald-500/50 focus:bg-zinc-900"
+          />
+        </div>
+      )}
+
+      {/* Список транзакцій */}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800/80 bg-zinc-900/20 px-4 py-8 text-center">
+          <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 text-zinc-400">
+            <PiggyBank size={16} />
+          </div>
+          <p className="text-xs font-semibold text-zinc-300">
+            {transactions.length === 0
+              ? "Ще немає зафіксованих операцій капіталу"
+              : "За цим запитом нічого не знайдено"}
+          </p>
+          <p className="mt-1 max-w-sm text-[11px] text-zinc-500">
+            {transactions.length === 0
+              ? "Тут зберігатимуться купівлі ОВДП, акцій, криптовалют та поповнення скарбничок, не змішуючись із щоденними витратами на каву чи продукти."
+              : "Спробуйте змінити пошуковий запит."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((tx) => {
+            const isDeposit =
+              tx.category_name?.toLowerCase().includes("заощадж") ||
+              tx.merchant_raw?.toLowerCase().includes("скарбнич");
+
+            const dateStr = new Date(tx.created_at).toLocaleDateString(
+              "uk-UA",
+              {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              }
+            );
+
+            return (
+              <div
+                key={tx.id}
+                onClick={() => onSelectTransaction(tx)}
+                className="group flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-2.5 transition-all hover:border-zinc-700 hover:bg-zinc-900/80"
+              >
+                <div className="flex min-w-0 items-center gap-3 pr-2">
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                      isDeposit
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                        : "border-violet-500/20 bg-violet-500/10 text-violet-400"
+                    }`}
+                  >
+                    {isDeposit ? (
+                      <PiggyBank size={15} />
+                    ) : (
+                      <TrendingUp size={15} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
+                      {tx.merchant_raw}
+                    </p>
+                    <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                      <span>{dateStr}</span>
+                      <span>•</span>
+                      <span
+                        className={
+                          isDeposit
+                            ? "text-emerald-400/90"
+                            : "text-violet-400/90"
+                        }
+                      >
+                        {tx.category_name || "Капітал"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-xs font-bold text-emerald-400">
+                    +{Number(tx.amount).toLocaleString("uk-UA")}{" "}
+                    {tx.currency === "USD" ? "$" : "₴"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

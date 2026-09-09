@@ -25,6 +25,7 @@ import { TransactionsList } from "@/components/dashboard/TransactionsList";
 import { RecurringSection } from "@/components/dashboard/RecurringSection";
 import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
 import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
+import { CapitalHistoryCard } from "@/components/dashboard/CapitalHistoryCard";
 import { exportFinancialDataToExcel } from "@/lib/export-excel";
 import { DetectedSubscription } from "@/lib/subscription-radar";
 
@@ -372,6 +373,27 @@ export default function Dashboard() {
       return matchesSearch && matchesTag;
     });
   }, [filteredTransactions, deferredSearchQuery, activeTag]);
+
+  // Окрема вибірка транзакцій для вкладки "Капітал & Цілі"
+  const capitalTransactions = useMemo(() => {
+    return rawTransactions
+      .filter(
+        (t: Transaction) =>
+          !t.exclude_from_budget &&
+          (t.type === "investment" ||
+            t.category_name?.toLowerCase().includes("інвест") ||
+            t.category_name?.toLowerCase().includes("заощадж") ||
+            t.tags?.some(
+              (tag: string) =>
+                tag.toLowerCase().includes("капітал") ||
+                tag.toLowerCase().includes("інвест")
+            ))
+      )
+      .sort(
+        (a: Transaction, b: Transaction) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+  }, [rawTransactions]);
 
   // 8. Стан модальних вікон
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
@@ -723,33 +745,11 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Вкладка: Капітал & Цілі (Скарбнички, Runway та Інвестиційний портфель) */}
-      {activeTab === "wealth" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <SavingsGoalsCard
-              goals={savingsGoals}
-              monthlyBurnRate={totalSpent > 0 ? totalSpent : effectiveLimit}
-              onRefresh={loadWealthData}
-            />
-            <InvestmentsCard
-              investments={investments}
-              rates={commercialRates}
-              onRefresh={loadWealthData}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Основна сітка */}
-      {activeTab !== "wealth" && (
-        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-12">
-          {/* ЛІВА КОЛОНКА (Аналітика) */}
-          <section
-            className={`space-y-6 md:col-span-7 ${
-              activeTab === "overview" ? "block" : "hidden md:block"
-            }`}
-          >
+      {/* Вкладка 1: Аналітика & Бюджет */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+          {/* Ліва колонка: Щоденна динаміка, категорії з лімітами, MoM, AI */}
+          <section className="space-y-6 lg:col-span-7">
             <DailyDynamicsChart dailyStats={dailyStats} />
 
             <CategoryBreakdown
@@ -778,22 +778,14 @@ export default function Dashboard() {
             />
           </section>
 
-          {/* ПРАВА КОЛОНКА (Історія та Постійні витрати) */}
-          <section
-            className={`space-y-6 md:col-span-5 ${
-              activeTab === "history" ? "block" : "hidden md:block"
-            }`}
-          >
-            <TransactionsList
-              totalMonthTransactionsCount={filteredTransactions.length}
-              displayedTransactions={displayedTransactions}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              availableTags={availableTags}
-              activeTag={activeTag}
-              onTagChange={setActiveTag}
-              onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
-              onSelectTransaction={setSelectedTx}
+          {/* Права колонка: Прогноз спалювання бюджету та Радар підписок */}
+          <section className="space-y-6 lg:col-span-5">
+            <BurnRateChart
+              transactions={filteredTransactions}
+              budgetLimit={effectiveLimit}
+              recurringTotal={recurringTotal}
+              selectedMonthKey={selectedMonthKey}
+              recurring={recurring}
             />
 
             <RecurringSection
@@ -812,17 +804,49 @@ export default function Dashboard() {
               onAddDetected={handleAddDetectedFromRadar}
               onDismissDetected={handleDismissDetectedFromRadar}
             />
-
-            <div>
-              <BurnRateChart
-                transactions={filteredTransactions}
-                budgetLimit={effectiveLimit}
-                recurringTotal={recurringTotal}
-                selectedMonthKey={selectedMonthKey}
-                recurring={recurring}
-              />
-            </div>
           </section>
+        </div>
+      )}
+
+      {/* Вкладка 2: Капітал & Цілі (Скарбнички, Runway, Інвестиційний портфель та Окрема історія капіталу) */}
+      {activeTab === "wealth" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <SavingsGoalsCard
+              goals={savingsGoals}
+              monthlyBurnRate={totalSpent > 0 ? totalSpent : effectiveLimit}
+              onRefresh={loadWealthData}
+            />
+            <InvestmentsCard
+              investments={investments}
+              rates={commercialRates}
+              onRefresh={loadWealthData}
+            />
+          </div>
+
+          {/* Окрема історія операцій капіталу */}
+          <CapitalHistoryCard
+            transactions={capitalTransactions}
+            onSelectTransaction={setSelectedTx}
+            onAddCapital={() => setIsCreateExpenseOpen(true)}
+          />
+        </div>
+      )}
+
+      {/* Вкладка 3: Історія */}
+      {activeTab === "history" && (
+        <div className="mx-auto max-w-4xl space-y-6">
+          <TransactionsList
+            totalMonthTransactionsCount={filteredTransactions.length}
+            displayedTransactions={displayedTransactions}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            availableTags={availableTags}
+            activeTag={activeTag}
+            onTagChange={setActiveTag}
+            onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
+            onSelectTransaction={setSelectedTx}
+          />
         </div>
       )}
 
