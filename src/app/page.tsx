@@ -34,7 +34,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 import {
   TrendingUp,
@@ -162,7 +161,6 @@ export default function Dashboard() {
     cycleCurrentLabel,
     cyclePreviousLabel,
   } = useMemo(() => {
-    // Якщо цикл не створено — повертаємо стандартні календарні місяці
     if (!activeCycle) {
       return {
         cycleCurrentTransactions: monthTransactions,
@@ -177,13 +175,11 @@ export default function Dashboard() {
       ? new Date(activeCycle.end_date).getTime()
       : Infinity;
 
-    // Транзакції поточного відкритого циклу
     const curr = transactions.filter((t: any) => {
       const txTime = new Date(t.created_at).getTime();
       return txTime >= currentStart && txTime <= currentEnd;
     });
 
-    // Транзакції попереднього циклу
     let prev: any[] = [];
     if (previousCycle) {
       const prevStart = new Date(previousCycle.start_date).getTime();
@@ -263,7 +259,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  // Збір усіх унікальних тегів із транзакцій поточного місяця
+  // Збір усіх унікальних тегів із транзакцій
   const availableTags = useMemo<string[]>(() => {
     const tagsSet = new Set<string>();
     filteredTransactions.forEach((tx) => {
@@ -306,7 +302,7 @@ export default function Dashboard() {
     })
     .split(",");
 
-  // Динамічна палітра залежно від відсотка використання ліміту
+  // Динамічна палітра
   const spentPct = budgetMetrics.spentPercent || 0;
   const isDanger = spentPct >= 90;
   const isWarning = spentPct >= 70 && !isDanger;
@@ -343,6 +339,34 @@ export default function Dashboard() {
     checkAuth();
   }, []);
 
+  // Синхронізація локального інпуту олівця з активним циклом (Zero Trust: лише in-memory)
+  useEffect(() => {
+    if (activeCycle?.budget_limit) {
+      setBudgetLimit(Number(activeCycle.budget_limit));
+      setTempBudgetInput(activeCycle.budget_limit.toString());
+    }
+  }, [activeCycle]);
+
+  // Realtime оновлення транзакцій
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const txChannel = supabase
+      .channel("realtime-transactions")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        () => {
+          invalidateTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(txChannel);
+    };
+  }, [isAuthenticated, invalidateTransactions]);
+
   // Обробка введення PIN-коду
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -375,10 +399,7 @@ export default function Dashboard() {
 
     try {
       const optsRes = await fetch("/api/auth/webauthn/login");
-      if (!optsRes.ok) {
-        const err = await optsRes.json();
-        throw new Error(err.error || "Біометрія недоступна");
-      }
+      if (!optsRes.ok) throw new Error("Біометрія недоступна");
       const options = await optsRes.json();
 
       const authResp = await startAuthentication({ optionsJSON: options });
@@ -392,8 +413,7 @@ export default function Dashboard() {
       if (verifyRes.ok) {
         setIsAuthenticated(true);
       } else {
-        const err = await verifyRes.json();
-        setPinError(err.error || "Не вдалося розпізнати");
+        setPinError("Не вдалося розпізнати");
       }
     } catch (err: any) {
       if (err.name !== "NotAllowedError") {
@@ -462,50 +482,6 @@ export default function Dashboard() {
     maxBackgroundTimeMs: 5 * 60 * 1000,
   });
 
-  // Realtime оновлення транзакцій
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const txChannel = supabase
-      .channel("realtime-transactions")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        () => {
-          invalidateTransactions();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(txChannel);
-    };
-  }, [isAuthenticated, invalidateTransactions]);
-
-  // Завантаження ліміту бюджету
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const fetchBudget = async () => {
-      const { data } = await supabase
-        .from("budgets")
-        .select("amount")
-        .eq("month", selectedMonthKey)
-        .maybeSingle();
-
-      if (data?.amount) {
-        const val = Number(data.amount);
-        setBudgetLimit(val);
-        setTempBudgetInput(val.toString());
-      } else {
-        setBudgetLimit(30000);
-        setTempBudgetInput("30000");
-      }
-    };
-
-    fetchBudget();
-  }, [selectedMonthKey, isAuthenticated]);
-
   // Керування регулярними платежами
   const handleSaveRecurring = async (formData: {
     id?: number;
@@ -557,7 +533,6 @@ export default function Dashboard() {
       let finalAmount = Number(item.amount);
       let merchantTitle = item.title;
 
-      // 1. Отримуємо курс для валютних операцій
       if (isUsd) {
         const rateRes = await fetch("/api/currency/rate").catch(() => null);
         const rateData = rateRes?.ok
@@ -576,7 +551,6 @@ export default function Dashboard() {
         type: "expense" as const,
       };
 
-      // 2. Optimistic створення транзакції
       createTransaction(newTx, {
         onError: (err: any) => {
           console.error("Помилка списання регулярного платежу:", err);
@@ -585,28 +559,45 @@ export default function Dashboard() {
     } catch (err) {
       console.error("Помилка підготовки транзакції:", err);
     } finally {
-      // Знімаємо стан завантаження з кнопки одразу після формування запиту
       setIsExecutingRecurring(null);
     }
   };
 
+  // Функція збереження нової суми через Олівець
   const handleSaveBudget = async () => {
-    const parsed = parseFloat(tempBudgetInput);
-    if (!isNaN(parsed) && parsed > 0) {
-      setBudgetLimit(parsed);
-      await supabase.from("budgets").upsert(
-        {
-          month: selectedMonthKey,
-          amount: parsed,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "month" }
-      );
+    const newLimit = parseFloat(tempBudgetInput.replace(",", "."));
+    if (isNaN(newLimit) || newLimit <= 0 || !activeCycle?.id) {
+      setIsEditingBudget(false);
+      return;
     }
+
+    setBudgetLimit(newLimit);
+    setActiveCycle((prev: any) =>
+      prev ? { ...prev, budget_limit: newLimit } : prev
+    );
     setIsEditingBudget(false);
+
+    try {
+      const res = await fetch("/api/cycles", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cycleId: activeCycle.id,
+          limit: newLimit,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Не вдалося оновити ліміт на сервері");
+    } catch (error) {
+      console.error("Помилка збереження бюджету:", error);
+      if (activeCycle?.budget_limit) {
+        setBudgetLimit(Number(activeCycle.budget_limit));
+        setActiveCycle((prev: any) => ({ ...prev }));
+      }
+    }
   };
 
-  // Оновлення категорії операції з автонавчанням правил
+  // Мутації транзакцій
   const handleUpdateCategory = (
     txId: number,
     newCategory: string,
@@ -614,7 +605,6 @@ export default function Dashboard() {
     saveAsRule?: boolean
   ) => {
     setSelectedTx(null);
-
     updateTransaction({
       id: txId,
       category_name: newCategory,
@@ -633,7 +623,6 @@ export default function Dashboard() {
 
   const handleDeleteTransaction = (txId: number) => {
     setSelectedTx(null);
-
     deleteTransaction(txId, {
       onError: (err) => {
         console.error("Помилка видалення транзакції:", err);
@@ -705,8 +694,6 @@ export default function Dashboard() {
 
   return (
     <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(6rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
-      {" "}
-      {/* Слухач шорткатів та зовнішніх лінків */}
       <Suspense fallback={null}>
         <QuickActionsListener
           onAddExpense={() => setIsCreateExpenseOpen(true)}
@@ -754,7 +741,6 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          {/* Контрастний бейдж "Постійні" */}
           <div className="flex items-center gap-1.5 rounded-xl border border-zinc-800/90 bg-zinc-900/80 px-3 py-1.5 shadow-sm">
             <span className="text-zinc-400">Постійні:</span>
             <span className="font-semibold text-white">
@@ -762,7 +748,6 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {/* Контрастний бейдж "Транзакцій" */}
           <div className="flex items-center gap-1.5 rounded-xl border border-zinc-800/90 bg-zinc-900/80 px-3 py-1.5 shadow-sm">
             <span className="text-zinc-400">Транзакцій:</span>
             <span className="font-semibold text-white">
@@ -770,7 +755,6 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {/* Меню службових дій та налаштувань */}
           <div className="relative">
             <button
               type="button"
@@ -785,7 +769,6 @@ export default function Dashboard() {
               <Settings size={15} />
             </button>
 
-            {/* Випадаюче вікно налаштувань (збережено без змін) */}
             {isSettingsOpen && (
               <>
                 <div
@@ -794,7 +777,6 @@ export default function Dashboard() {
                 />
 
                 <div className="absolute top-10 right-0 z-50 w-56 rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl">
-                  {/* 1. Новий фінансовий цикл */}
                   <button
                     type="button"
                     onClick={() => {
@@ -809,7 +791,6 @@ export default function Dashboard() {
 
                   <div className="my-1 border-t border-zinc-800/60" />
 
-                  {/* 2. Імпорт виписки Приват24 */}
                   <button
                     type="button"
                     onClick={() => {
@@ -822,7 +803,6 @@ export default function Dashboard() {
                     <span>Імпорт Приват24</span>
                   </button>
 
-                  {/* 3. Прив'язка біометрії Face ID / Touch ID */}
                   <button
                     type="button"
                     onClick={() => {
@@ -838,7 +818,6 @@ export default function Dashboard() {
 
                   <div className="my-1 border-t border-zinc-800/60" />
 
-                  {/* 4. Блокування додатка / Вихід */}
                   <button
                     type="button"
                     onClick={() => {
@@ -872,40 +851,49 @@ export default function Dashboard() {
           </div>
 
           {isEditingBudget ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <input
                 type="number"
+                inputMode="decimal"
                 value={tempBudgetInput}
                 onChange={(e) => setTempBudgetInput(e.target.value)}
-                className="w-28 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveBudget();
+                  if (e.key === "Escape") setIsEditingBudget(false);
+                }}
+                className="w-24 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1 font-mono text-base text-white focus:border-emerald-500 focus:outline-none sm:w-28 sm:text-xs"
                 autoFocus
               />
               <button
+                type="button"
                 onClick={handleSaveBudget}
-                className="rounded-lg bg-emerald-600 p-1.5 text-white transition-all hover:bg-emerald-500"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white transition-all hover:bg-emerald-500 active:scale-95"
               >
-                <Check size={13} />
+                <Check size={14} />
               </button>
             </div>
           ) : (
             <button
-              onClick={() => setIsEditingBudget(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 transition-all hover:border-zinc-700 hover:text-white"
+              type="button"
+              onClick={() => {
+                setTempBudgetInput(effectiveLimit.toString());
+                setIsEditingBudget(true);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2.5 py-1 text-xs text-zinc-400 transition-all hover:border-zinc-700 hover:text-white active:scale-95"
             >
-              <span className="font-semibold text-zinc-200">
-                {budgetLimit.toLocaleString("uk-UA")} ₴
+              <span className="font-mono font-semibold text-zinc-200 tabular-nums">
+                {effectiveLimit.toLocaleString("uk-UA")} ₴
               </span>
               <Pencil size={11} className="text-zinc-500" />
             </button>
           )}
         </div>
 
-        {/* Інтерактивний прогрес-бар з адаптивною палітрою */}
+        {/* Інтерактивний прогрес-бар */}
         <div
           tabIndex={0}
           className="group relative -my-2 mb-4 cursor-pointer py-2 select-none focus:outline-none"
         >
-          {/* Спливаючий бейдж-підказка */}
           <div
             className={`pointer-events-none absolute -top-8 -translate-x-1/2 rounded-lg border px-2.5 py-1 font-mono text-[11px] opacity-0 shadow-2xl backdrop-blur-md transition-all duration-150 group-hover:-top-9 group-hover:opacity-100 group-focus:opacity-100 group-active:-top-9 group-active:opacity-100 ${tooltipBadgeStyle}`}
             style={{
@@ -921,7 +909,6 @@ export default function Dashboard() {
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-x-4 border-t-4 border-x-transparent border-t-current opacity-70" />
           </div>
 
-          {/* Трек і лінія прогресу з м'яким неоновим свіченням */}
           <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800/80 ring-1 ring-zinc-800">
             <div
               className={`h-full rounded-full bg-gradient-to-r ${progressGradient} ${progressGlow} transition-all duration-500`}
@@ -999,13 +986,12 @@ export default function Dashboard() {
       </div>
       {/* Основна сітка */}
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-12">
-        {/* ЛІВА КОЛОНКА: Контур аналітики (Intelligence & Trends) */}
+        {/* ЛІВА КОЛОНКА */}
         <section
           className={`space-y-6 md:col-span-7 ${
             activeTab === "overview" ? "block" : "hidden md:block"
           }`}
         >
-          {/* 1. Діаграма витрат за днями */}
           <div className="relative rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -1021,7 +1007,6 @@ export default function Dashboard() {
                     data={dailyStats}
                     margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                   >
-                    {/* Визначаємо неоновий градієнт */}
                     <defs>
                       <linearGradient
                         id="barGradient"
@@ -1093,7 +1078,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* 2. Структура категорій (Ambient Bars) */}
           <div className="relative rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
             <h2 className="mb-3.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
               Структура витрат за категоріями
@@ -1116,7 +1100,6 @@ export default function Dashboard() {
                       onClick={() => setSelectedCategory(cat.name)}
                       className="group relative cursor-pointer overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-2.5 transition-all duration-150 hover:border-zinc-700/80 hover:bg-zinc-900/60 active:scale-[0.99]"
                     >
-                      {/* Фоновий Ambient Fill (прогрес як м'яка підкладка) */}
                       <div
                         className="absolute inset-y-0 left-0 transition-all duration-700 ease-out"
                         style={{
@@ -1126,13 +1109,11 @@ export default function Dashboard() {
                         }}
                       />
 
-                      {/* Тонка вертикальна смужка-акцент по лівому краю */}
                       <div
                         className="absolute inset-y-0 left-0 w-1 rounded-l-xl opacity-90 transition-opacity group-hover:opacity-100"
                         style={{ backgroundColor: catColor }}
                       />
 
-                      {/* Контент картки поверх фону */}
                       <div className="relative z-10 flex items-center justify-between pl-1.5">
                         <div className="flex items-center space-x-2.5 truncate pr-2">
                           <div
@@ -1165,7 +1146,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* 3. Порівняння MoM — ПОВИННО БУТИ ТУТ (як окрема картка) */}
           <MoMComparison
             currentTransactions={cycleCurrentTransactions}
             previousTransactions={cyclePreviousTransactions}
@@ -1178,7 +1158,6 @@ export default function Dashboard() {
             }
           />
 
-          {/* 4. AI Фінансовий Аналітик */}
           <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-950 p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -1209,18 +1188,16 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* ПРАВА КОЛОНКА: Операційний контур (Daily Actions & Cash Flow) */}
+        {/* ПРАВА КОЛОНКА */}
         <section
           className={`space-y-6 md:col-span-5 ${
             activeTab === "history" ? "block" : "hidden md:block"
           }`}
         >
-          {/* 1. Журнал операцій */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-                <Receipt size={14} className="text-zinc-500" /> Транзакції за
-                місяць
+                <Receipt size={14} className="text-zinc-500" /> Транзакції
               </h2>
               <div className="flex items-center gap-2">
                 <button
@@ -1236,7 +1213,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Панель пошуку та фільтрації за тегами */}
             <div className="mb-4 space-y-2.5">
               <div className="relative flex items-center">
                 <Search
@@ -1385,7 +1361,6 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Моноширинна сума без тремтіння */}
                       <span className="ml-2 font-mono text-sm font-bold tracking-tight whitespace-nowrap text-white tabular-nums">
                         -{Number(t.amount).toFixed(2)} ₴
                       </span>
@@ -1396,7 +1371,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* 2. Блок постійних платежів */}
           <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1474,7 +1448,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* 3. Графік темпу спалювання бюджету (Burn Rate) */}
           <div>
             <BurnRateChart
               transactions={filteredTransactions}
@@ -1486,8 +1459,7 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
-      {/* Модальні вікна */}
-      {/* Модальне вікно списку транзакцій при кліку на категорію) */}
+
       <CategoryDetailModal
         categoryName={selectedCategory}
         transactions={filteredTransactions}
@@ -1496,12 +1468,10 @@ export default function Dashboard() {
           setSelectedTx(tx);
         }}
       />
-      {/* Модальне вікно створення нової витрати */}
       <CreateTransactionDrawer
         isOpen={isCreateExpenseOpen}
         onClose={() => setIsCreateExpenseOpen(false)}
       />
-      {/* Модальне вікно ведення регулярних фіксованих зобов'язань */}
       <RecurringModal
         isOpen={isAddingRecurring}
         item={editingRecurring}
@@ -1509,7 +1479,6 @@ export default function Dashboard() {
         onSave={handleSaveRecurring}
         onDelete={handleDeleteRecurring}
       />
-      {/* Модальне вікно Транзакції за місяць */}
       <TransactionActionSheet
         transaction={selectedTx}
         onClose={() => setSelectedTx(null)}
@@ -1517,7 +1486,6 @@ export default function Dashboard() {
         onUpdateTags={handleUpdateTags}
         onDelete={handleDeleteTransaction}
       />
-      {/* Модальне вікно нового циклу (після ЗП) */}
       <NewCycleModal
         isOpen={isCycleModalOpen}
         onClose={() => setIsCycleModalOpen(false)}
@@ -1526,7 +1494,6 @@ export default function Dashboard() {
           loadCycles();
         }}
       />
-      {/* Модальне вікно AI асистента */}
       <AIAnalysisDrawer
         isOpen={isAiDrawerOpen}
         onClose={() => setIsAiDrawerOpen(false)}
@@ -1539,7 +1506,6 @@ export default function Dashboard() {
         }}
         onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
       />
-      {/* Модальне вікно імпорту CSV */}
       <CsvImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}

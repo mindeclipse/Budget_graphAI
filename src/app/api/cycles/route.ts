@@ -79,3 +79,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    const supabase = getSupabaseAdmin();
+    const body = await req.json();
+    const { cycleId, limit } = body;
+    const numericLimit = Number(limit);
+
+    if (!cycleId || isNaN(numericLimit) || numericLimit <= 0) {
+      return NextResponse.json(
+        { error: "Некоректний ID циклу або сума ліміту" },
+        { status: 400 }
+      );
+    }
+
+    const { error: updateError } = await supabase
+      .from("budget_cycles")
+      .update({ budget_limit: numericLimit })
+      .eq("id", cycleId);
+
+    if (updateError) {
+      console.error(
+        "[API cycles PATCH] Error updating budget limit:",
+        updateError
+      );
+      throw updateError;
+    }
+
+    return NextResponse.json({ success: true, limit: numericLimit });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

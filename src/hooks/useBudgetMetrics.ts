@@ -25,7 +25,7 @@ export interface BudgetCycle {
 export interface BudgetMetricsParams {
   transactions: Transaction[];
   recurring: RecurringItem[];
-  budgetLimit: number;
+  budgetLimit: number; // Сюди page.tsx вже передає правильний ліміт
   selectedDate: Date;
   activeCycle?: BudgetCycle | null;
 }
@@ -59,10 +59,14 @@ export function useBudgetMetrics({
   selectedDate,
   activeCycle,
 }: BudgetMetricsParams) {
-  const now = new Date();
-  const isCurrentMonth =
-    now.getFullYear() === selectedDate.getFullYear() &&
-    now.getMonth() === selectedDate.getMonth();
+  // ✅ Оптимізація: Перевірка поточного місяця ізольована в useMemo
+  const isCurrentMonth = useMemo(() => {
+    const today = new Date();
+    return (
+      today.getFullYear() === selectedDate.getFullYear() &&
+      today.getMonth() === selectedDate.getMonth()
+    );
+  }, [selectedDate]);
 
   const selectedMonthKey = useMemo(() => {
     return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}`;
@@ -89,7 +93,6 @@ export function useBudgetMetrics({
   }, [transactions, selectedMonthKey]);
 
   // 2. Транзакції, що входять у розрахунок ліміту активного циклу
-  // Якщо є активний цикл — фільтруємо напряму з transactions від дати старту циклу
   const budgetTransactions = useMemo(() => {
     if (!isCurrentMonth || !activeCycle) {
       return monthTransactions;
@@ -98,7 +101,7 @@ export function useBudgetMetrics({
     const cycleStart = new Date(activeCycle.start_date).getTime();
     const cycleEnd = activeCycle.end_date
       ? new Date(activeCycle.end_date).getTime()
-      : Infinity; // Поки цикл триває, враховуються всі витрати після дати старту
+      : Infinity;
 
     return transactions.filter((t) => {
       if (t.exclude_from_budget || t.type !== "expense") return false;
@@ -107,12 +110,8 @@ export function useBudgetMetrics({
     });
   }, [transactions, monthTransactions, isCurrentMonth, activeCycle]);
 
-  // Ліміт бюджету (для активного циклу береться встановлена сума циклу)
-  const effectiveLimit = useMemo(() => {
-    return isCurrentMonth && activeCycle?.budget_limit
-      ? Number(activeCycle.budget_limit)
-      : budgetLimit;
-  }, [isCurrentMonth, activeCycle, budgetLimit]);
+  // Ліміт бюджету: береться напряму зі стейту page.tsx (там він вже безпечно прив'язаний до циклу)
+  const effectiveLimit = budgetLimit || 30000;
 
   // Вибірка попереднього місяця для блоку MoM
   const prevMonthKey = useMemo(
@@ -145,12 +144,12 @@ export function useBudgetMetrics({
     return budgetTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
   }, [budgetTransactions]);
 
-  // Розрахунок метрик прогресу бюджету
+  // ✅ Оптимізація: Розрахунок метрик прогресу. 'now' створюється ТІЛЬКИ всередині розрахунку.
   const budgetMetrics = useMemo<BudgetMetricsResult>(() => {
     let daysRemaining = 0;
+    const now = new Date();
 
     if (activeCycle && isCurrentMonth) {
-      // Розрахунок за вікном зарплатного циклу (+30 днів від дати натискання "Новий цикл")
       const cycleStart = new Date(activeCycle.start_date);
       const cycleEnd = activeCycle.end_date
         ? new Date(activeCycle.end_date)
@@ -161,10 +160,8 @@ export function useBudgetMetrics({
       const diffMs = cycleEnd.getTime() - now.getTime();
       const msPerDay = 1000 * 60 * 60 * 24;
 
-      // Округляємо дні догори: у день старту циклу залишок становитиме 30 днів
       daysRemaining = Math.max(0, Math.ceil(diffMs / msPerDay));
     } else if (isCurrentMonth) {
-      // Фоллбек на стандартний календарний місяць, якщо цикл не запущено
       const totalDaysInMonth = new Date(
         selectedDate.getFullYear(),
         selectedDate.getMonth() + 1,
@@ -178,7 +175,6 @@ export function useBudgetMetrics({
     const spentPercent =
       variableBudget > 0 ? (totalSpent / variableBudget) * 100 : 100;
 
-    // Безпечний щоденний ліміт спирається на дні активного циклу
     const safeDailySpend =
       daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
 
@@ -202,7 +198,7 @@ export function useBudgetMetrics({
     selectedDate,
     isCurrentMonth,
     activeCycle,
-    now,
+    // Залежності 'now' тут більше немає, ререндери будуть працювати коректно
   ]);
 
   // Структура витрат за категоріями
