@@ -81,6 +81,11 @@ const CsvImportModal = dynamic(
   () => import("@/components/CsvImportModal").then((m) => m.CsvImportModal),
   { ssr: false }
 );
+const InzhurImportModal = dynamic(
+  () =>
+    import("@/components/InzhurImportModal").then((m) => m.InzhurImportModal),
+  { ssr: false }
+);
 const TrashModal = dynamic(
   () => import("@/components/TrashModal").then((m) => m.TrashModal),
   { ssr: false }
@@ -127,6 +132,7 @@ export default function Dashboard() {
   // 2. Завантаження кешованих даних
   const {
     transactions: rawTransactions,
+    invalidateTransactions,
     recurring,
     invalidateRecurring,
     radar: radarData,
@@ -512,6 +518,7 @@ export default function Dashboard() {
   // 8. Стан модальних вікон
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isInzhurImportOpen, setIsInzhurImportOpen] = useState(false);
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isMerchantRulesOpen, setIsMerchantRulesOpen] = useState(false);
@@ -1058,6 +1065,7 @@ export default function Dashboard() {
             transactions={capitalTransactions}
             onSelectTransaction={setSelectedTx}
             onAddCapital={() => setIsCreateExpenseOpen(true)}
+            onImportInzhur={() => setIsInzhurImportOpen(true)}
           />
         </div>
       )}
@@ -1152,6 +1160,17 @@ export default function Dashboard() {
           onSuccess={() => {
             setIsImportModalOpen(false);
             window.location.reload();
+          }}
+        />
+      )}
+
+      {isInzhurImportOpen && (
+        <InzhurImportModal
+          isOpen={isInzhurImportOpen}
+          onClose={() => setIsInzhurImportOpen(false)}
+          onSuccess={() => {
+            invalidateTransactions();
+            loadWealthData();
           }}
         />
       )}

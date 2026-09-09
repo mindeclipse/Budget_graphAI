@@ -1,19 +1,29 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Landmark, Plus, Search, PiggyBank, TrendingUp } from "lucide-react";
+import {
+  Landmark,
+  Plus,
+  Search,
+  PiggyBank,
+  TrendingUp,
+  FileSpreadsheet,
+  Building2,
+} from "lucide-react";
 import { Transaction } from "@/types/finance";
 
 interface CapitalHistoryCardProps {
   transactions: Transaction[];
   onSelectTransaction: (tx: Transaction) => void;
   onAddCapital?: () => void;
+  onImportInzhur?: () => void;
 }
 
 export function CapitalHistoryCard({
   transactions,
   onSelectTransaction,
   onAddCapital,
+  onImportInzhur,
 }: CapitalHistoryCardProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -24,6 +34,7 @@ export function CapitalHistoryCard({
       (tx) =>
         tx.merchant_raw.toLowerCase().includes(q) ||
         tx.category_name?.toLowerCase().includes(q) ||
+        tx.tags?.some((t) => t.toLowerCase().includes(q)) ||
         String(tx.amount).includes(q)
     );
   }, [transactions, searchQuery]);
@@ -50,7 +61,7 @@ export function CapitalHistoryCard({
               </span>
             </div>
             <p className="text-[11px] text-zinc-500">
-              Поповнення скарбничок, інвестиції та рух капіталу
+              Поповнення скарбничок, інвестиції Inzhur/ОВДП та рух капіталу
             </p>
           </div>
         </div>
@@ -62,14 +73,28 @@ export function CapitalHistoryCard({
               {totalCapitalMoved.toLocaleString("uk-UA")} ₴
             </p>
           </div>
-          {onAddCapital && (
-            <button
-              onClick={onAddCapital}
-              className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
-            >
-              <Plus size={13} /> Додати
-            </button>
-          )}
+
+          <div className="flex items-center gap-1.5">
+            {onImportInzhur && (
+              <button
+                onClick={onImportInzhur}
+                className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition-all hover:bg-emerald-500/20 hover:text-emerald-300 active:scale-95"
+                title="Завантажити виписку Inzhur (.xlsx)"
+              >
+                <FileSpreadsheet size={13} />
+                <span>Імпорт XLSX</span>
+              </button>
+            )}
+
+            {onAddCapital && (
+              <button
+                onClick={onAddCapital}
+                className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:text-white"
+              >
+                <Plus size={13} /> Додати
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -84,7 +109,7 @@ export function CapitalHistoryCard({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Пошук активу, скарбнички або суми..."
+            placeholder="Пошук активу (Inzhur REIT, ОВДП), операції чи суми..."
             className="w-full rounded-xl border border-zinc-800/80 bg-zinc-900/50 py-1.5 pr-3 pl-8 text-xs text-zinc-200 placeholder-zinc-500 transition-all outline-none focus:border-emerald-500/50 focus:bg-zinc-900"
           />
         </div>
@@ -103,7 +128,7 @@ export function CapitalHistoryCard({
           </p>
           <p className="mt-1 max-w-sm text-[11px] text-zinc-500">
             {transactions.length === 0
-              ? "Тут зберігатимуться купівлі ОВДП, акцій, криптовалют та поповнення скарбничок, не змішуючись із щоденними витратами на каву чи продукти."
+              ? "Тут зберігаються купівлі ОВДП, Inzhur REIT, криптовалют, дивіденди та скарбнички, не змішуючись із щоденними витратами."
               : "Спробуйте змінити пошуковий запит."}
           </p>
         </div>
@@ -112,7 +137,25 @@ export function CapitalHistoryCard({
           {filtered.map((tx) => {
             const isDeposit =
               tx.category_name?.toLowerCase().includes("заощадж") ||
-              tx.merchant_raw?.toLowerCase().includes("скарбнич");
+              tx.merchant_raw?.toLowerCase().includes("скарбнич") ||
+              tx.tags?.includes("дебет") ||
+              tx.merchant_raw?.toLowerCase().includes("нарахування") ||
+              tx.merchant_raw?.toLowerCase().includes("поповнення");
+
+            const isCredit =
+              tx.tags?.includes("кредит") ||
+              tx.merchant_raw?.toLowerCase().includes("купівля") ||
+              tx.merchant_raw?.toLowerCase().includes("сплата");
+
+            const isReit =
+              tx.tags?.includes("reit") ||
+              tx.merchant_raw?.toLowerCase().includes("reit");
+
+            const isBonds =
+              tx.tags?.includes("овдп") ||
+              tx.merchant_raw?.toLowerCase().includes("овдп");
+
+            const isInzhur = tx.source === "inzhur_statement";
 
             const dateStr = new Date(tx.created_at).toLocaleDateString(
               "uk-UA",
@@ -132,29 +175,48 @@ export function CapitalHistoryCard({
                 <div className="flex min-w-0 items-center gap-3 pr-2">
                   <div
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-                      isDeposit
-                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                        : "border-violet-500/20 bg-violet-500/10 text-violet-400"
+                      isReit
+                        ? "border-teal-500/20 bg-teal-500/10 text-teal-400"
+                        : isBonds
+                          ? "border-indigo-500/20 bg-indigo-500/10 text-indigo-400"
+                          : isDeposit
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                            : "border-violet-500/20 bg-violet-500/10 text-violet-400"
                     }`}
                   >
-                    {isDeposit ? (
+                    {isReit ? (
+                      <Building2 size={15} />
+                    ) : isDeposit ? (
                       <PiggyBank size={15} />
                     ) : (
                       <TrendingUp size={15} />
                     )}
                   </div>
+
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
-                      {tx.merchant_raw}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
+                        {tx.merchant_raw}
+                      </p>
+                      {isInzhur && (
+                        <span className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-1 py-0.5 text-[8px] font-bold text-emerald-400">
+                          Inzhur
+                        </span>
+                      )}
+                    </div>
+
                     <div className="flex items-center gap-2 text-[11px] text-zinc-500">
                       <span>{dateStr}</span>
                       <span>•</span>
                       <span
                         className={
-                          isDeposit
-                            ? "text-emerald-400/90"
-                            : "text-violet-400/90"
+                          isReit
+                            ? "text-teal-400/90"
+                            : isBonds
+                              ? "text-indigo-400/90"
+                              : isDeposit
+                                ? "text-emerald-400/90"
+                                : "text-violet-400/90"
                         }
                       >
                         {tx.category_name || "Капітал"}
@@ -164,8 +226,13 @@ export function CapitalHistoryCard({
                 </div>
 
                 <div className="text-right">
-                  <span className="text-xs font-bold text-emerald-400">
-                    +{Number(tx.amount).toLocaleString("uk-UA")}{" "}
+                  <span
+                    className={`text-xs font-bold tabular-nums ${
+                      isCredit ? "text-zinc-200" : "text-emerald-400"
+                    }`}
+                  >
+                    {isCredit ? "−" : "+"}
+                    {Number(tx.amount).toLocaleString("uk-UA")}{" "}
                     {tx.currency === "USD" ? "$" : "₴"}
                   </span>
                 </div>
