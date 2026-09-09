@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Transaction } from "@/types/finance";
 
 interface UpdateTransactionPayload {
-  id: string | number;
+  id: number;
   category_name?: string;
   merchant_raw?: string;
   clean_title?: string;
@@ -23,7 +24,7 @@ interface CreateTransactionPayload {
 export function useTransactionMutations() {
   const queryClient = useQueryClient();
 
-  // 1. Оптимістичне оновлення транзакції
+  // 1. Оновлення транзакції
   const updateMutation = useMutation({
     mutationFn: async (payload: UpdateTransactionPayload) => {
       const res = await fetch("/api/transactions", {
@@ -32,66 +33,69 @@ export function useTransactionMutations() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Не вдалося оновити транзакцію");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Не вдалося оновити транзакцію");
       }
       return res.json();
     },
     onMutate: async (newTxData) => {
-      // Скасовуємо активні вибірки транзакцій, щоб уникнути race conditions
       await queryClient.cancelQueries({ queryKey: ["transactions"] });
 
-      // Зберігаємо зліпок поточного стану кешу для відкату
       const previousData = queryClient.getQueriesData<Transaction[]>({
         queryKey: ["transactions"],
       });
 
-      // Оптимістично оновлюємо всі збіги списків транзакцій у пам'яті
       queryClient.setQueriesData<Transaction[]>(
         { queryKey: ["transactions"] },
         (old = []) =>
-          old.map((item) => {
-            if (String(item.id) === String(newTxData.id)) {
-              return {
-                ...item,
-                category_name: newTxData.category_name ?? item.category_name,
-                merchant_raw:
-                  newTxData.clean_title ??
-                  newTxData.merchant_raw ??
-                  item.merchant_raw,
-                tags: newTxData.tags ?? item.tags,
-              };
-            }
-            return item;
-          })
+          old.map((item) =>
+            item.id === newTxData.id
+              ? {
+                  ...item,
+                  category_name: newTxData.category_name ?? item.category_name,
+                  merchant_raw:
+                    newTxData.clean_title ??
+                    newTxData.merchant_raw ??
+                    item.merchant_raw,
+                  tags: newTxData.tags ?? item.tags,
+                }
+              : item
+          )
       );
 
       return { previousData };
     },
-    onError: (_err, _variables, context) => {
-      // Відновлюємо стан у разі збою
+    onError: (err: any, variables, context) => {
       if (context?.previousData) {
-        context.previousData.forEach(([queryKey, data]) => {
-          queryClient.setQueryData(queryKey, data);
+        context.previousData.forEach(([key, data]) => {
+          queryClient.setQueryData(key, data);
         });
       }
+
+      toast.error("Не вдалося оновити транзакцію", {
+        id: `update-err-${variables.id}`,
+        description: err.message || "Зміни скасовано через збій зв'язку",
+        action: {
+          label: "Повторити",
+          onClick: () => updateMutation.mutate(variables),
+        },
+      });
     },
     onSettled: () => {
-      // Інвалідуємо списки та аналітику для фонової синхронізації
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
     },
   });
 
-  // 2. Оптимістичне видалення транзакції
+  // 2. Видалення транзакції
   const deleteMutation = useMutation({
-    mutationFn: async (id: string | number) => {
+    mutationFn: async (id: number) => {
       const res = await fetch(`/api/transactions?id=${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Не вдалося видалити транзакцію");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Не вдалося видалити транзакцію");
       }
       return res.json();
     },
@@ -102,21 +106,28 @@ export function useTransactionMutations() {
         queryKey: ["transactions"],
       });
 
-      // Миттєво прибираємо запис з UI
       queryClient.setQueriesData<Transaction[]>(
         { queryKey: ["transactions"] },
-        (old = []) =>
-          old.filter((item) => String(item.id) !== String(deletedId))
+        (old = []) => old.filter((item) => item.id !== deletedId)
       );
 
       return { previousData };
     },
-    onError: (_err, _id, context) => {
+    onError: (err: any, id, context) => {
       if (context?.previousData) {
-        context.previousData.forEach(([queryKey, data]) => {
-          queryClient.setQueryData(queryKey, data);
+        context.previousData.forEach(([key, data]) => {
+          queryClient.setQueryData(key, data);
         });
       }
+
+      toast.error("Не вдалося видалити", {
+        id: `delete-err-${id}`,
+        description: "Транзакцію повернуто до списку",
+        action: {
+          label: "Спробувати знову",
+          onClick: () => deleteMutation.mutate(id),
+        },
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -124,7 +135,7 @@ export function useTransactionMutations() {
     },
   });
 
-  // 3. Оптимістичне додавання транзакції вручну
+  // 3. Створення нової транзакції
   const createMutation = useMutation({
     mutationFn: async (payload: CreateTransactionPayload) => {
       const res = await fetch("/api/transactions", {
@@ -133,8 +144,8 @@ export function useTransactionMutations() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Не вдалося зберегти транзакцію");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Не вдалося зберегти транзакцію");
       }
       return res.json();
     },
@@ -145,9 +156,8 @@ export function useTransactionMutations() {
         queryKey: ["transactions"],
       });
 
-      // Створюємо тимчасовий об'єкт із числовим псевдо-ID
       const optimisticItem: Transaction = {
-        id: -Date.now(), // Число (number), щоб не ламалися типи й компоненти
+        id: -Date.now(),
         amount: newTx.amount,
         currency: newTx.currency || "UAH",
         merchant_raw: newTx.merchant_raw,
@@ -155,8 +165,9 @@ export function useTransactionMutations() {
         source: newTx.source || "manual",
         type: newTx.type || "expense",
         created_at: newTx.created_at || new Date().toISOString(),
-        exclude_from_budget: false, // Гарантує проходження фільтра в useFinanceQueries
+        exclude_from_budget: false,
       } as Transaction;
+
       queryClient.setQueriesData<Transaction[]>(
         { queryKey: ["transactions"] },
         (old = []) => [optimisticItem, ...old]
@@ -164,12 +175,21 @@ export function useTransactionMutations() {
 
       return { previousData };
     },
-    onError: (_err, _variables, context) => {
+    onError: (err: any, variables, context) => {
       if (context?.previousData) {
-        context.previousData.forEach(([queryKey, data]) => {
-          queryClient.setQueryData(queryKey, data);
+        context.previousData.forEach(([key, data]) => {
+          queryClient.setQueryData(key, data);
         });
       }
+
+      toast.error("Транзакцію не збережено", {
+        id: "create-tx-error",
+        description: err.message || "Сервер не відповів, запис знято зі списку",
+        action: {
+          label: "Повторити",
+          onClick: () => createMutation.mutate(variables),
+        },
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "@/components/Providers";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="uk" className="bg-black">
       <body className="bg-black text-white antialiased">
         <Providers>{children}</Providers>
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );
