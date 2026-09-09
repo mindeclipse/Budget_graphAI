@@ -26,9 +26,9 @@ interface TransactionActionSheetProps {
     newCategory: string,
     cleanTitle?: string,
     saveAsRule?: boolean
-  ) => Promise<void>;
-  onUpdateTags: (txId: number, newTags: string[]) => Promise<void>;
-  onDelete: (txId: number) => Promise<void>;
+  ) => void | Promise<void>;
+  onUpdateTags: (txId: number, newTags: string[]) => void | Promise<void>;
+  onDelete: (txId: number) => void | Promise<void>;
 }
 
 export function TransactionActionSheet({

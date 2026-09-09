@@ -15,6 +15,7 @@ import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import { CsvImportModal } from "@/components/CsvImportModal";
 import { NewCycleModal } from "@/components/NewCycleModal";
 import { AIAnalysisDrawer } from "@/components/AIAnalysisDrawer";
+import { useTransactionMutations } from "@/hooks/useTransactionMutations";
 import {
   AIAnalysisResponse,
   SupportedGeminiModel,
@@ -95,6 +96,10 @@ export default function Dashboard() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [activeCycle, setActiveCycle] = useState<any>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Optimistic Updates у TanStack Query
+  const { updateTransaction, createTransaction, deleteTransaction } =
+    useTransactionMutations();
 
   // Завантаження активного циклу
   const loadCycles = async () => {
@@ -449,6 +454,7 @@ export default function Dashboard() {
       let finalAmount = Number(item.amount);
       let merchantTitle = item.title;
 
+      // 1. Отримуємо курс для валютних операцій
       if (isUsd) {
         const rateRes = await fetch("/api/currency/rate").catch(() => null);
         const rateData = rateRes?.ok
@@ -460,28 +466,23 @@ export default function Dashboard() {
 
       const newTx = {
         amount: finalAmount,
-        currency: "UAH",
+        currency: "UAH" as const,
         merchant_raw: merchantTitle,
         category_name: item.category_name,
-        source: "recurring",
-        type: "expense",
+        source: "recurring" as const,
+        type: "expense" as const,
       };
 
-      const res = await fetch("/api/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTx),
+      // 2. Optimistic створення транзакції
+      createTransaction(newTx, {
+        onError: (err: any) => {
+          console.error("Помилка списання регулярного платежу:", err);
+        },
       });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Помилка додавання транзакції");
-      }
-
-      invalidateTransactions();
     } catch (err) {
-      console.error("Помилка списання:", err);
+      console.error("Помилка підготовки транзакції:", err);
     } finally {
+      // Знімаємо стан завантаження з кнопки одразу після формування запиту
       setIsExecutingRecurring(null);
     }
   };
@@ -503,50 +504,38 @@ export default function Dashboard() {
   };
 
   // Оновлення категорії операції з автонавчанням правил
-  const handleUpdateCategory = async (
+  const handleUpdateCategory = (
     txId: number,
     newCategory: string,
     cleanTitle?: string,
     saveAsRule?: boolean
   ) => {
     setSelectedTx(null);
-    await fetch("/api/transactions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: txId,
-        category_name: newCategory,
-        merchant_raw: selectedTx?.merchant_raw,
-        clean_title: cleanTitle,
-        save_as_rule: saveAsRule,
-      }),
+
+    updateTransaction({
+      id: txId,
+      category_name: newCategory,
+      merchant_raw: selectedTx?.merchant_raw,
+      clean_title: cleanTitle,
+      save_as_rule: saveAsRule,
     });
-    invalidateTransactions();
   };
 
-  const handleUpdateTags = async (txId: number, newTags: string[]) => {
-    await fetch("/api/transactions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: txId, tags: newTags }),
+  const handleUpdateTags = (txId: number, newTags: string[]) => {
+    updateTransaction({
+      id: txId,
+      tags: newTags,
     });
-    invalidateTransactions();
   };
 
-  const handleDeleteTransaction = async (txId: number) => {
+  const handleDeleteTransaction = (txId: number) => {
     setSelectedTx(null);
-    try {
-      const res = await fetch(`/api/transactions?id=${txId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Не вдалося видалити транзакцію");
-      }
-      invalidateTransactions();
-    } catch (err) {
-      console.error("Error deleting transaction:", err);
-    }
+
+    deleteTransaction(txId, {
+      onError: (err) => {
+        console.error("Помилка видалення транзакції:", err);
+      },
+    });
   };
 
   if (isAuthenticated === null) {
