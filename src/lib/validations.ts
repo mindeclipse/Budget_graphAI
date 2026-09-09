@@ -50,10 +50,15 @@ export const recurringUpdateSchema = recurringTemplateSchema.partial().extend({
 
 export const savingsGoalSchema = z.object({
   name: z.string().trim().min(1, "Назва обов'язкова").max(150),
-  target_amount: z
-    .number()
-    .positive("Цільова сума має бути більшою за нуль")
-    .max(100_000_000),
+  target_amount: z.preprocess(
+    (val) => (val === "" || val === undefined ? null : val),
+    z
+      .number()
+      .positive("Цільова сума має бути більшою за нуль")
+      .max(100_000_000)
+      .nullable()
+      .optional()
+  ),
   current_amount: z.number().min(0).default(0),
   currency: z.enum(["UAH", "USD", "EUR", "PLN"]).default("UAH"),
   target_date: z.string().nullable().optional(),

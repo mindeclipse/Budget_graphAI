@@ -1016,6 +1016,7 @@ export default function Dashboard() {
             <SavingsGoalsCard
               goals={savingsGoals}
               monthlyBurnRate={totalSpent > 0 ? totalSpent : effectiveLimit}
+              rates={commercialRates}
               onRefresh={loadWealthData}
             />
             <InvestmentsCard

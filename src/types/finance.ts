@@ -18,7 +18,7 @@ export interface Transaction {
 export interface SavingsGoal {
   id: number;
   name: string;
-  target_amount: number;
+  target_amount?: number | null;
   current_amount: number;
   currency: string;
   target_date?: string | null;

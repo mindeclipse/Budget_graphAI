@@ -163,8 +163,11 @@ export function exportFinancialDataToExcel({
   if (savingsGoals.length > 0) {
     const goalsRows = savingsGoals.map((g) => {
       const current = Number(g.current_amount) || 0;
-      const target = Number(g.target_amount) || 1;
-      const progress = ((current / target) * 100).toFixed(1) + "%";
+      const hasTarget = g.target_amount != null && Number(g.target_amount) > 0;
+      const target = hasTarget ? Number(g.target_amount) : "Не обмежено";
+      const progress = hasTarget
+        ? ((current / Number(g.target_amount)) * 100).toFixed(1) + "%"
+        : "Без ліміту";
 
       return {
         "Ціль / Скарбничка": g.name,

@@ -98,13 +98,29 @@ export async function POST(req: Request) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+    const insertPayload = {
+      ...parsed.data,
+      target_amount: parsed.data.target_amount ?? null,
+    };
+
     const { data, error } = await supabaseAdmin
       .from("savings_goals")
-      .insert([parsed.data])
+      .insert([insertPayload])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === "23502") {
+        return NextResponse.json(
+          {
+            error:
+              "Для збереження скарбнички без цілі виконайте SQL-команду в Supabase: ALTER TABLE public.savings_goals ALTER COLUMN target_amount DROP NOT NULL;",
+          },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
 
     return NextResponse.json({ success: true, goal: data });
   } catch (error: any) {
@@ -135,14 +151,32 @@ export async function PATCH(req: Request) {
     const { id, ...updateData } = parsed.data;
     const supabaseAdmin = getSupabaseAdmin();
 
+    const updatePayload = {
+      ...updateData,
+      ...(updateData.target_amount !== undefined
+        ? { target_amount: updateData.target_amount ?? null }
+        : {}),
+    };
+
     const { data, error } = await supabaseAdmin
       .from("savings_goals")
-      .update(updateData)
+      .update(updatePayload)
       .eq("id", id)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === "23502") {
+        return NextResponse.json(
+          {
+            error:
+              "Для збереження скарбнички без цілі виконайте SQL-команду в Supabase: ALTER TABLE public.savings_goals ALTER COLUMN target_amount DROP NOT NULL;",
+          },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
 
     return NextResponse.json({ success: true, goal: data });
   } catch (error: any) {

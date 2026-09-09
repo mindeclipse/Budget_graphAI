@@ -134,6 +134,31 @@ describe("Validations - Zod Schemas", () => {
         }).success
       ).toBe(false);
     });
+
+    it("дозволяє створення безцільової скарбнички (target_amount: null, undefined або '')", () => {
+      const goalNull = {
+        name: "Скарбничка на мрію",
+        target_amount: null,
+        current_amount: 5000,
+        currency: "USD",
+      };
+      const resultNull = savingsGoalSchema.safeParse(goalNull);
+      expect(resultNull.success).toBe(true);
+
+      const goalUndefined = {
+        name: "Вільні збереження",
+        current_amount: 1000,
+      };
+      const resultUndef = savingsGoalSchema.safeParse(goalUndefined);
+      expect(resultUndef.success).toBe(true);
+
+      const goalEmptyStr = {
+        name: "Скарбничка",
+        target_amount: "",
+      };
+      const resultEmpty = savingsGoalSchema.safeParse(goalEmptyStr);
+      expect(resultEmpty.success).toBe(true);
+    });
   });
 
   describe("investmentAssetSchema", () => {
