@@ -858,7 +858,7 @@ export default function Dashboard() {
               : "text-zinc-400 hover:text-white"
           }`}
         >
-          Історія операцій ({filteredTransactions.length})
+          Історія операцій
         </button>
         <button
           type="button"
