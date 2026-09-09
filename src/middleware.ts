@@ -18,10 +18,26 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // 2. Авторизація зовнішніх викликів для Apple Shortcuts через Bearer-токен
+  if (pathname.startsWith("/api/classify")) {
+    const authHeader = req.headers.get("authorization");
+    const secretKey = process.env.APP_API_SECRET;
+
+    // Якщо ключ налаштований і співпадає із заголовком Bearer
+    if (secretKey && authHeader === `Bearer ${secretKey}`) {
+      return NextResponse.next();
+    }
+
+    return NextResponse.json(
+      { error: "Unauthorized: Invalid or missing Bearer token" },
+      { status: 401 }
+    );
+  }
+
   const session = req.cookies.get("finance_session")?.value;
   const correctPin = process.env.APP_ACCESS_PIN;
 
-  // 2. Блокування неавторизованих звернень до внутрішніх API
+  // 3. Блокування неавторизованих звернень до внутрішніх API веб-інтерфейсу
   if (!session || session !== correctPin) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

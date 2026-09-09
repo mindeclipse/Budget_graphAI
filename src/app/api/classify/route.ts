@@ -14,7 +14,7 @@ const classifySchema: Schema = {
     cleanTitle: {
       type: Type.STRING,
       description:
-        "Зрозуміла, коротка назва закладу або мережі (наприклад: 'Кебаб на Шевченка', 'Овація', 'Близенько')",
+        "Зрозуміла, коротка назва закладу або мережі (наприклад: 'Кебаб на Шевченка', 'Овація', 'Близенько', 'Сільпо')",
     },
     categoryName: {
       type: Type.STRING,
@@ -26,16 +26,33 @@ const classifySchema: Schema = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { rawMerchant, amount } = await req.json();
+    const body = await req.json();
+
+    // Підтримуємо обидва формати назви поля
+    const rawMerchant = body.merchant_raw || body.rawMerchant;
+
+    // Парсимо суму (якщо надійшов рядок з комою чи крапкою)
+    const rawAmount = body.amount;
+    const amount =
+      typeof rawAmount === "number"
+        ? rawAmount
+        : parseFloat(String(rawAmount || "0").replace(",", "."));
+
+    const currency = body.currency || "UAH";
+    const source = body.source || "apple_pay";
+    const type = body.type || "expense";
 
     if (!rawMerchant) {
       return NextResponse.json(
-        { error: "rawMerchant обов'язковий" },
+        { error: "merchant_raw або rawMerchant обов'язковий" },
         { status: 400 }
       );
     }
 
     const cleaned = cleanMerchantRaw(rawMerchant);
+    let cleanTitle = cleaned;
+    let categoryName = "Інше";
+    let classificationSource = "fallback";
 
     // --- ЕШЕЛОН 1: Пошук у таблиці правил merchant_rules ---
     const { data: rules } = await supabase
@@ -46,23 +63,21 @@ export async function POST(req: NextRequest) {
       const lowerCleaned = cleaned.toLowerCase();
       const lowerRaw = rawMerchant.toLowerCase();
 
-      // Шукаємо правило, патерн якого входить у сиру або очищену назву
       const matchedRule = rules.find((r) => {
         const p = r.pattern.toLowerCase();
         return lowerCleaned.includes(p) || lowerRaw.includes(p);
       });
 
       if (matchedRule) {
-        return NextResponse.json({
-          cleanTitle: matchedRule.normalized_name || cleaned,
-          categoryName: matchedRule.category_name,
-          source: "rule_engine",
-        });
+        cleanTitle = matchedRule.normalized_name || cleaned;
+        categoryName = matchedRule.category_name;
+        classificationSource = "rule_engine";
       }
     }
 
-    // --- ЕШЕЛОН 2: Gemini API з українським ритейл-контекстом ---
-    const systemInstruction = `
+    // --- ЕШЕЛОН 2: Gemini API, якщо правило не спрацювало ---
+    if (classificationSource === "fallback") {
+      const systemInstruction = `
 Ти — класифікатор фінансових транзакцій в Україні (зокрема Львів / Київ).
 Твоє завдання: прийняти сиру банківську назву мерчанта і повернути зрозумілу назву (cleanTitle) та точну категорію (categoryName).
 
@@ -88,47 +103,78 @@ export async function POST(req: NextRequest) {
 - Відповідай суворо за наданою JSON-схемою.
 `;
 
-    const prompt = `Мерчант: "${rawMerchant}". Очищений вигляд: "${cleaned}". Сума: ${amount || 0} ₴`;
+      const prompt = `Мерчант: "${rawMerchant}". Очищений вигляд: "${cleaned}". Сума: ${amount || 0} ₴`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash-lite",
-      contents: prompt,
-      config: {
-        systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: classifySchema,
-        temperature: 0.1,
-      },
-    });
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema: classifySchema,
+            temperature: 0.1,
+          },
+        });
 
-    const parsed = JSON.parse(response.text || "{}");
-    const cleanTitle = parsed.cleanTitle || cleaned;
-    const categoryName = parsed.categoryName || "Інше";
+        const parsed = JSON.parse(response.text || "{}");
+        cleanTitle = parsed.cleanTitle || cleaned;
+        categoryName = parsed.categoryName || "Інше";
+        classificationSource = "gemini_ai";
 
-    // --- ЕШЕЛОН 3: Кешування в merchant_rules для майбутніх покупок ---
-    // Якщо правило з'явилося вперше, закріплюємо його автоматично
-    await supabase.from("merchant_rules").upsert(
-      {
-        pattern: cleaned,
-        normalized_name: cleanTitle,
+        // Кешуємо нове правило в базу, щоб наступного разу спрацював Ешелон 1
+        await supabase.from("merchant_rules").upsert(
+          {
+            pattern: cleaned,
+            normalized_name: cleanTitle,
+            category_name: categoryName,
+          },
+          { onConflict: "pattern" }
+        );
+      } catch (aiErr) {
+        console.error("Gemini classification failed, using fallbacks:", aiErr);
+      }
+    }
+
+    // --- ЕШЕЛОН 3: Фіксація транзакції в таблиці transactions ---
+    const { data: insertedTx, error: insertError } = await supabase
+      .from("transactions")
+      .insert({
+        amount,
+        currency,
+        merchant_raw: cleanTitle, // зберігаємо зрозумілу назву для інтерфейсу
         category_name: categoryName,
-      },
-      { onConflict: "pattern" }
-    );
+        source,
+        type,
+        created_at: new Date().toISOString(),
+        exclude_from_budget: false,
+      })
+      .select()
+      .single();
 
+    if (insertError) {
+      console.error("Supabase insert error:", insertError);
+      throw new Error(`Помилка запису транзакції: ${insertError.message}`);
+    }
+
+    // Повертаємо розширену відповідь для Apple Shortcuts
     return NextResponse.json({
+      success: true,
+      id: insertedTx.id,
       cleanTitle,
       categoryName,
-      source: "gemini_ai",
+      amount,
+      currency,
+      source: classificationSource,
     });
   } catch (error: any) {
-    console.error("Classify API error:", error);
+    console.error("Classify & Ingest API error:", error);
     return NextResponse.json(
       {
-        cleanTitle: req.headers.get("rawMerchant") || "Невідомо",
-        categoryName: "Інше",
+        success: false,
+        error: error.message || "Помилка обробки транзакції",
       },
-      { status: 200 } // Повертаємо 200 із дефолтом, щоб Shortcuts не падав
+      { status: 500 }
     );
   }
 }
