@@ -284,17 +284,19 @@ export function WishlistCard({
                         <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
                           {item.category_name}
                         </span>
-                        {item.url && (
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-slate-500 hover:text-slate-300"
-                            title="Перейти до товару"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
+                        {item.url &&
+                          (item.url.startsWith("http://") ||
+                            item.url.startsWith("https://")) && (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-slate-500 hover:text-slate-300"
+                              title="Перейти до товару"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
                       </div>
 
                       {item.notes && (

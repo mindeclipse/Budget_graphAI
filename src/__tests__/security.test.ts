@@ -48,6 +48,26 @@ describe("Security & Authentication", () => {
       ).toBe(false);
       expect((await verifySessionToken("foo.bar.baz")).valid).toBe(false);
     });
+
+    it("викидає виключення у production якщо секретні ключі відсутні (Fail-Closed)", async () => {
+      const origEnv = process.env.NODE_ENV;
+      const origSecret = process.env.APP_API_SECRET;
+      const origPin = process.env.APP_ACCESS_PIN;
+
+      try {
+        (process.env as any).NODE_ENV = "production";
+        delete process.env.APP_API_SECRET;
+        delete process.env.APP_ACCESS_PIN;
+
+        await expect(createSessionToken("owner")).rejects.toThrow(
+          "Critical Security Error"
+        );
+      } finally {
+        (process.env as any).NODE_ENV = origEnv;
+        if (origSecret) process.env.APP_API_SECRET = origSecret;
+        if (origPin) process.env.APP_ACCESS_PIN = origPin;
+      }
+    });
   });
 
   describe("timingSafeEqual", () => {

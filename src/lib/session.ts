@@ -6,11 +6,11 @@ function getSecretKey(): string {
   const secret = process.env.APP_API_SECRET || process.env.APP_ACCESS_PIN;
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      console.warn(
-        "[Security Warning] APP_API_SECRET and APP_ACCESS_PIN are missing. Using emergency fallback key."
+      throw new Error(
+        "[Critical Security Error] APP_API_SECRET or APP_ACCESS_PIN must be configured in production environment."
       );
     }
-    return "finance_pwa_default_secure_fallback_key_32_bytes_min";
+    return "dev_fallback_key_for_testing_purposes_only_32_bytes_min";
   }
   return secret;
 }

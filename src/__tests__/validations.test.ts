@@ -5,6 +5,7 @@ import {
   savingsGoalSchema,
   investmentAssetSchema,
   categoryBudgetSchema,
+  wishlistItemSchema,
 } from "@/lib/validations";
 
 describe("Validations - Zod Schemas", () => {
@@ -194,6 +195,48 @@ describe("Validations - Zod Schemas", () => {
           monthly_limit: -500,
         }).success
       ).toBe(false);
+    });
+  });
+
+  describe("wishlistItemSchema - URL Security", () => {
+    it("дозволяє безпечні протоколи http:// та https://", () => {
+      const validHttps = {
+        title: "Навушники",
+        estimated_price: 3000,
+        url: "https://rozetka.com.ua/item/123",
+      };
+      expect(wishlistItemSchema.safeParse(validHttps).success).toBe(true);
+
+      const validHttp = {
+        title: "Книга",
+        estimated_price: 450,
+        url: "http://books.ua/item/456",
+      };
+      expect(wishlistItemSchema.safeParse(validHttp).success).toBe(true);
+
+      const emptyUrl = {
+        title: "Чохол",
+        estimated_price: 200,
+        url: "",
+      };
+      expect(wishlistItemSchema.safeParse(emptyUrl).success).toBe(true);
+    });
+
+    it("відхиляє шкідливі або небезпечні протоколи (javascript:, data: тощо)", () => {
+      const xssAttempt = {
+        title: "Небезпечний товар",
+        estimated_price: 1000,
+        url: "javascript:alert('xss')",
+      };
+      const res = wishlistItemSchema.safeParse(xssAttempt);
+      expect(res.success).toBe(false);
+
+      const dataUri = {
+        title: "Data URI",
+        estimated_price: 1000,
+        url: "data:text/html,<script>alert(1)</script>",
+      };
+      expect(wishlistItemSchema.safeParse(dataUri).success).toBe(false);
     });
   });
 });

@@ -118,7 +118,20 @@ export const wishlistItemSchema = z.object({
   category_name: z.string().trim().min(1).max(100).default("Інше"),
   url: z
     .string()
-    .url("Некоректне посилання")
+    .trim()
+    .max(2000, "Посилання занадто довге")
+    .refine(
+      (val) => {
+        if (!val || val === "") return true;
+        try {
+          const parsed = new URL(val);
+          return parsed.protocol === "http:" || parsed.protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message: "Посилання повинно починатися з http:// або https://" }
+    )
     .nullable()
     .optional()
     .or(z.literal("")),

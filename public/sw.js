@@ -57,6 +57,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // 0. Заборона кешування чутливих ендпоінтів автентифікації, біометрії та бекапів (Network Only)
+  if (
+    url.pathname.startsWith("/api/auth") ||
+    url.pathname.startsWith("/api/backup")
+  ) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // 1. Навігаційні запити (HTML сторінки): Network-First з fallback на кешований App Shell
   if (request.mode === "navigate") {
     event.respondWith(

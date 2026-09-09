@@ -81,6 +81,14 @@ export async function GET(req: Request) {
 // POST: перевірка криптографічної відповіді пристрою та запис публічного ключа
 export async function POST(req: Request) {
   const cookieStore = await cookies();
+  const session = cookieStore.get("finance_session")?.value;
+  const { valid } = await verifySessionToken(session);
+
+  // Реєструвати пристрій дозволено лише за наявності активної сесії
+  if (!valid) {
+    return NextResponse.json({ error: "Не авторизовано" }, { status: 401 });
+  }
+
   const expectedChallenge = cookieStore.get("webauthn_reg_challenge")?.value;
 
   if (!expectedChallenge) {

@@ -14,6 +14,13 @@ export function useAuthSession() {
   // Перевірка активної сесії при першому завантаженні
   useEffect(() => {
     const checkAuth = async () => {
+      if (
+        typeof window !== "undefined" &&
+        sessionStorage.getItem("budget_auto_locked") === "true"
+      ) {
+        setIsAuthenticated(false);
+        return;
+      }
       try {
         const res = await fetch("/api/auth");
         const data = await res.json();
@@ -40,6 +47,9 @@ export function useAuthSession() {
         });
 
         if (res.ok) {
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("budget_auto_locked");
+          }
           setIsAuthenticated(true);
         } else {
           const errData = await res.json().catch(() => null);
@@ -73,6 +83,9 @@ export function useAuthSession() {
       });
 
       if (verifyRes.ok) {
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("budget_auto_locked");
+        }
         setIsAuthenticated(true);
       } else {
         setPinError("Не вдалося розпізнати");
@@ -115,6 +128,9 @@ export function useAuthSession() {
 
   // Вихід із системи
   const handleLogout = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("budget_auto_locked");
+    }
     setIsAuthenticated(false);
     setPinInput("");
     setPinError("");
@@ -122,12 +138,19 @@ export function useAuthSession() {
   }, []);
 
   // Автоматичне блокування при неактивності або переході у фон
+  const handleAutoLock = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("budget_auto_locked", "true");
+    }
+    setIsAuthenticated(false);
+    setPinInput("");
+    setPinError("");
+    await fetch("/api/auth", { method: "DELETE" }).catch(() => null);
+  }, []);
+
   useAutoLock({
     isAuthenticated,
-    onLock: () => {
-      setIsAuthenticated(false);
-      setPinInput("");
-    },
+    onLock: handleAutoLock,
     inactivityTimeoutMs: 7 * 60 * 1000,
     maxBackgroundTimeMs: 5 * 60 * 1000,
   });
