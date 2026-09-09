@@ -53,12 +53,10 @@ export async function GET(req: NextRequest) {
       ? Math.min(Math.max(Number(limitParam) || 0, 1), 5000)
       : 1500;
 
-    // Оптимізація розміру JSON: вибірка лише необхідних полів (Column Projection)
+    // Безпечна вибірка полів з автоматичною адаптацією до наявних колонок
     let query = supabase
       .from("transactions")
-      .select(
-        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency"
-      )
+      .select("*")
       .order("created_at", { ascending: false });
 
     // Фільтрація за періодом (використовує idx_transactions_created_at_desc або idx_transactions_budget_filter)
