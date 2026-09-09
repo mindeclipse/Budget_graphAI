@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   CalendarClock,
   Radio,
@@ -45,8 +45,12 @@ export function SubscriptionRadar({
   const [activeTab, setActiveTab] = useState<"calendar" | "radar" | "all">(
     "calendar"
   );
+  const [dismissedSignatures, setDismissedSignatures] = useState<string[]>([]);
 
-  const detected = radarData?.detected || [];
+  const detected = useMemo(() => {
+    const raw = radarData?.detected || [];
+    return raw.filter((sub) => !dismissedSignatures.includes(sub.id));
+  }, [radarData?.detected, dismissedSignatures]);
   const upcoming = radarData?.upcoming || [];
   const metrics = radarData?.metrics;
 
@@ -313,7 +317,10 @@ export function SubscriptionRadar({
 
                   <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-violet-900/20 pt-2">
                     <button
-                      onClick={() => onDismissDetected(sub.id)}
+                      onClick={() => {
+                        setDismissedSignatures((prev) => [...prev, sub.id]);
+                        onDismissDetected(sub.id);
+                      }}
                       className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2 py-1 text-[11px] text-zinc-400 transition-all hover:bg-zinc-800 hover:text-zinc-200"
                     >
                       <EyeOff size={11} /> Приховати

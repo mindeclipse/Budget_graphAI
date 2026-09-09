@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { ArrowDownRight, ArrowUpRight, Minus, Scale } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Minus,
+  Scale,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 interface Transaction {
   id: number;
@@ -34,6 +41,8 @@ export function MoMComparison({
   previousMonthLabel,
   title = "Порівняння з минулим циклом",
 }: MoMComparisonProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const DEFAULT_VISIBLE_COUNT = 5;
   const {
     categoryDiffs,
     totalCurrent,
@@ -66,20 +75,22 @@ export function MoMComparison({
       new Set([...Object.keys(currMap), ...Object.keys(prevMap)])
     );
 
-    const diffs: CategoryDiff[] = allCategories.map((cat) => {
-      const cur = currMap[cat] || 0;
-      const prv = prevMap[cat] || 0;
-      const diff = cur - prv;
-      const pct = prv > 0 ? ((cur - prv) / prv) * 100 : null;
+    const diffs: CategoryDiff[] = allCategories
+      .map((cat) => {
+        const cur = currMap[cat] || 0;
+        const prv = prevMap[cat] || 0;
+        const diff = cur - prv;
+        const pct = prv > 0 ? ((cur - prv) / prv) * 100 : null;
 
-      return {
-        category: cat,
-        currentAmount: cur,
-        prevAmount: prv,
-        diffAmount: diff,
-        percentChange: pct,
-      };
-    });
+        return {
+          category: cat,
+          currentAmount: cur,
+          prevAmount: prv,
+          diffAmount: diff,
+          percentChange: pct,
+        };
+      })
+      .filter((row) => row.currentAmount > 0 || row.prevAmount > 0);
 
     // Сортуємо: спочатку категорії з найбільшими витратами в поточному місяці
     diffs.sort((a, b) => b.currentAmount - a.currentAmount);
@@ -100,6 +111,11 @@ export function MoMComparison({
   if (categoryDiffs.length === 0) {
     return null;
   }
+
+  const displayedRows = isExpanded
+    ? categoryDiffs
+    : categoryDiffs.slice(0, DEFAULT_VISIBLE_COUNT);
+  const hiddenCount = categoryDiffs.length - DEFAULT_VISIBLE_COUNT;
 
   return (
     <div className="relative rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
@@ -148,7 +164,7 @@ export function MoMComparison({
           <div className="col-span-2 text-right">Зміна</div>
         </div>
 
-        {categoryDiffs.map((row) => {
+        {displayedRows.map((row) => {
           const isIncreased = row.diffAmount > 0;
           const isDecreased = row.diffAmount < 0;
 
@@ -200,6 +216,24 @@ export function MoMComparison({
           );
         })}
       </div>
+
+      {categoryDiffs.length > DEFAULT_VISIBLE_COUNT && (
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 py-2 text-xs font-medium text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-800/60 hover:text-zinc-200"
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp size={13} /> Згорнути
+            </>
+          ) : (
+            <>
+              <ChevronDown size={13} /> Показати всі (+{hiddenCount})
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }

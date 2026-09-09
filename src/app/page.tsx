@@ -26,6 +26,7 @@ import { RecurringSection } from "@/components/dashboard/RecurringSection";
 import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
 import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
 import { CapitalHistoryCard } from "@/components/dashboard/CapitalHistoryCard";
+import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { exportFinancialDataToExcel } from "@/lib/export-excel";
 import { DetectedSubscription } from "@/lib/subscription-radar";
 
@@ -670,7 +671,7 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(6rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
+    <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(1.5rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
       <Suspense fallback={null}>
         <QuickActionsListener
           onAddExpense={() => setIsCreateExpenseOpen(true)}
@@ -708,7 +709,7 @@ export default function Dashboard() {
         onSaveBudget={handleSaveBudgetLimit}
       />
 
-      {/* Навігація між вкладками */}
+      {/* Навігація між вкладками: Аналітика & Бюджет -> Історія операцій -> Капітал & Цілі */}
       <div className="mb-6 flex rounded-2xl border border-zinc-800 bg-zinc-900/80 p-1 backdrop-blur-md">
         <button
           type="button"
@@ -723,6 +724,17 @@ export default function Dashboard() {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab("history")}
+          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
+            activeTab === "history"
+              ? "bg-zinc-800 text-white shadow-md"
+              : "text-zinc-400 hover:text-white"
+          }`}
+        >
+          Історія операцій ({filteredTransactions.length})
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("wealth")}
           className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
             activeTab === "wealth"
@@ -732,23 +744,12 @@ export default function Dashboard() {
         >
           Капітал & Цілі
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("history")}
-          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
-            activeTab === "history"
-              ? "bg-zinc-800 text-white shadow-md"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Історія ({filteredTransactions.length})
-        </button>
       </div>
 
       {/* Вкладка 1: Аналітика & Бюджет */}
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-          {/* Ліва колонка: Щоденна динаміка, категорії з лімітами, MoM, AI */}
+          {/* Ліва колонка: Щоденна динаміка, категорії з лімітами, AI */}
           <section className="space-y-6 lg:col-span-7">
             <DailyDynamicsChart dailyStats={dailyStats} />
 
@@ -760,25 +761,13 @@ export default function Dashboard() {
               onDeleteCategoryBudget={handleDeleteCategoryBudget}
             />
 
-            <MoMComparison
-              currentTransactions={cycleCurrentTransactions}
-              previousTransactions={cyclePreviousTransactions}
-              currentMonthLabel={cycleCurrentLabel}
-              previousMonthLabel={cyclePreviousLabel}
-              title={
-                activeCycle
-                  ? "Порівняння з минулим циклом"
-                  : "Порівняння з минулим місяцем"
-              }
-            />
-
             <AICard
               aiAnalysis={aiAnalysis}
               onOpenAiDrawer={() => handleRunAiAnalysis()}
             />
           </section>
 
-          {/* Права колонка: Прогноз спалювання бюджету та Радар підписок */}
+          {/* Права колонка: Прогноз спалювання бюджету, Радар підписок та MoM-порівняння */}
           <section className="space-y-6 lg:col-span-5">
             <BurnRateChart
               transactions={filteredTransactions}
@@ -804,11 +793,57 @@ export default function Dashboard() {
               onAddDetected={handleAddDetectedFromRadar}
               onDismissDetected={handleDismissDetectedFromRadar}
             />
+
+            <MoMComparison
+              currentTransactions={cycleCurrentTransactions}
+              previousTransactions={cyclePreviousTransactions}
+              currentMonthLabel={cycleCurrentLabel}
+              previousMonthLabel={cyclePreviousLabel}
+              title={
+                activeCycle
+                  ? "Порівняння з минулим циклом"
+                  : "Порівняння з минулим місяцем"
+              }
+            />
           </section>
         </div>
       )}
 
-      {/* Вкладка 2: Капітал & Цілі (Скарбнички, Runway, Інвестиційний портфель та Окрема історія капіталу) */}
+      {/* Вкладка 2: Історія операцій (2-колонковий адаптивний вигляд) */}
+      {activeTab === "history" && (
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+          {/* Список транзакцій */}
+          <section className="space-y-6 lg:col-span-8">
+            <TransactionsList
+              totalMonthTransactionsCount={filteredTransactions.length}
+              displayedTransactions={displayedTransactions}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              availableTags={availableTags}
+              activeTag={activeTag}
+              onTagChange={setActiveTag}
+              onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
+              onSelectTransaction={setSelectedTx}
+            />
+          </section>
+
+          {/* Бічна колонка: Аналітика вибірки та швидкий фільтр */}
+          <aside className="space-y-6 lg:col-span-4">
+            <HistorySidebar
+              displayedTransactions={displayedTransactions}
+              totalPeriodTransactions={filteredTransactions}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              activeTag={activeTag}
+              onTagChange={setActiveTag}
+              periodLabel={activeCycle?.name || monthLabel}
+              onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
+            />
+          </aside>
+        </div>
+      )}
+
+      {/* Вкладка 3: Капітал & Цілі (Скарбнички, Runway, Інвестиційний портфель та Окрема історія капіталу) */}
       {activeTab === "wealth" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -829,23 +864,6 @@ export default function Dashboard() {
             transactions={capitalTransactions}
             onSelectTransaction={setSelectedTx}
             onAddCapital={() => setIsCreateExpenseOpen(true)}
-          />
-        </div>
-      )}
-
-      {/* Вкладка 3: Історія */}
-      {activeTab === "history" && (
-        <div className="mx-auto max-w-4xl space-y-6">
-          <TransactionsList
-            totalMonthTransactionsCount={filteredTransactions.length}
-            displayedTransactions={displayedTransactions}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            availableTags={availableTags}
-            activeTag={activeTag}
-            onTagChange={setActiveTag}
-            onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
-            onSelectTransaction={setSelectedTx}
           />
         </div>
       )}
