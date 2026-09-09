@@ -34,6 +34,11 @@ const inputSchema = z.object({
   type: z.enum(["expense", "income"]).default("expense"),
 });
 
+import {
+  formatQuickSummary,
+  computeSafeDailyBudget,
+} from "@/lib/classify-formatter";
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Внутрішня перевірка Bearer-токена (Defense-in-Depth)
@@ -197,6 +202,15 @@ export async function POST(req: NextRequest) {
       throw new Error(`Помилка запису транзакції`);
     }
 
+    // 4. Розрахунок безпечного щоденного залишку та тексту для сповіщення Apple Shortcuts
+    const safeDailyRemaining = await computeSafeDailyBudget(supabaseAdmin);
+    const quickSummary = formatQuickSummary(
+      cleanTitle,
+      amount,
+      categoryName,
+      safeDailyRemaining
+    );
+
     // Повертаємо розширену відповідь для Apple Shortcuts
     return NextResponse.json({
       success: true,
@@ -206,6 +220,8 @@ export async function POST(req: NextRequest) {
       amount,
       currency,
       source: classificationSource,
+      safeDailyRemaining,
+      quickSummary,
     });
   } catch (error: any) {
     console.error("Classify & Ingest API error:", error);
