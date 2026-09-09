@@ -75,12 +75,12 @@ export function AIAnalysisDrawer({
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
       {/* Адаптивна шторка для iPhone / Центрована картка для десктопу */}
-      <div className="border-zinc-850 relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overscroll-contain rounded-t-[28px] border bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         {/* Grabber Bar для iOS */}
         <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
         {/* Заголовок та закриття */}
-        <div className="border-zinc-850/80 mb-4 flex items-center justify-between border-b pb-3.5">
+        <div className="mb-4 flex items-center justify-between border-b border-zinc-800/80 pb-3.5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.15)]">
               <Sparkles size={16} />
@@ -98,14 +98,14 @@ export function AIAnalysisDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="border-zinc-850 flex h-8 w-8 items-center justify-center rounded-xl border bg-zinc-900/60 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/60 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Селектор версій моделі */}
-        <div className="border-zinc-850 mb-4 flex items-center justify-between rounded-xl border bg-zinc-900/50 p-1.5">
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 p-1.5">
           <span className="pl-2 text-[11px] font-medium text-zinc-400">
             Версія моделі:
           </span>
@@ -154,7 +154,7 @@ export function AIAnalysisDrawer({
           {!isLoading && analysis && (
             <>
               {/* Статус і резюме */}
-              <div className="border-zinc-850 rounded-2xl border bg-zinc-900/40 p-4">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
                 <div className="mb-2.5 flex items-center justify-between">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${currentStatus.badge}`}
@@ -173,7 +173,7 @@ export function AIAnalysisDrawer({
 
               {/* Метрики темпу */}
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="border-zinc-850 rounded-2xl border bg-zinc-900/40 p-3.5">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3.5">
                   <div className="text-[11px] font-medium text-zinc-500">
                     Прогноз залишку
                   </div>
@@ -192,7 +192,7 @@ export function AIAnalysisDrawer({
                   </div>
                 </div>
 
-                <div className="border-zinc-850 rounded-2xl border bg-zinc-900/40 p-3.5">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3.5">
                   <div className="text-[11px] font-medium text-zinc-500">
                     Рекомендовано на день
                   </div>
@@ -207,7 +207,7 @@ export function AIAnalysisDrawer({
               </div>
 
               {/* Спостереження */}
-              <div className="border-zinc-850 rounded-2xl border bg-zinc-900/40 p-4">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
                 <div className="mb-2 text-xs font-semibold tracking-wide text-zinc-400 uppercase">
                   Ключові факти
                 </div>
@@ -222,7 +222,7 @@ export function AIAnalysisDrawer({
               </div>
 
               {/* Рекомендації */}
-              <div className="border-zinc-850 rounded-2xl border bg-zinc-900/40 p-4">
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4">
                 <div className="mb-2 text-xs font-semibold tracking-wide text-zinc-400 uppercase">
                   План дій
                 </div>

@@ -65,12 +65,12 @@ export function CategoryDetailModal({
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
       {/* Адаптивна шторка для iPhone / Центрована картка для десктопу */}
-      <div className="border-zinc-850 relative z-10 flex max-h-[88vh] w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[88vh] w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         {/* Grabber Bar для iOS */}
         <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
         {/* Заголовок модалки */}
-        <div className="border-zinc-850/80 mb-4 flex items-center justify-between border-b pb-3.5">
+        <div className="mb-4 flex items-center justify-between border-b border-zinc-800/80 pb-3.5">
           <div className="flex items-center gap-3">
             <div
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
@@ -100,7 +100,7 @@ export function CategoryDetailModal({
           <button
             type="button"
             onClick={onClose}
-            className="border-zinc-850 flex h-8 w-8 items-center justify-center rounded-xl border bg-zinc-900/60 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/60 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
           >
             <X size={16} />
           </button>
@@ -118,7 +118,7 @@ export function CategoryDetailModal({
               <div
                 key={tx.id}
                 onClick={() => onSelectTransaction?.(tx)}
-                className={`group border-zinc-850/70 flex items-center justify-between rounded-xl border bg-zinc-900/30 p-3 transition-all ${
+                className={`group flex items-center justify-between rounded-xl border border-zinc-800/70 bg-zinc-900/30 p-3 transition-all ${
                   onSelectTransaction
                     ? "cursor-pointer hover:border-zinc-700/80 hover:bg-zinc-900/70 active:scale-[0.99]"
                     : ""

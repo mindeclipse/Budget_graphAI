@@ -102,12 +102,12 @@ export function TransactionActionSheet({
       <div className="fixed inset-0" onClick={onClose} />
 
       {/* Шторка (Bottom Sheet) для iPhone / Центрована картка для десктопу */}
-      <div className="border-zinc-850 relative z-10 flex max-h-[88vh] w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[88vh] w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         {/* Grabber Bar — маркер свайпу для iOS */}
         <div className="mx-auto mb-3.5 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
         {/* Шапка модалки */}
-        <div className="border-zinc-850/80 mb-4 flex items-start justify-between border-b pb-3.5">
+        <div className="mb-4 flex items-start justify-between border-b border-zinc-800/80 pb-3.5">
           <div className="min-w-0 pr-2">
             <span className="text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
               Редагування чека
@@ -166,7 +166,7 @@ export function TransactionActionSheet({
 
           {/* Чекбокс запам'ятовування правила */}
           <div>
-            <label className="border-zinc-850/80 hover:border-zinc-750 flex cursor-pointer items-start gap-3 rounded-2xl border bg-zinc-900/40 p-3 transition-colors">
+            <label className="hover:border-zinc-750 flex cursor-pointer items-start gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3 transition-colors">
               <input
                 type="checkbox"
                 checked={saveAsRule}
@@ -236,7 +236,7 @@ export function TransactionActionSheet({
           </div>
 
           {/* Керування тегами */}
-          <div className="border-zinc-850/80 border-t pt-4">
+          <div className="border-t border-zinc-800/80 pt-4">
             <label className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
               <TagIcon size={12} className="text-zinc-500" /> Теги події
             </label>
