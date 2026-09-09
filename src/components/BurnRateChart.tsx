@@ -32,8 +32,8 @@ export interface RecurringItem {
 interface BurnRateChartProps {
   transactions: Transaction[];
   budgetLimit: number;
-  recurringTotal?: number; // Сума постійних витрат
-  selectedMonthKey: string; // Формат "YYYY-MM"
+  recurringTotal?: number;
+  selectedMonthKey: string;
   recurring?: RecurringItem[];
 }
 
@@ -44,7 +44,6 @@ export function BurnRateChart({
   selectedMonthKey,
   recurring = [],
 }: BurnRateChartProps) {
-  // Вільний бюджет на щоденні кишенькові витрати
   const variableBudget = Math.max(0, budgetLimit - recurringTotal);
 
   const chartData = useMemo(() => {
@@ -59,17 +58,14 @@ export function BurnRateChart({
       now.getFullYear() === year && now.getMonth() === monthIndex;
     const isFutureMonth = new Date(year, monthIndex, 1) > now;
 
-    // Визначаємо поточний день: 0 для майбутнього, фактичний день для поточного, повний місяць для минулого
     const currentDay = isCurrentMonth
       ? now.getDate()
       : isFutureMonth
         ? 0
         : daysInMonth;
 
-    // Щоденна норма вільного бюджету
     const dailyVariableAllowance = variableBudget / daysInMonth;
 
-    // Агрегація фактичних витрат за днями
     const dailyExpenses: Record<number, number> = {};
     for (let d = 1; d <= daysInMonth; d++) {
       dailyExpenses[d] = 0;
@@ -85,7 +81,6 @@ export function BurnRateChart({
       }
     });
 
-    // Агрегація запланованих підписок за днями місяця
     const recurringByDay: Record<number, number> = {};
     let totalRecurringParsed = 0;
 
@@ -99,7 +94,6 @@ export function BurnRateChart({
       totalRecurringParsed += amount;
     });
 
-    // Побудова накопичувального ряду
     let runningTotal = 0;
     let runningRecurringPlan = 0;
     const data = [];
@@ -134,7 +128,6 @@ export function BurnRateChart({
       }
     }
 
-    // Прогноз на кінець місяця
     const activeRecurringTotal =
       recurring.length > 0 ? totalRecurringParsed : recurringTotal;
     const variableSpentSoFar = Math.max(0, runningTotal - runningRecurringPlan);
@@ -164,15 +157,14 @@ export function BurnRateChart({
     projectedMonthEnd,
   } = chartData;
 
-  // План для поточної точки порівняння
   const targetIndex = currentDay > 0 ? currentDay - 1 : 0;
   const idealToday = data[targetIndex] ? data[targetIndex].ideal : 0;
   const diffFromTarget = runningTotal - idealToday;
   const isOverPace = diffFromTarget > 0;
 
   return (
-    <div className="border-zinc-850/80 relative rounded-2xl border bg-zinc-900/30 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xs">
-      {/* Шапка графіка з бейджем статусу */}
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950 p-5 shadow-sm">
+      {/* Шапка графіка */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
         <div>
           <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -236,7 +228,6 @@ export function BurnRateChart({
               tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
             />
 
-            {/* Кастомний тултіп у стилі Linear Dark */}
             <Tooltip
               isAnimationActive={false}
               cursor={{
@@ -253,7 +244,7 @@ export function BurnRateChart({
 
                 return (
                   <div className="rounded-xl border border-zinc-800 bg-zinc-950/95 p-2.5 shadow-2xl backdrop-blur-md">
-                    <p className="border-zinc-850 mb-1.5 border-b pb-1 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
+                    <p className="mb-1.5 border-b border-zinc-800 pb-1 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
                       {label}-й день періоду
                     </p>
                     <div className="space-y-1 font-mono text-xs tabular-nums">
@@ -281,7 +272,7 @@ export function BurnRateChart({
                         </div>
                       )}
                       {drop > 0 && (
-                        <p className="border-zinc-850 mt-1 border-t pt-1 font-sans text-[10px] text-sky-400">
+                        <p className="mt-1 border-t border-zinc-800 pt-1 font-sans text-[10px] text-sky-400">
                           ⚡ Фіксоване списання: +{drop.toLocaleString("uk-UA")}{" "}
                           ₴
                         </p>
@@ -292,7 +283,6 @@ export function BurnRateChart({
               }}
             />
 
-            {/* Червоний стельовий ліміт місяця */}
             <ReferenceLine
               y={budgetLimit}
               stroke="#f43f5e"
@@ -307,7 +297,6 @@ export function BurnRateChart({
               }}
             />
 
-            {/* Ступінчаста планова лінія */}
             <Line
               type="linear"
               dataKey="ideal"
@@ -318,7 +307,6 @@ export function BurnRateChart({
               name="ideal"
             />
 
-            {/* Фактичні витрати (чиста лінія без точок, з акцентною точкою на активному дні) */}
             <Line
               type="monotone"
               dataKey="actual"
@@ -339,7 +327,7 @@ export function BurnRateChart({
       </div>
 
       {/* Нижня зведена панель */}
-      <div className="border-zinc-850/80 mt-3.5 grid grid-cols-3 gap-2 border-t pt-3 text-center">
+      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-zinc-800/80 pt-3 text-center">
         <div>
           <span className="block text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
             Витрачено
