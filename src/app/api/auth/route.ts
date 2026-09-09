@@ -2,24 +2,23 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { timingSafeEqual, getClientIp } from "@/lib/security";
 import { createSessionToken, verifySessionToken } from "@/lib/session";
-
-// In-memory трекер невдалих спроб
-const failedAttempts = new Map<
-  string,
-  { count: number; blockedUntil: number }
->();
+import {
+  checkRateLimit,
+  recordFailedAttempt,
+  resetRateLimit,
+} from "@/lib/rate-limiter";
 
 export async function POST(req: Request) {
   try {
     const ip = getClientIp(new Headers(req.headers));
-    const now = Date.now();
-    const tracker = failedAttempts.get(ip);
 
-    // Перевірка блокування (якщо більше 5 невдалих спроб — бан на 15 хвилин)
-    if (tracker && tracker.blockedUntil > now) {
-      const waitMinutes = Math.ceil((tracker.blockedUntil - now) / 60000);
+    // Розподілена перевірка блокування (Supabase + graceful in-memory fallback)
+    const limitStatus = await checkRateLimit(ip);
+    if (!limitStatus.allowed) {
       return NextResponse.json(
-        { error: `Забагато спроб. Спробуйте через ${waitMinutes} хв.` },
+        {
+          error: `Забагато спроб. Спробуйте через ${limitStatus.waitMinutes || 15} хв.`,
+        },
         { status: 429 }
       );
     }
@@ -36,21 +35,14 @@ export async function POST(req: Request) {
       // Затримка 1 секунда проти атак повного перебору (brute-force)
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const currentCount = (tracker?.count || 0) + 1;
-      if (currentCount >= 5) {
-        failedAttempts.set(ip, {
-          count: currentCount,
-          blockedUntil: now + 15 * 60 * 1000,
-        });
-      } else {
-        failedAttempts.set(ip, { count: currentCount, blockedUntil: 0 });
-      }
+      // Фіксація невдалої спроби в розподіленій БД
+      await recordFailedAttempt(ip);
 
       return NextResponse.json({ error: "Невірний PIN-код" }, { status: 401 });
     }
 
     // Скидаємо лічильник при успішному вході
-    failedAttempts.delete(ip);
+    await resetRateLimit(ip);
 
     // Створюємо криптографічно підписаний HMAC-SHA256 токен
     const sessionToken = await createSessionToken();
