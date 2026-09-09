@@ -1,7 +1,14 @@
 "use client";
 
-import React from "react";
-import { Receipt, Plus, Search, X, HelpCircle } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Receipt,
+  Plus,
+  Search,
+  X,
+  HelpCircle,
+  ChevronDown,
+} from "lucide-react";
 import { Transaction } from "@/types/finance";
 import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/constants/categories";
 
@@ -28,6 +35,38 @@ export function TransactionsList({
   onOpenCreateExpense,
   onSelectTransaction,
 }: TransactionsListProps) {
+  const INITIAL_BATCH_SIZE = 40;
+  const [visibleCount, setVisibleCount] = useState(INITIAL_BATCH_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // Скидаємо кількість показаних при зміні фільтрів
+  useEffect(() => {
+    setVisibleCount(INITIAL_BATCH_SIZE);
+  }, [searchQuery, activeTag]);
+
+  // Плавне фонове підвантаження порціями (Infinite Scroll) через IntersectionObserver
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) =>
+            Math.min(prev + 40, displayedTransactions.length)
+          );
+        }
+      },
+      { rootMargin: "150px" }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [displayedTransactions.length]);
+
+  const visibleTransactions = displayedTransactions.slice(0, visibleCount);
+  const hasMore = displayedTransactions.length > visibleCount;
+
   return (
     <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
@@ -136,7 +175,7 @@ export function TransactionsList({
         </div>
       ) : (
         <div className="max-h-[420px] [scrollbar-width:thin] space-y-2 overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent">
-          {displayedTransactions.map((t: Transaction) => {
+          {visibleTransactions.map((t: Transaction) => {
             const IconComponent = CATEGORY_ICONS[t.category_name] || HelpCircle;
             const iconColor = CATEGORY_COLORS[t.category_name] || "#71717A";
             const isSyncing = t.id < 0;
@@ -200,6 +239,26 @@ export function TransactionsList({
               </div>
             );
           })}
+
+          {hasMore && (
+            <div ref={loadMoreRef} className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCount((prev) =>
+                    Math.min(prev + 40, displayedTransactions.length)
+                  )
+                }
+                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:border-zinc-700 hover:text-zinc-200 active:scale-95"
+              >
+                <ChevronDown size={13} />
+                <span>
+                  Показати ще ({displayedTransactions.length - visibleCount}{" "}
+                  залишилось)
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

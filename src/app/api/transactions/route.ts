@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     const fromDate = searchParams.get("from");
     const toDate = searchParams.get("to");
     const limitParam = searchParams.get("limit");
+    const offsetParam = searchParams.get("offset");
 
     if (fromDate && isNaN(new Date(fromDate).getTime())) {
       return NextResponse.json(
@@ -47,50 +48,43 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin();
-    const PAGE_SIZE = 1000;
-    const maxLimit = limitParam
-      ? Math.min(Math.max(Number(limitParam) || 0, 1), 10000)
-      : 10000;
+    const offset = offsetParam ? Math.max(Number(offsetParam) || 0, 0) : 0;
+    const requestedLimit = limitParam
+      ? Math.min(Math.max(Number(limitParam) || 0, 1), 5000)
+      : 1500;
 
-    let allTransactions: any[] = [];
-    let page = 0;
-    const maxPages = Math.ceil(maxLimit / PAGE_SIZE);
+    // Оптимізація розміру JSON: вибірка лише необхідних полів (Column Projection)
+    let query = supabase
+      .from("transactions")
+      .select(
+        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags"
+      )
+      .order("created_at", { ascending: false });
 
-    while (page < maxPages) {
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      let query = supabase
-        .from("transactions")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      // Фільтрація за періодом, якщо передано параметри
-      if (fromDate) {
-        query = query.gte("created_at", fromDate);
-      }
-      if (toDate) {
-        query = query.lte("created_at", toDate);
-      }
-
-      const { data, error } = await query.range(from, to);
-
-      if (error) {
-        console.error("[API transactions GET] DB error:", error);
-        throw error;
-      }
-
-      if (!data || data.length === 0) break;
-
-      allTransactions.push(...data);
-
-      if (data.length < PAGE_SIZE || allTransactions.length >= maxLimit) break;
-      page++;
+    // Фільтрація за періодом (використовує idx_transactions_created_at_desc або idx_transactions_budget_filter)
+    if (fromDate) {
+      query = query.gte("created_at", fromDate);
+    }
+    if (toDate) {
+      query = query.lte("created_at", toDate);
     }
 
+    const { data, error } = await query.range(
+      offset,
+      offset + requestedLimit - 1
+    );
+
+    if (error) {
+      console.error("[API transactions GET] DB error:", error);
+      throw error;
+    }
+
+    const transactions = data || [];
+
     return NextResponse.json({
-      transactions: allTransactions.slice(0, maxLimit),
-      count: allTransactions.length,
+      transactions,
+      count: transactions.length,
+      hasMore: transactions.length === requestedLimit,
     });
   } catch (err: any) {
     console.error("Transaction GET error:", err);

@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo, Suspense } from "react";
+import {
+  useEffect,
+  useState,
+  useMemo,
+  Suspense,
+  useDeferredValue,
+} from "react";
+import dynamic from "next/dynamic";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import { useBudgetMetrics } from "@/hooks/useBudgetMetrics";
@@ -19,14 +26,46 @@ import { RecurringSection } from "@/components/dashboard/RecurringSection";
 
 import { BurnRateChart } from "@/components/BurnRateChart";
 import { MoMComparison } from "@/components/MoMComparison";
-import { CategoryDetailModal } from "@/components/CategoryDetailModal";
-import { CreateTransactionDrawer } from "@/components/CreateTransactionDrawer";
-import { RecurringModal } from "@/components/RecurringModal";
-import { TransactionActionSheet } from "@/components/TransactionActionSheet";
-import { NewCycleModal } from "@/components/NewCycleModal";
-import { AIAnalysisDrawer } from "@/components/AIAnalysisDrawer";
-import { CsvImportModal } from "@/components/CsvImportModal";
 import { QuickActionsListener } from "@/components/QuickActionsListener";
+
+// Dynamic Code Splitting для важких модальних вікон
+const CategoryDetailModal = dynamic(
+  () =>
+    import("@/components/CategoryDetailModal").then(
+      (m) => m.CategoryDetailModal
+    ),
+  { ssr: false }
+);
+const CreateTransactionDrawer = dynamic(
+  () =>
+    import("@/components/CreateTransactionDrawer").then(
+      (m) => m.CreateTransactionDrawer
+    ),
+  { ssr: false }
+);
+const RecurringModal = dynamic(
+  () => import("@/components/RecurringModal").then((m) => m.RecurringModal),
+  { ssr: false }
+);
+const TransactionActionSheet = dynamic(
+  () =>
+    import("@/components/TransactionActionSheet").then(
+      (m) => m.TransactionActionSheet
+    ),
+  { ssr: false }
+);
+const NewCycleModal = dynamic(
+  () => import("@/components/NewCycleModal").then((m) => m.NewCycleModal),
+  { ssr: false }
+);
+const AIAnalysisDrawer = dynamic(
+  () => import("@/components/AIAnalysisDrawer").then((m) => m.AIAnalysisDrawer),
+  { ssr: false }
+);
+const CsvImportModal = dynamic(
+  () => import("@/components/CsvImportModal").then((m) => m.CsvImportModal),
+  { ssr: false }
+);
 
 import { Transaction, RecurringItem } from "@/types/finance";
 import {
@@ -229,8 +268,9 @@ export default function Dashboard() {
     }
   };
 
-  // 7. Пошук та теги для історії
+  // 7. Пошук та теги для історії (з оптимізацією useDeferredValue для 120 FPS)
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
   const availableTags = useMemo<string[]>(() => {
@@ -243,7 +283,7 @@ export default function Dashboard() {
 
   const displayedTransactions = useMemo(() => {
     return filteredTransactions.filter((t) => {
-      const q = searchQuery.toLowerCase().trim();
+      const q = deferredSearchQuery.toLowerCase().trim();
       const matchesSearch =
         q === "" ||
         t.merchant_raw?.toLowerCase().includes(q) ||
@@ -255,7 +295,7 @@ export default function Dashboard() {
 
       return matchesSearch && matchesTag;
     });
-  }, [filteredTransactions, searchQuery, activeTag]);
+  }, [filteredTransactions, deferredSearchQuery, activeTag]);
 
   // 8. Стан модальних вікон
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
@@ -583,63 +623,75 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* Глобальні модальні вікна та шторки */}
-      <CategoryDetailModal
-        categoryName={selectedCategory}
-        transactions={filteredTransactions}
-        onClose={() => setSelectedCategory(null)}
-        onSelectTransaction={setSelectedTx}
-      />
+      {/* Глобальні модальні вікна та шторки (завантажуються за вимогою) */}
+      {selectedCategory && (
+        <CategoryDetailModal
+          categoryName={selectedCategory}
+          transactions={filteredTransactions}
+          onClose={() => setSelectedCategory(null)}
+          onSelectTransaction={setSelectedTx}
+        />
+      )}
 
       <CreateTransactionDrawer
         isOpen={isCreateExpenseOpen}
         onClose={() => setIsCreateExpenseOpen(false)}
       />
 
-      <RecurringModal
-        isOpen={isAddingRecurring}
-        item={editingRecurring}
-        onClose={() => setIsAddingRecurring(false)}
-        onSave={handleSaveRecurring}
-        onDelete={handleDeleteRecurring}
-      />
+      {isAddingRecurring && (
+        <RecurringModal
+          isOpen={isAddingRecurring}
+          item={editingRecurring}
+          onClose={() => setIsAddingRecurring(false)}
+          onSave={handleSaveRecurring}
+          onDelete={handleDeleteRecurring}
+        />
+      )}
 
-      <TransactionActionSheet
-        transaction={selectedTx}
-        onClose={() => setSelectedTx(null)}
-        onUpdateCategory={handleUpdateCategory}
-        onUpdateTags={handleUpdateTags}
-        onDelete={handleDeleteTransaction}
-      />
+      {selectedTx && (
+        <TransactionActionSheet
+          transaction={selectedTx}
+          onClose={() => setSelectedTx(null)}
+          onUpdateCategory={handleUpdateCategory}
+          onUpdateTags={handleUpdateTags}
+          onDelete={handleDeleteTransaction}
+        />
+      )}
 
-      <NewCycleModal
-        isOpen={isCycleModalOpen}
-        onClose={() => setIsCycleModalOpen(false)}
-        defaultLimit={activeCycle?.budget_limit || effectiveLimit || 35000}
-        onCycleStarted={loadCycles}
-      />
+      {isCycleModalOpen && (
+        <NewCycleModal
+          isOpen={isCycleModalOpen}
+          onClose={() => setIsCycleModalOpen(false)}
+          defaultLimit={activeCycle?.budget_limit || effectiveLimit || 35000}
+          onCycleStarted={loadCycles}
+        />
+      )}
 
-      <AIAnalysisDrawer
-        isOpen={isAiDrawerOpen}
-        onClose={() => setIsAiDrawerOpen(false)}
-        analysis={aiAnalysis}
-        isLoading={isAiLoading}
-        selectedModel={selectedAiModel}
-        onModelChange={(model) => {
-          setSelectedAiModel(model);
-          handleRunAiAnalysis(model);
-        }}
-        onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
-      />
+      {isAiDrawerOpen && (
+        <AIAnalysisDrawer
+          isOpen={isAiDrawerOpen}
+          onClose={() => setIsAiDrawerOpen(false)}
+          analysis={aiAnalysis}
+          isLoading={isAiLoading}
+          selectedModel={selectedAiModel}
+          onModelChange={(model) => {
+            setSelectedAiModel(model);
+            handleRunAiAnalysis(model);
+          }}
+          onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
+        />
+      )}
 
-      <CsvImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onSuccess={() => {
-          setIsImportModalOpen(false);
-          window.location.reload();
-        }}
-      />
+      {isImportModalOpen && (
+        <CsvImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => {
+            setIsImportModalOpen(false);
+            window.location.reload();
+          }}
+        />
+      )}
     </main>
   );
 }
