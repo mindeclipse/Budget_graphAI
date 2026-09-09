@@ -126,7 +126,7 @@ export function CreateTransactionDrawer({
 
           <button
             type="submit"
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 py-3 text-sm font-semibold text-zinc-900 transition-transform hover:bg-white active:scale-[0.98]"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-900/80 py-3 text-sm font-semibold text-blue-100 shadow-lg shadow-blue-950/60 transition-all hover:bg-blue-800 hover:text-white active:scale-[0.98]"
           >
             <Check size={16} /> Зберегти витрату
           </button>

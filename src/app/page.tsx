@@ -1049,9 +1049,19 @@ export default function Dashboard() {
                 <Receipt size={14} className="text-zinc-500" /> Транзакції за
                 місяць
               </h2>
-              <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 font-mono text-[11px] text-zinc-400">
-                {displayedTransactions.length} оп.
-              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateExpenseOpen(true)}
+                  className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:text-white active:scale-95"
+                >
+                  <Plus size={13} className="text-zinc-400" /> Додати
+                </button>
+                <span className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-0.5 font-mono text-[11px] text-zinc-400">
+                  {displayedTransactions.length} оп.
+                </span>
+              </div>
             </div>
 
             {/* Панель пошуку та фільтрації за тегами */}
