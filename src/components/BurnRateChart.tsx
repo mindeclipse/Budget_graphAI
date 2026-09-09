@@ -34,7 +34,7 @@ interface BurnRateChartProps {
   budgetLimit: number;
   recurringTotal?: number; // Сума постійних витрат
   selectedMonthKey: string; // Формат "YYYY-MM"
-  recurring?: RecurringItem[]; // 👈 Необов'язковий масив для сходинок (нічого не впаде, якщо не передати)
+  recurring?: RecurringItem[];
 }
 
 export function BurnRateChart({
@@ -48,15 +48,23 @@ export function BurnRateChart({
   const variableBudget = Math.max(0, budgetLimit - recurringTotal);
 
   const chartData = useMemo(() => {
-    const [yearStr, monthStr] = selectedMonthKey.split("-");
-    const year = parseInt(yearStr, 10);
-    const monthIndex = parseInt(monthStr, 10) - 1;
+    const [yearStr, monthStr] = (selectedMonthKey || "").split("-");
+    const year = parseInt(yearStr, 10) || new Date().getFullYear();
+    const monthIndex = (parseInt(monthStr, 10) || 1) - 1;
 
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
     const now = new Date();
+
     const isCurrentMonth =
       now.getFullYear() === year && now.getMonth() === monthIndex;
-    const currentDay = isCurrentMonth ? now.getDate() : daysInMonth;
+    const isFutureMonth = new Date(year, monthIndex, 1) > now;
+
+    // Визначаємо поточний день: 0 для майбутнього, фактичний день для поточного, повний місяць для минулого
+    const currentDay = isCurrentMonth
+      ? now.getDate()
+      : isFutureMonth
+        ? 0
+        : daysInMonth;
 
     // Щоденна норма вільного бюджету
     const dailyVariableAllowance = variableBudget / daysInMonth;
@@ -101,8 +109,6 @@ export function BurnRateChart({
         runningRecurringPlan += recurringByDay[d];
       }
 
-      // Якщо передано масив recurring — будуємо сходинки в конкретні дні.
-      // Якщо масив порожній — плавний фолбек без сходинок до budgetLimit.
       const scheduledSoFar =
         recurring.length > 0
           ? runningRecurringPlan
@@ -110,7 +116,7 @@ export function BurnRateChart({
 
       const ideal = Math.round(d * dailyVariableAllowance + scheduledSoFar);
 
-      if (d <= currentDay) {
+      if (d <= currentDay && !isFutureMonth) {
         runningTotal += dailyExpenses[d] || 0;
         data.push({
           day: d,
@@ -128,8 +134,7 @@ export function BurnRateChart({
       }
     }
 
-    // Розумний прогноз на кінець місяця:
-    // Поточні змінні витрати екстраполюються на місяць + гарантована сума підписок
+    // Прогноз на кінець місяця
     const activeRecurringTotal =
       recurring.length > 0 ? totalRecurringParsed : recurringTotal;
     const variableSpentSoFar = Math.max(0, runningTotal - runningRecurringPlan);
@@ -143,113 +148,166 @@ export function BurnRateChart({
       data,
       currentDay,
       daysInMonth,
+      isCurrentMonth,
+      isFutureMonth,
       runningTotal: Math.round(runningTotal),
       projectedMonthEnd,
     };
   }, [transactions, budgetLimit, recurringTotal, selectedMonthKey, recurring]);
 
-  const { data, currentDay, runningTotal, projectedMonthEnd } = chartData;
+  const {
+    data,
+    currentDay,
+    isCurrentMonth,
+    isFutureMonth,
+    runningTotal,
+    projectedMonthEnd,
+  } = chartData;
 
-  // Поточний план на сьогодні
-  const todayPoint = data[currentDay - 1];
-  const idealToday = todayPoint ? todayPoint.ideal : 0;
+  // План для поточної точки порівняння
+  const targetIndex = currentDay > 0 ? currentDay - 1 : 0;
+  const idealToday = data[targetIndex] ? data[targetIndex].ideal : 0;
   const diffFromTarget = runningTotal - idealToday;
   const isOverPace = diffFromTarget > 0;
 
   return (
-    <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="border-zinc-850/80 relative rounded-2xl border bg-zinc-900/30 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xs">
+      {/* Шапка графіка з бейджем статусу */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5">
         <div>
           <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
             <TrendingUp size={14} className="text-zinc-500" />
             Динаміка спалювання бюджету (Burn Rate)
           </h2>
           <p className="mt-0.5 text-[11px] text-zinc-500">
-            Ступінчастий план з урахуванням дат списань (ліміт{" "}
-            {budgetLimit.toLocaleString("uk-UA")} ₴)
+            Ступінчастий план з урахуванням підписок (ліміт{" "}
+            <span className="font-mono text-zinc-300">
+              {budgetLimit.toLocaleString("uk-UA")} ₴
+            </span>
+            )
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {isOverPace ? (
-            <span className="flex items-center gap-1 rounded-full border border-rose-800/40 bg-rose-950/40 px-2.5 py-1 text-[11px] font-medium text-rose-400">
-              <AlertTriangle size={12} />
-              Випередження на {Math.abs(diffFromTarget).toLocaleString(
-                "uk-UA"
-              )}{" "}
-              ₴
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 rounded-full border border-emerald-800/40 bg-emerald-950/40 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
-              <CheckCircle size={12} />
-              Запас {Math.abs(diffFromTarget).toLocaleString("uk-UA")} ₴
-            </span>
-          )}
-        </div>
+        {!isFutureMonth && (
+          <div className="flex items-center gap-2">
+            {isOverPace ? (
+              <span className="flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 font-mono text-[11px] font-medium text-rose-400 tabular-nums">
+                <AlertTriangle size={12} className="shrink-0" />
+                Випередження на{" "}
+                {Math.abs(diffFromTarget).toLocaleString("uk-UA")} ₴
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[11px] font-medium text-emerald-400 tabular-nums">
+                <CheckCircle size={12} className="shrink-0" />
+                Запас {Math.abs(diffFromTarget).toLocaleString("uk-UA")} ₴
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* Контейнер графіка */}
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
-            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            margin={{ top: 12, right: 10, left: -22, bottom: 0 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
               stroke="#27272a"
               vertical={false}
+              opacity={0.6}
             />
             <XAxis
               dataKey="day"
               stroke="#71717a"
-              fontSize={11}
+              fontSize={10}
               tickLine={false}
               axisLine={{ stroke: "#27272a" }}
+              minTickGap={18}
               tickFormatter={(v) => `${v}`}
             />
             <YAxis
               stroke="#71717a"
-              fontSize={11}
+              fontSize={10}
               tickLine={false}
               axisLine={{ stroke: "#27272a" }}
               tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
             />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#18181b",
-                borderColor: "#27272a",
-                borderRadius: "0.75rem",
-                fontSize: "12px",
-              }}
-              labelFormatter={(label) => `${label}-й день місяця`}
-              formatter={
-                ((value: any, name?: any, item?: any) => {
-                  const label =
-                    name === "actual"
-                      ? "Фактично витрачено"
-                      : "Ступінчастий план";
-                  const formatted = `${Number(value || 0).toLocaleString("uk-UA")} ₴`;
-                  const drop = item?.payload?.dropToday;
 
-                  if (name === "ideal" && drop > 0) {
-                    return [
-                      `${formatted} (⚡ списання +${drop.toLocaleString("uk-UA")} ₴)`,
-                      label,
-                    ];
-                  }
-                  return [formatted, label];
-                }) as any
-              }
+            {/* Кастомний тултіп у стилі Linear Dark */}
+            <Tooltip
+              isAnimationActive={false}
+              cursor={{
+                stroke: "#3f3f46",
+                strokeWidth: 1,
+                strokeDasharray: "4 4",
+              }}
+              content={({ active, payload, label }) => {
+                if (!active || !payload || !payload.length) return null;
+
+                const actualPoint = payload.find((p) => p.dataKey === "actual");
+                const idealPoint = payload.find((p) => p.dataKey === "ideal");
+                const drop = idealPoint?.payload?.dropToday || 0;
+
+                return (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/95 p-2.5 shadow-2xl backdrop-blur-md">
+                    <p className="border-zinc-850 mb-1.5 border-b pb-1 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
+                      {label}-й день періоду
+                    </p>
+                    <div className="space-y-1 font-mono text-xs tabular-nums">
+                      {actualPoint && actualPoint.value !== null && (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="flex items-center gap-1.5 font-sans text-[11px] text-zinc-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            Факт:
+                          </span>
+                          <span className="font-semibold text-white">
+                            {Number(actualPoint.value).toLocaleString("uk-UA")}{" "}
+                            ₴
+                          </span>
+                        </div>
+                      )}
+                      {idealPoint && (
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="flex items-center gap-1.5 font-sans text-[11px] text-zinc-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
+                            План:
+                          </span>
+                          <span className="font-semibold text-zinc-300">
+                            {Number(idealPoint.value).toLocaleString("uk-UA")} ₴
+                          </span>
+                        </div>
+                      )}
+                      {drop > 0 && (
+                        <p className="border-zinc-850 mt-1 border-t pt-1 font-sans text-[10px] text-sky-400">
+                          ⚡ Фіксоване списання: +{drop.toLocaleString("uk-UA")}{" "}
+                          ₴
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
             />
+
             {/* Червоний стельовий ліміт місяця */}
             <ReferenceLine
               y={budgetLimit}
-              stroke="#ef4444"
+              stroke="#f43f5e"
               strokeDasharray="4 4"
-              opacity={0.35}
+              strokeOpacity={0.4}
+              label={{
+                value: `Ліміт ${(budgetLimit / 1000).toFixed(0)}k`,
+                fill: "#f43f5e",
+                fontSize: 10,
+                position: "insideTopRight",
+                opacity: 0.7,
+              }}
             />
 
-            {/* Ступінчаста планова ламана */}
+            {/* Ступінчаста планова лінія */}
             <Line
               type="linear"
               dataKey="ideal"
@@ -260,14 +318,19 @@ export function BurnRateChart({
               name="ideal"
             />
 
-            {/* Фактичні витрати */}
+            {/* Фактичні витрати (чиста лінія без точок, з акцентною точкою на активному дні) */}
             <Line
               type="monotone"
               dataKey="actual"
               stroke={isOverPace ? "#f43f5e" : "#10b981"}
               strokeWidth={2.5}
-              dot={{ r: 2, fill: isOverPace ? "#f43f5e" : "#10b981" }}
-              activeDot={{ r: 5 }}
+              dot={false}
+              activeDot={{
+                r: 4.5,
+                stroke: "#09090b",
+                strokeWidth: 2,
+                fill: isOverPace ? "#f43f5e" : "#10b981",
+              }}
               name="actual"
               connectNulls={false}
             />
@@ -275,29 +338,30 @@ export function BurnRateChart({
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-zinc-900 pt-3 text-center">
+      {/* Нижня зведена панель */}
+      <div className="border-zinc-850/80 mt-3.5 grid grid-cols-3 gap-2 border-t pt-3 text-center">
         <div>
-          <span className="block text-[10px] tracking-wider text-zinc-500 uppercase">
+          <span className="block text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
             Витрачено
           </span>
-          <span className="text-xs font-semibold text-zinc-200">
+          <span className="font-mono text-xs font-semibold text-zinc-200 tabular-nums">
             {runningTotal.toLocaleString("uk-UA")} ₴
           </span>
         </div>
         <div>
-          <span className="block text-[10px] tracking-wider text-zinc-500 uppercase">
-            План на сьогодні
+          <span className="block text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
+            {isCurrentMonth ? "План на сьогодні" : "План періоду"}
           </span>
-          <span className="text-xs font-semibold text-zinc-200">
+          <span className="font-mono text-xs font-semibold text-zinc-200 tabular-nums">
             {idealToday.toLocaleString("uk-UA")} ₴
           </span>
         </div>
         <div>
-          <span className="block text-[10px] tracking-wider text-zinc-500 uppercase">
-            Очікуваний фініш
+          <span className="block text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
+            {isCurrentMonth ? "Очікуваний фініш" : "Підсумок"}
           </span>
           <span
-            className={`text-xs font-semibold ${
+            className={`font-mono text-xs font-semibold tabular-nums ${
               projectedMonthEnd > budgetLimit
                 ? "text-rose-400"
                 : "text-emerald-400"

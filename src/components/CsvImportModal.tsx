@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
   Loader2,
+  X,
+  Upload,
 } from "lucide-react";
 
 interface CsvImportModalProps {
@@ -26,7 +28,20 @@ export function CsvImportModal({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Якщо вікно не відкрите — не рендеримо нічого
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,77 +85,97 @@ export function CsvImportModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      {/* Контейнер модалки (stopPropagation блокує закриття при кліку на саме вікно) */}
-      <div
-        className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between pb-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-            <FileSpreadsheet size={16} className="text-zinc-400" />
-            Імпорт виписки ПриватБанку
-          </h3>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      {/* Підкладка для закриття кліком */}
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+
+      {/* Адаптивна шторка для iPhone / Центрована картка для десктопу */}
+      <div className="border-zinc-850 relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+        {/* Grabber Bar для iOS */}
+        <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
+
+        {/* Заголовок модалки */}
+        <div className="border-zinc-850/80 mb-4 flex items-center justify-between border-b pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+              <FileSpreadsheet size={16} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Імпорт виписки ПриватБанку
+              </h3>
+              <p className="text-[11px] text-zinc-400">
+                Підтримуються файли .xlsx та .csv
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={onClose}
-            className="text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+            className="border-zinc-850 flex h-8 w-8 items-center justify-center rounded-xl border bg-zinc-900/60 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 
-        <p className="text-xs text-zinc-400">
-          Підтримуються оригінальні файли <b>.xlsx</b> та <b>.csv</b> прямо з
-          Приват24. Дублікати вже внесених операцій відфільтровуються
-          автоматично.
-        </p>
+        {/* Тіло модалки */}
+        <div className="space-y-4">
+          <p className="text-xs leading-relaxed text-zinc-400">
+            Оригінальні виписки напряму з Приват24. Дублікати вже внесених
+            операцій відфільтровуються автоматично за датою та сумою.
+          </p>
 
-        <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 p-6 text-center">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-            className="hidden"
-            onChange={handleFileUpload}
-            disabled={isLoading}
-          />
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/30 p-6 text-center transition-colors hover:border-zinc-700">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="hidden"
+              onChange={handleFileUpload}
+              disabled={isLoading}
+            />
 
-          {isLoading ? (
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 size={24} className="animate-spin text-emerald-500" />
-              <span className="text-xs text-zinc-400">Обробка виписки...</span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-500"
+            {isLoading ? (
+              <div className="flex flex-col items-center gap-2.5 py-3">
+                <Loader2 size={26} className="animate-spin text-emerald-400" />
+                <span className="font-mono text-xs text-zinc-400">
+                  Обробка виписки...
+                </span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div className="bg-zinc-850 flex h-10 w-10 items-center justify-center rounded-full text-zinc-400">
+                  <Upload size={18} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-emerald-950/40 transition-all hover:bg-emerald-500 active:scale-95"
+                >
+                  Обрати XLSX або CSV файл
+                </button>
+              </div>
+            )}
+          </div>
+
+          {status && (
+            <div
+              className={`flex items-center gap-2.5 rounded-xl border p-3 text-xs ${
+                status.type === "success"
+                  ? "border-emerald-500/30 bg-emerald-500/10 font-mono text-emerald-300 tabular-nums"
+                  : "border-rose-500/30 bg-rose-500/10 text-rose-300"
+              }`}
             >
-              Обрати XLSX або CSV файл
-            </button>
+              {status.type === "success" ? (
+                <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+              ) : (
+                <AlertCircle size={16} className="shrink-0 text-rose-400" />
+              )}
+              <span className="leading-snug">{status.text}</span>
+            </div>
           )}
         </div>
-
-        {status && (
-          <div
-            className={`mt-4 flex items-center gap-2 rounded-lg p-3 text-xs ${
-              status.type === "success"
-                ? "border border-emerald-900/50 bg-emerald-950/40 text-emerald-300"
-                : "border border-rose-900/50 bg-rose-950/40 text-rose-300"
-            }`}
-          >
-            {status.type === "success" ? (
-              <CheckCircle2 size={16} />
-            ) : (
-              <AlertCircle size={16} />
-            )}
-            <span>{status.text}</span>
-          </div>
-        )}
       </div>
     </div>
   );

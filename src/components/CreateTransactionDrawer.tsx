@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { X, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Check, ArrowDownLeft } from "lucide-react";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
 
 const CATEGORIES = [
@@ -35,6 +35,20 @@ export function CreateTransactionDrawer({
   const [merchant, setMerchant] = useState("");
   const [category, setCategory] = useState("Продукти");
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -59,58 +73,80 @@ export function CreateTransactionDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-xs sm:items-center sm:p-4">
-      <div className="w-full max-w-md rounded-t-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl sm:rounded-2xl">
-        <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
-          <h2 className="text-base font-semibold text-zinc-100">
-            Нова витрата
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      {/* Клік по підкладці закриває форму */}
+      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
+
+      {/* Адаптивна шторка для iPhone / Центрована картка для десктопу */}
+      <div className="border-zinc-850 relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+        {/* Grabber Bar для iOS */}
+        <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
+
+        {/* Шапка модалки */}
+        <div className="border-zinc-850/80 mb-4 flex items-center justify-between border-b pb-3.5">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/10 text-rose-400">
+              <ArrowDownLeft size={16} />
+            </div>
+            <h2 className="text-base font-bold text-white">Нова витрата</h2>
+          </div>
+
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+            className="border-zinc-850 flex h-8 w-8 items-center justify-center rounded-xl border bg-zinc-900/60 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        {/* Форма внесення витрати */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Поле введення суми */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
-              Сума (грн)
+            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+              Сума
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              autoFocus
-              required
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-4 py-2.5 text-xl font-semibold text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                inputMode="decimal"
+                autoFocus
+                required
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3 pr-12 font-mono text-2xl font-bold tracking-tight text-white tabular-nums placeholder-zinc-700 transition-colors focus:border-zinc-600 focus:outline-none"
+              />
+              <span className="pointer-events-none absolute right-4 text-base font-bold text-zinc-500">
+                ₴
+              </span>
+            </div>
           </div>
 
+          {/* Заклад або опис */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
               Заклад / Опис
             </label>
             <input
               type="text"
-              placeholder="Сільпо, Кава, Аптека тощо"
+              placeholder="Сільпо, Кава, Аптека тощо..."
               value={merchant}
               onChange={(e) => setMerchant(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-4 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
             />
           </div>
 
+          {/* Вибір категорії */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
               Категорія
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-200 focus:border-zinc-500 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-base text-zinc-200 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
             >
               {CATEGORIES.map((cat) => (
                 <option
@@ -124,12 +160,15 @@ export function CreateTransactionDrawer({
             </select>
           </div>
 
-          <button
-            type="submit"
-            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-900/80 py-3 text-sm font-semibold text-blue-100 shadow-lg shadow-blue-950/60 transition-all hover:bg-blue-800 hover:text-white active:scale-[0.98]"
-          >
-            <Check size={16} /> Зберегти витрату
-          </button>
+          {/* Кнопка збереження */}
+          <div className="pt-2">
+            <button
+              type="submit"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-xs font-bold text-white shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500 active:scale-[0.98]"
+            >
+              <Check size={16} /> Зберегти витрату
+            </button>
+          </div>
         </form>
       </div>
     </div>

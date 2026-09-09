@@ -102,7 +102,7 @@ export function MoMComparison({
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
+    <div className="relative rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
       {/* Заголовок блоку */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -161,19 +161,21 @@ export function MoMComparison({
                 {row.category}
               </div>
 
-              <div className="col-span-2 text-right text-zinc-500">
+              {/* Минулий період */}
+              <div className="col-span-2 text-right font-mono text-[11px] text-zinc-500 tabular-nums">
                 {row.prevAmount > 0
                   ? `${row.prevAmount.toLocaleString("uk-UA")} ₴`
                   : "—"}
               </div>
 
-              <div className="col-span-3 text-right font-semibold text-zinc-200">
+              {/* Поточний період */}
+              <div className="col-span-3 text-right font-mono text-[11px] font-semibold text-zinc-200 tabular-nums">
                 {row.currentAmount > 0
                   ? `${row.currentAmount.toLocaleString("uk-UA")} ₴`
                   : "0 ₴"}
               </div>
 
-              <div className="col-span-2 flex items-center justify-end gap-1 font-mono text-[11px]">
+              <div className="col-span-2 flex items-center justify-end gap-0.5 font-mono text-[11px] tabular-nums">
                 {isIncreased && (
                   <span className="flex items-center text-rose-400">
                     <ArrowUpRight size={11} />

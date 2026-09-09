@@ -299,6 +299,36 @@ export default function Dashboard() {
   >(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  const [spentWhole, spentCents] = totalSpent
+    .toLocaleString("uk-UA", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    .split(",");
+
+  // Динамічна палітра залежно від відсотка використання ліміту
+  const spentPct = budgetMetrics.spentPercent || 0;
+  const isDanger = spentPct >= 90;
+  const isWarning = spentPct >= 70 && !isDanger;
+
+  const progressGradient = isDanger
+    ? "from-rose-600 to-rose-400"
+    : isWarning
+      ? "from-amber-500 to-amber-300"
+      : "from-sky-500 to-emerald-400";
+
+  const progressGlow = isDanger
+    ? "shadow-[0_0_12px_rgba(244,63,94,0.35)]"
+    : isWarning
+      ? "shadow-[0_0_12px_rgba(245,158,11,0.3)]"
+      : "shadow-[0_0_12px_rgba(52,211,153,0.25)]";
+
+  const tooltipBadgeStyle = isDanger
+    ? "border-rose-500/40 bg-rose-950/90 text-rose-300"
+    : isWarning
+      ? "border-amber-500/40 bg-amber-950/90 text-amber-300"
+      : "border-zinc-800 bg-zinc-950/95 text-emerald-400";
+
   // Перевірка активної сесії
   useEffect(() => {
     const checkAuth = async () => {
@@ -674,57 +704,67 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-28 pb-24 font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
+    <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(6rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
+      {" "}
       {/* Слухач шорткатів та зовнішніх лінків */}
       <Suspense fallback={null}>
         <QuickActionsListener
           onAddExpense={() => setIsCreateExpenseOpen(true)}
         />
       </Suspense>
-      {/* Навігація календарних періодів */}
-      <div className="mb-4 flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 px-3.5 py-2">
+      {/* Навігація календарних періодів — компактна */}
+      <div className="mb-2.5 flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 px-3 py-1.5 shadow-sm">
         <button
+          type="button"
           onClick={handlePrevMonth}
-          className="rounded-lg p-1.5 text-zinc-400 transition-all hover:bg-zinc-900 hover:text-white"
+          className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-zinc-800/90 bg-zinc-900/80 text-zinc-400 after:absolute after:-inset-2 after:content-[''] active:scale-95"
         >
-          <ChevronLeft size={18} />
+          <ChevronLeft size={16} />
         </button>
         <div className="flex items-center gap-2">
-          <Calendar size={14} className="text-zinc-500" />
-          <span className="text-sm font-semibold text-zinc-200 capitalize">
+          <Calendar size={13} className="text-zinc-500" />
+          <span className="text-xs font-semibold text-zinc-200 capitalize">
             {monthLabel}
           </span>
         </div>
         <button
+          type="button"
           onClick={handleNextMonth}
-          className="rounded-lg p-1.5 text-zinc-400 transition-all hover:bg-zinc-900 hover:text-white"
+          className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-zinc-800/90 bg-zinc-900/80 text-zinc-400 after:absolute after:-inset-2 after:content-[''] active:scale-95"
         >
-          <ChevronRight size={18} />
+          <ChevronRight size={16} />
         </button>
       </div>
-
-      {/* Головний підсумок витрат та лічильники */}
-      <header className="mb-6 flex flex-col justify-between gap-4 border-b border-zinc-800/80 pb-6 md:flex-row md:items-end">
+      {/* Головний підсумок витрат та контрастні лічильники */}
+      <header className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-800/80 pb-3 md:flex-row md:items-end">
         <div>
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-widest text-zinc-400 uppercase">
-            <TrendingUp size={14} className="text-emerald-400" /> Витрачено за
+          <p className="mb-0.5 flex items-center gap-1.5 text-xs font-semibold tracking-widest text-zinc-400 uppercase">
+            <TrendingUp size={13} className="text-emerald-400" /> Витрачено за
             період
           </p>
-          <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">
-            {totalSpent.toLocaleString("uk-UA", { minimumFractionDigits: 2 })}{" "}
-            <span className="text-3xl font-light text-zinc-500">₴</span>
+          <h1 className="flex items-baseline gap-0.5 text-4xl font-extrabold tracking-tight md:text-5xl">
+            <span className="text-white tabular-nums">{spentWhole}</span>
+            {spentCents && (
+              <span className="text-2xl font-semibold text-zinc-400 tabular-nums md:text-3xl">
+                ,{spentCents}
+              </span>
+            )}
+            <span className="ml-1 text-xl font-light text-zinc-500">₴</span>
           </h1>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-zinc-400">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5">
-            Постійні:{" "}
+        <div className="flex items-center gap-2 text-xs">
+          {/* Контрастний бейдж "Постійні" */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-zinc-800/90 bg-zinc-900/80 px-3 py-1.5 shadow-sm">
+            <span className="text-zinc-400">Постійні:</span>
             <span className="font-semibold text-white">
               {recurringTotal.toLocaleString("uk-UA")} ₴
             </span>
           </div>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5">
-            Транзакцій:{" "}
+
+          {/* Контрастний бейдж "Транзакцій" */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-zinc-800/90 bg-zinc-900/80 px-3 py-1.5 shadow-sm">
+            <span className="text-zinc-400">Транзакцій:</span>
             <span className="font-semibold text-white">
               {filteredTransactions.length}
             </span>
@@ -732,31 +772,28 @@ export default function Dashboard() {
 
           {/* Меню службових дій та налаштувань */}
           <div className="relative">
-            {/* Кнопка-тригер виклику меню (Шестерня) */}
             <button
               type="button"
               onClick={() => setIsSettingsOpen((prev) => !prev)}
               title="Налаштування та керування"
-              className={`flex h-9 w-9 items-center justify-center rounded-2xl border transition-all active:scale-95 ${
+              className={`flex h-8 w-8 items-center justify-center rounded-xl border transition-all active:scale-95 ${
                 isSettingsOpen
                   ? "border-zinc-700 bg-zinc-800 text-white"
-                  : "border-zinc-800/80 bg-zinc-900/60 text-zinc-400 hover:border-zinc-700 hover:text-white"
+                  : "border-zinc-800/90 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-white"
               }`}
             >
-              <Settings size={16} />
+              <Settings size={15} />
             </button>
 
-            {/* Випадаюче вікно налаштувань */}
+            {/* Випадаюче вікно налаштувань (збережено без змін) */}
             {isSettingsOpen && (
               <>
-                {/* Невидимий бекдроп на весь екран для закриття меню по кліку в будь-яку точку */}
                 <div
                   className="fixed inset-0 z-40"
                   onClick={() => setIsSettingsOpen(false)}
                 />
 
-                {/* Контейнер списку дій */}
-                <div className="absolute top-11 right-0 z-50 w-56 rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl">
+                <div className="absolute top-10 right-0 z-50 w-56 rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-2xl backdrop-blur-xl">
                   {/* 1. Новий фінансовий цикл */}
                   <button
                     type="button"
@@ -772,7 +809,7 @@ export default function Dashboard() {
 
                   <div className="my-1 border-t border-zinc-800/60" />
 
-                  {/* 2. Імпорт виписки Приват24 (обгортка підлаштовує стиль внутрішньої кнопки модалки) */}
+                  {/* 2. Імпорт виписки Приват24 */}
                   <button
                     type="button"
                     onClick={() => {
@@ -820,9 +857,8 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
-
       {/* Картка місячного ліміту бюджету */}
-      <section className="mb-8 rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
+      <section className="mb-8 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
@@ -864,21 +900,43 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="mb-4 h-2 w-full overflow-hidden rounded-full border border-zinc-800/60 bg-zinc-900">
+        {/* Інтерактивний прогрес-бар з адаптивною палітрою */}
+        <div
+          tabIndex={0}
+          className="group relative -my-2 mb-4 cursor-pointer py-2 select-none focus:outline-none"
+        >
+          {/* Спливаючий бейдж-підказка */}
           <div
-            className="h-full rounded-full transition-all duration-700 ease-out"
+            className={`pointer-events-none absolute -top-8 -translate-x-1/2 rounded-lg border px-2.5 py-1 font-mono text-[11px] opacity-0 shadow-2xl backdrop-blur-md transition-all duration-150 group-hover:-top-9 group-hover:opacity-100 group-focus:opacity-100 group-active:-top-9 group-active:opacity-100 ${tooltipBadgeStyle}`}
             style={{
-              width: `${budgetMetrics.spentPercent}%`,
-              backgroundColor: budgetMetrics.barColor,
+              left: `${Math.min(90, Math.max(10, spentPct))}%`,
             }}
-          />
+          >
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="font-semibold tabular-nums">
+                {spentPct.toFixed(1)}%
+              </span>
+              <span className="text-[10px] text-zinc-400">використано</span>
+            </div>
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 border-x-4 border-t-4 border-x-transparent border-t-current opacity-70" />
+          </div>
+
+          {/* Трек і лінія прогресу з м'яким неоновим свіченням */}
+          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800/80 ring-1 ring-zinc-800">
+            <div
+              className={`h-full rounded-full bg-gradient-to-r ${progressGradient} ${progressGlow} transition-all duration-500`}
+              style={{
+                width: `${Math.min(100, spentPct)}%`,
+              }}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 border-t border-zinc-900 pt-1 text-xs sm:grid-cols-3">
           <div>
             <p className="mb-0.5 text-zinc-500">Залишок</p>
             <p
-              className={`text-sm font-bold ${
+              className={`text-sm font-bold tabular-nums ${
                 budgetMetrics.remaining < 0 ? "text-rose-400" : "text-white"
               }`}
             >
@@ -891,9 +949,9 @@ export default function Dashboard() {
 
           <div>
             <p className="mb-0.5 text-zinc-500">Безпечно на день</p>
-            <p className="text-sm font-bold text-zinc-200">
+            <p className="text-sm font-bold tabular-nums">
               {budgetMetrics.isCurrentMonth
-                ? `~${Math.round(budgetMetrics.safeDailySpend).toLocaleString("uk-UA")} ₴/д`
+                ? `~ ${Math.round(budgetMetrics.safeDailySpend).toLocaleString("uk-UA")} ₴/д`
                 : "Період минув"}
             </p>
           </div>
@@ -904,7 +962,7 @@ export default function Dashboard() {
               {budgetMetrics.isCurrentMonth ? (
                 <>
                   Залишилось{" "}
-                  <strong className="text-zinc-200">
+                  <strong className="tabular-nums">
                     {budgetMetrics.daysRemaining}
                   </strong>{" "}
                   дн.
@@ -916,7 +974,6 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
-
       {/* Мобільні таби */}
       <div className="mb-6 flex rounded-xl border border-zinc-800 bg-zinc-900/80 p-1 md:hidden">
         <button
@@ -940,7 +997,6 @@ export default function Dashboard() {
           Історія ({filteredTransactions.length})
         </button>
       </div>
-
       {/* Основна сітка */}
       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-12">
         {/* ЛІВА КОЛОНКА: Контур аналітики (Intelligence & Trends) */}
@@ -950,8 +1006,8 @@ export default function Dashboard() {
           }`}
         >
           {/* 1. Діаграма витрат за днями */}
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="relative rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
+            <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
                 Динаміка витрат за днями
               </p>
@@ -959,12 +1015,33 @@ export default function Dashboard() {
             </div>
 
             {dailyStats.length > 0 ? (
-              <div className="h-48 w-full md:h-64">
+              <div className="h-44 w-full md:h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={dailyStats}
                     margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                   >
+                    {/* Визначаємо неоновий градієнт */}
+                    <defs>
+                      <linearGradient
+                        id="barGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#38BDF8"
+                          stopOpacity={0.9}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#0284C7"
+                          stopOpacity={0.25}
+                        />
+                      </linearGradient>
+                    </defs>
                     <XAxis
                       dataKey="date"
                       stroke="#71717a"
@@ -980,16 +1057,19 @@ export default function Dashboard() {
                       tickFormatter={(val) => `${val}₴`}
                     />
                     <Tooltip
-                      cursor={{ fill: "rgba(255, 255, 255, 0.05)" }}
+                      cursor={{ fill: "rgba(255, 255, 255, 0.04)" }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="rounded-lg border border-zinc-700 bg-zinc-800/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur">
+                            <div className="rounded-xl border border-zinc-700/80 bg-zinc-900/95 px-3 py-1.5 text-xs shadow-2xl backdrop-blur">
                               <p className="text-zinc-400">
                                 {payload[0].payload.date}
                               </p>
-                              <p className="font-bold text-white">
-                                {payload[0].value} ₴
+                              <p className="font-mono font-bold text-white tabular-nums">
+                                {Number(payload[0].value).toLocaleString(
+                                  "uk-UA"
+                                )}{" "}
+                                ₴
                               </p>
                             </div>
                           );
@@ -997,12 +1077,12 @@ export default function Dashboard() {
                         return null;
                       }}
                     />
-                    {/* Фіксуємо ширину стовпчиків через maxBarSize */}
-                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={32}>
-                      {dailyStats.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill="#3B82F6" />
-                      ))}
-                    </Bar>
+                    <Bar
+                      dataKey="amount"
+                      fill="url(#barGradient)"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={28}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1013,9 +1093,9 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* 2. Структура категорій */}
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
-            <h2 className="mb-4 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+          {/* 2. Структура категорій (Ambient Bars) */}
+          <div className="relative rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
+            <h2 className="mb-3.5 text-xs font-semibold tracking-wider text-zinc-400 uppercase">
               Структура витрат за категоріями
             </h2>
 
@@ -1024,48 +1104,59 @@ export default function Dashboard() {
                 Категорії ще не сформовані
               </p>
             ) : (
-              <div className="space-y-3.5">
+              <div className="space-y-2">
                 {categoryStats.map((cat) => {
                   const IconComponent = CATEGORY_ICONS[cat.name] || HelpCircle;
+                  const catColor = cat.color || "#10B981";
+                  const percent = Number(cat.percentage) || 0;
+
                   return (
                     <div
                       key={cat.name}
                       onClick={() => setSelectedCategory(cat.name)}
-                      className="cursor-pointer rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3.5 transition-all hover:border-zinc-700/70 hover:bg-zinc-900/70 active:scale-[0.99]"
+                      className="group relative cursor-pointer overflow-hidden rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-2.5 transition-all duration-150 hover:border-zinc-700/80 hover:bg-zinc-900/60 active:scale-[0.99]"
                     >
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                      {/* Фоновий Ambient Fill (прогрес як м'яка підкладка) */}
+                      <div
+                        className="absolute inset-y-0 left-0 transition-all duration-700 ease-out"
+                        style={{
+                          width: `${Math.min(100, percent)}%`,
+                          backgroundColor: catColor,
+                          opacity: 0.12,
+                        }}
+                      />
+
+                      {/* Тонка вертикальна смужка-акцент по лівому краю */}
+                      <div
+                        className="absolute inset-y-0 left-0 w-1 rounded-l-xl opacity-90 transition-opacity group-hover:opacity-100"
+                        style={{ backgroundColor: catColor }}
+                      />
+
+                      {/* Контент картки поверх фону */}
+                      <div className="relative z-10 flex items-center justify-between pl-1.5">
+                        <div className="flex items-center space-x-2.5 truncate pr-2">
                           <div
-                            className="rounded-lg p-2"
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-transform duration-150 group-hover:scale-105"
                             style={{
-                              backgroundColor: `${cat.color}20`,
-                              color: cat.color,
+                              backgroundColor: `${catColor}20`,
+                              color: catColor,
                             }}
                           >
-                            <IconComponent size={16} />
+                            <IconComponent size={14} />
                           </div>
-                          <span className="text-sm font-medium text-zinc-200">
+                          <span className="truncate text-xs font-medium text-zinc-200 transition-colors group-hover:text-white">
                             {cat.name}
                           </span>
                         </div>
-                        <div className="text-right">
-                          <span className="text-sm font-semibold text-white">
+
+                        <div className="flex shrink-0 items-baseline gap-2 font-mono text-xs tabular-nums">
+                          <span className="font-semibold text-white">
                             {cat.amount.toLocaleString("uk-UA")} ₴
                           </span>
-                          <span className="ml-2 font-mono text-xs text-zinc-500">
-                            {cat.percentage}%
+                          <span className="text-[11px] font-medium text-zinc-500">
+                            {percent}%
                           </span>
                         </div>
-                      </div>
-
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/80">
-                        <div
-                          className="h-full rounded-full transition-all duration-700 ease-out"
-                          style={{
-                            width: `${cat.percentage}%`,
-                            backgroundColor: cat.color,
-                          }}
-                        />
                       </div>
                     </div>
                   );
@@ -1248,15 +1339,15 @@ export default function Dashboard() {
                         if (isSyncing) return;
                         setSelectedTx(t);
                       }}
-                      className={`group flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3 transition-all ${
+                      className={`group flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3 transition-all duration-150 ${
                         isSyncing
                           ? "pointer-events-none opacity-50 select-none"
-                          : "cursor-pointer hover:border-zinc-700 hover:bg-zinc-900/80 active:scale-[0.99]"
+                          : "cursor-pointer hover:translate-x-0.5 hover:border-zinc-700/80 hover:bg-zinc-900/80 active:scale-[0.99]"
                       }`}
                     >
                       <div className="flex min-w-0 items-center space-x-3 pr-2">
                         <div
-                          className="shrink-0 rounded-lg p-2 transition-transform group-hover:scale-105"
+                          className="shrink-0 rounded-lg p-2 transition-transform duration-150 group-hover:scale-110"
                           style={{
                             backgroundColor: `${iconColor}15`,
                             color: iconColor,
@@ -1265,7 +1356,7 @@ export default function Dashboard() {
                           <IconComponent size={16} />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-zinc-100 group-hover:text-white">
+                          <p className="truncate text-sm font-semibold text-zinc-100 transition-colors group-hover:text-white">
                             {t.merchant_raw}
                           </p>
                           <p className="truncate text-xs text-zinc-500">
@@ -1293,7 +1384,9 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
-                      <span className="ml-2 text-sm font-bold tracking-tight whitespace-nowrap text-white">
+
+                      {/* Моноширинна сума без тремтіння */}
+                      <span className="ml-2 font-mono text-sm font-bold tracking-tight whitespace-nowrap text-white tabular-nums">
                         -{Number(t.amount).toFixed(2)} ₴
                       </span>
                     </div>
@@ -1393,8 +1486,8 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
-
       {/* Модальні вікна */}
+      {/* Модальне вікно списку транзакцій при кліку на категорію) */}
       <CategoryDetailModal
         categoryName={selectedCategory}
         transactions={filteredTransactions}
@@ -1403,13 +1496,12 @@ export default function Dashboard() {
           setSelectedTx(tx);
         }}
       />
-
       {/* Модальне вікно створення нової витрати */}
       <CreateTransactionDrawer
         isOpen={isCreateExpenseOpen}
         onClose={() => setIsCreateExpenseOpen(false)}
       />
-
+      {/* Модальне вікно ведення регулярних фіксованих зобов'язань */}
       <RecurringModal
         isOpen={isAddingRecurring}
         item={editingRecurring}
@@ -1417,7 +1509,6 @@ export default function Dashboard() {
         onSave={handleSaveRecurring}
         onDelete={handleDeleteRecurring}
       />
-
       {/* Модальне вікно Транзакції за місяць */}
       <TransactionActionSheet
         transaction={selectedTx}
@@ -1426,7 +1517,6 @@ export default function Dashboard() {
         onUpdateTags={handleUpdateTags}
         onDelete={handleDeleteTransaction}
       />
-
       {/* Модальне вікно нового циклу (після ЗП) */}
       <NewCycleModal
         isOpen={isCycleModalOpen}
@@ -1436,7 +1526,6 @@ export default function Dashboard() {
           loadCycles();
         }}
       />
-
       {/* Модальне вікно AI асистента */}
       <AIAnalysisDrawer
         isOpen={isAiDrawerOpen}
@@ -1450,7 +1539,6 @@ export default function Dashboard() {
         }}
         onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
       />
-
       {/* Модальне вікно імпорту CSV */}
       <CsvImportModal
         isOpen={isImportModalOpen}

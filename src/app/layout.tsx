@@ -6,6 +6,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Budget Graph AI",
   description: "Особистий фінансовий трекер",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent", // Фон програми плавно затікає під острівець
+    title: "Finances",
+  },
 };
 
 export const viewport: Viewport = {
