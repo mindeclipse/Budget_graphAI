@@ -53,18 +53,40 @@ export async function POST(req: Request) {
 
     let rows: any[][];
     try {
-      const workbook = XLSX.read(buffer, { type: "buffer", cellDates: false });
-      const sheetName = workbook.SheetNames[0];
-      if (!sheetName) {
+      const workbook = XLSX.read(buffer, {
+        type: "buffer",
+        cellDates: true,
+        cellNF: true,
+      });
+
+      // Пошук цільового аркуша (пріоритет аркушам з випискою/транзакціями)
+      const targetSheetName =
+        workbook.SheetNames.find((name) => {
+          const lower = name.toLowerCase();
+          return (
+            lower.includes("виписка") ||
+            lower.includes("операці") ||
+            lower.includes("рух") ||
+            lower.includes("statement") ||
+            lower.includes("transact") ||
+            lower.includes("звіт")
+          );
+        }) || workbook.SheetNames[0];
+
+      if (!targetSheetName) {
         return NextResponse.json(
           { error: "Файл Excel не містить аркушів" },
           { status: 400 }
         );
       }
-      const sheet = workbook.Sheets[sheetName];
+      const sheet = workbook.Sheets[targetSheetName];
+
+      // raw: true зберігає точні числа (cell.v) та об'єкти Date без похибок SSF форматування,
+      // а defval: null запобігає зсувам колонок при наявності порожніх комірок
       rows = XLSX.utils.sheet_to_json(sheet, {
         header: 1,
-        raw: false,
+        raw: true,
+        defval: null,
       }) as any[][];
     } catch (parseErr: any) {
       return NextResponse.json(

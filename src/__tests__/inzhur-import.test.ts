@@ -34,8 +34,27 @@ describe("Inzhur Statement Parser & Security", () => {
     it("коректно парсить дати у форматі DD.MM.YYYY", () => {
       const iso = parseInzhurDate("15.08.2024");
       expect(iso).toContain("2024-08-15");
-      // Перевірка фіксованого UTC полудня для уникнення зсувів
       expect(iso).toContain("12:00:00.000Z");
+    });
+
+    it("коректно парсить 2-значні роки DD.MM.YY (наприклад 11.08.26 або 17.12.25)", () => {
+      expect(parseInzhurDate("11.08.26")).toContain("2026-08-11");
+      expect(parseInzhurDate("17.12.25")).toContain("2025-12-17");
+    });
+
+    it("коректно конвертує серійні номери дат Excel (46034 для 12.01.2026, 46008 для 17.12.2025)", () => {
+      expect(parseInzhurDate(46034)).toContain("2026-01-12");
+      expect(parseInzhurDate("46034")).toContain("2026-01-12");
+      expect(parseInzhurDate(46008)).toContain("2025-12-17");
+      expect(parseInzhurDate("46008")).toContain("2025-12-17");
+      expect(parseInzhurDate(46245)).toContain("2026-08-11");
+      expect(parseInzhurDate(46275)).toContain("2026-09-10");
+    });
+
+    it("коректно парсить дати з українськими назвами місяців", () => {
+      expect(parseInzhurDate("11 серпня 2026")).toContain("2026-08-11");
+      expect(parseInzhurDate("10 вер. 2026 р.")).toContain("2026-09-10");
+      expect(parseInzhurDate("17 груд. 2025")).toContain("2025-12-17");
     });
 
     it("коректно парсить дати у форматі YYYY-MM-DD", () => {
@@ -43,9 +62,9 @@ describe("Inzhur Statement Parser & Security", () => {
       expect(iso).toContain("2024-09-01");
     });
 
-    it("підтримує об'єкти Date", () => {
-      const d = new Date("2024-07-20T10:00:00Z");
-      expect(parseInzhurDate(d)).toBe(d.toISOString());
+    it("підтримує об'єкти Date від SheetJS", () => {
+      const d = new Date("2024-07-20T00:00:00Z");
+      expect(parseInzhurDate(d)).toContain("2024-07-20");
     });
   });
 
@@ -54,6 +73,20 @@ describe("Inzhur Statement Parser & Security", () => {
       expect(parseInzhurAmount("35 097,15₴")).toBe(35097.15);
       expect(parseInzhurAmount("190,37 ₴")).toBe(190.37);
       expect(parseInzhurAmount("1 500,00")).toBe(1500.0);
+    });
+
+    it("правильно парсить європейський формат із крапкою для тисяч (виправлення багу 9.956,76 -> 9,96)", () => {
+      expect(parseInzhurAmount("9.956,76₴")).toBe(9956.76);
+      expect(parseInzhurAmount("35.097,15₴")).toBe(35097.15);
+      expect(parseInzhurAmount("4.116,64₴")).toBe(4116.64);
+      expect(parseInzhurAmount("4.005,75₴")).toBe(4005.75);
+      expect(parseInzhurAmount("30.472,20₴")).toBe(30472.2);
+    });
+
+    it("підтримує прямі числа (number) без втрати точності", () => {
+      expect(parseInzhurAmount(9956.76)).toBe(9956.76);
+      expect(parseInzhurAmount(35097.15)).toBe(35097.15);
+      expect(parseInzhurAmount(136.81)).toBe(136.81);
     });
 
     it("повертає 0 для некоректних або порожніх значень", () => {
@@ -145,6 +178,77 @@ describe("Inzhur Statement Parser & Security", () => {
         result.transactions[1].external_id
       );
       expect(result.transactions[1].external_id).toContain("_1");
+    });
+
+    it("коректно парсить реальну виписку Inzhur з різними форматами дат і тисячними сумами (виправлення багу сьогоднішньої дати та зменшення сум)", () => {
+      const statementRows = [
+        ["Дата", "Тип операції", "Вид цінного паперу", "Дебет", "Кредит"],
+        ["10.09.2026", "Сплата податку", "Inzhur REIT", null, "26,65₴"],
+        [
+          "10.09.2026",
+          "Нарахування дивідендів",
+          "Inzhur REIT",
+          "190,37₴",
+          null,
+        ],
+        [
+          "11.08.2026",
+          "Купівля 33 облігацій",
+          "ОВДП UA4000238976",
+          null,
+          "35 097,15₴",
+        ],
+        [
+          "11.08.2026",
+          "Поповнення брокерського рахунку",
+          "-",
+          "35 050,00₴",
+          null,
+        ],
+        [
+          "20.05.2026",
+          "Купівля 4 облігацій",
+          "ОВДП UA4000238976",
+          null,
+          "4.116,64₴",
+        ],
+        [
+          "20.05.2026",
+          "Нарахування купону",
+          "ОВДП UA4000237416",
+          "4.005,75₴",
+          null,
+        ],
+        // Рядок із числовим Excel серійним номером дати (46034 -> 12.01.2026) та числовим значенням суми
+        [46034, "Купівля 13 сертифікатів", "Inzhur REIT", null, 136.81],
+        // Рядок із 2-значним роком та європейським форматом тисяч
+        [
+          "17.12.25",
+          "Купівля 970 сертифікатів",
+          "Inzhur REIT",
+          null,
+          "9.956,76₴",
+        ],
+      ];
+
+      const result = parseInzhurStatementRows(statementRows);
+      expect(result.transactions.length).toBe(8);
+
+      // Перевірка, що дати НЕ встановлюються в сьогоднішній день
+      expect(result.transactions[2].created_at).toContain("2026-08-11");
+      expect(result.transactions[2].amount).toBe(35097.15); // НЕ 35.1!
+
+      expect(result.transactions[4].created_at).toContain("2026-05-20");
+      expect(result.transactions[4].amount).toBe(4116.64); // НЕ 4.12!
+
+      expect(result.transactions[5].created_at).toContain("2026-05-20");
+      expect(result.transactions[5].amount).toBe(4005.75); // НЕ 4.01!
+
+      expect(result.transactions[6].created_at).toContain("2026-01-12");
+      expect(result.transactions[6].amount).toBe(136.81);
+
+      expect(result.transactions[7].created_at).toContain("2025-12-17");
+      expect(result.transactions[7].amount).toBe(9956.76); // НЕ 9.96!
     });
 
     it("викидає помилку, якщо таблиця не містить потрібних колонок", () => {

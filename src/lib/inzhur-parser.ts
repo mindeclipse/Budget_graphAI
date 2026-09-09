@@ -40,26 +40,57 @@ export function sanitizeFormulaInjection(text: string): string {
 }
 
 /**
- * Парсить дату з виписки Inzhur (формати DD.MM.YYYY, YYYY-MM-DD тощо)
+ * Парсить дату з виписки Inzhur:
+ * - Об'єкти Date (від SheetJS при cellDates: true)
+ * - Серійні номери Excel (наприклад, 46034 для 12.01.2026, 46275 для 10.09.2026)
+ * - Рядкові дати: DD.MM.YYYY, DD.MM.YY, YYYY-MM-DD, M/D/YY, текстові місяці українською
  * Встановлює 12:00:00 UTC для уникнення зсувів часових поясів через північ
  */
 export function parseInzhurDate(rawVal: any): string {
   if (!rawVal) return new Date().toISOString();
-  if (rawVal instanceof Date) return rawVal.toISOString();
+
+  if (rawVal instanceof Date) {
+    if (isNaN(rawVal.getTime())) return new Date().toISOString();
+    const y = rawVal.getUTCFullYear();
+    const m = rawVal.getUTCMonth();
+    const d = rawVal.getUTCDate();
+    return new Date(Date.UTC(y, m, d, 12, 0, 0)).toISOString();
+  }
+
+  // Перевірка серійного номера Excel (число або числовий рядок 30000..100000)
+  const numVal =
+    typeof rawVal === "number"
+      ? rawVal
+      : typeof rawVal === "string" && /^\d+(\.\d+)?$/.test(rawVal.trim())
+        ? parseFloat(rawVal.trim())
+        : null;
+
+  if (numVal !== null && numVal >= 30000 && numVal <= 100000) {
+    // В Excel епоха починається з 1899-12-30 UTC (25569 днів до Unix-епохи)
+    const ms = Math.round((numVal - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) {
+      const y = d.getUTCFullYear();
+      const m = d.getUTCMonth();
+      const day = d.getUTCDate();
+      return new Date(Date.UTC(y, m, day, 12, 0, 0)).toISOString();
+    }
+  }
 
   const str = String(rawVal).trim();
 
-  // Формат DD.MM.YYYY або DD/MM/YYYY або DD-MM-YYYY
-  const matchDmy = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
+  // 1. Формат DD.MM.YYYY або DD.MM.YY (або з дефісами / слешами)
+  const matchDmy = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
   if (matchDmy) {
     const day = parseInt(matchDmy[1], 10);
     const month = parseInt(matchDmy[2], 10);
-    const year = parseInt(matchDmy[3], 10);
+    let year = parseInt(matchDmy[3], 10);
+    if (year < 100) year = year > 70 ? 1900 + year : 2000 + year;
     const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
     if (!isNaN(d.getTime())) return d.toISOString();
   }
 
-  // Формат YYYY-MM-DD
+  // 2. Формат YYYY-MM-DD або YYYY.MM.DD
   const matchYmd = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
   if (matchYmd) {
     const year = parseInt(matchYmd[1], 10);
@@ -69,21 +100,85 @@ export function parseInzhurDate(rawVal: any): string {
     if (!isNaN(d.getTime())) return d.toISOString();
   }
 
+  // 3. Формат з українськими назвами місяців (наприклад "10 вер. 2026" або "10 вересня 2026")
+  const ukMonths: Record<string, number> = {
+    січ: 1,
+    лют: 2,
+    бер: 3,
+    кві: 4,
+    тра: 5,
+    чер: 6,
+    лип: 7,
+    сер: 8,
+    вер: 9,
+    жов: 10,
+    лис: 11,
+    гру: 12,
+  };
+  const matchUk = str
+    .toLowerCase()
+    .match(/^(\d{1,2})\s+([а-яіїєґ]+)\.?\s+(\d{2,4})/);
+  if (matchUk) {
+    const day = parseInt(matchUk[1], 10);
+    const month = ukMonths[matchUk[2].slice(0, 3)];
+    let year = parseInt(matchUk[3], 10);
+    if (year < 100) year = year > 70 ? 1900 + year : 2000 + year;
+    if (month) {
+      const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+      if (!isNaN(d.getTime())) return d.toISOString();
+    }
+  }
+
+  // 4. Стандартний JS Date fallback
   const d = new Date(str);
-  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+  if (!isNaN(d.getTime())) {
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const day = d.getUTCDate();
+    return new Date(Date.UTC(y, m, day, 12, 0, 0)).toISOString();
+  }
+
+  return new Date().toISOString();
 }
 
 /**
- * Очищує числові рядки Inzhur (наприклад, "35 097,15₴", "190,37₴")
+ * Очищує та надійно конвертує числові рядки або числа Inzhur:
+ * - Числа: 9956.76, 35097.15
+ * - Рядки з пробілами / символами валют: "35 097,15₴", "190,37 ₴"
+ * - Європейський формат з крапкою як роздільником тисяч: "9.956,76₴" -> 9956.76
+ * - Формат США з комою як роздільником тисяч: "9,956.76" -> 9956.76
  */
 export function parseInzhurAmount(val: any): number {
   if (val == null) return 0;
   if (typeof val === "number") return isNaN(val) ? 0 : Math.abs(val);
 
-  const clean = String(val)
-    .replace(/[\s\u00A0₴$€]/g, "")
-    .replace(",", ".");
-  const num = parseFloat(clean);
+  let s = String(val)
+    .trim()
+    .replace(/[\s\u00A0₴$€]/g, "");
+  if (!s) return 0;
+
+  // Європейський формат: 9.956,76 або 1.000.000,00 (крапка - тисячі, кома - десяткові)
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  }
+  // Формат США: 9,956.76 (кома - тисячі, крапка - десяткові)
+  else if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) {
+    s = s.replace(/,/g, "");
+  }
+  // Якщо є кома і немає крапки: "190,37" -> "190.37"
+  else if (s.includes(",") && !s.includes(".")) {
+    s = s.replace(",", ".");
+  }
+  // Якщо кілька крапок (наприклад 1.000.000): залишаємо лише останню як десяткову
+  else if ((s.match(/\./g) || []).length > 1) {
+    const lastDot = s.lastIndexOf(".");
+    s =
+      s.substring(0, lastDot).replace(/\./g, "") +
+      "." +
+      s.substring(lastDot + 1);
+  }
+
+  const num = parseFloat(s);
   return isNaN(num) ? 0 : Math.abs(num);
 }
 
@@ -113,17 +208,23 @@ export function parseInzhurStatementRows(rows: any[][]): InzhurParseResult {
     );
 
     const hasDate = candidateCells.some(
-      (c) => c.includes("дата") || c.includes("date")
+      (c) =>
+        (c === "дата" || c.includes("дата") || c.includes("date")) &&
+        c.length < 30
     );
     const hasOp = candidateCells.some(
       (c) =>
-        c.includes("тип операції") ||
-        c.includes("тип") ||
-        c.includes("вид цінного") ||
-        c.includes("папер")
+        (c.includes("тип операції") ||
+          c.includes("операці") ||
+          c.includes("вид цінного") ||
+          c.includes("папер") ||
+          c === "тип") &&
+        c.length < 50
     );
     const hasMoney = candidateCells.some(
-      (c) => c.includes("дебет") || c.includes("кредит")
+      (c) =>
+        (c.includes("дебет") || c.includes("кредит") || c.includes("сума")) &&
+        c.length < 30
     );
 
     if (hasDate && (hasOp || hasMoney)) {
@@ -141,11 +242,12 @@ export function parseInzhurStatementRows(rows: any[][]): InzhurParseResult {
 
   // 2. Визначення індексів
   const dateIdx = headers.findIndex(
-    (h) => h.includes("дата") || h.includes("date")
+    (h) =>
+      (h === "дата" || h.includes("дата") || h.includes("date")) &&
+      h.length < 30
   );
   const opTypeIdx = headers.findIndex(
-    (h) =>
-      h.includes("тип операції") || h.includes("операці") || h.includes("тип")
+    (h) => h.includes("тип операції") || h.includes("операці") || h === "тип"
   );
   const assetIdx = headers.findIndex(
     (h) =>
