@@ -26,6 +26,7 @@ import { RecurringSection } from "@/components/dashboard/RecurringSection";
 import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
 import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
 import { exportFinancialDataToExcel } from "@/lib/export-excel";
+import { DetectedSubscription } from "@/lib/subscription-radar";
 
 import { BurnRateChart } from "@/components/BurnRateChart";
 import { MoMComparison } from "@/components/MoMComparison";
@@ -110,6 +111,9 @@ export default function Dashboard() {
     transactions: rawTransactions,
     recurring,
     invalidateRecurring,
+    radar: radarData,
+    isLoadingRadar,
+    invalidateRadar,
   } = useFinanceQueries(isAuthenticated);
 
   // Відфільтровуємо транзакції, виключені з бюджету
@@ -508,6 +512,36 @@ export default function Dashboard() {
     }
   };
 
+  const handleAddDetectedFromRadar = (sub: DetectedSubscription) => {
+    setEditingRecurring({
+      id: 0,
+      title: sub.title,
+      amount: sub.amount,
+      currency: sub.currency,
+      category_name: sub.category_name,
+      day_of_month: sub.predicted_day_of_month,
+      is_active: true,
+    });
+    setIsAddingRecurring(true);
+  };
+
+  const handleDismissDetectedFromRadar = (signature: string) => {
+    try {
+      const stored = localStorage.getItem("budget_dismissed_radar_subs");
+      const current: string[] = stored ? JSON.parse(stored) : [];
+      if (!current.includes(signature)) {
+        current.push(signature);
+        localStorage.setItem(
+          "budget_dismissed_radar_subs",
+          JSON.stringify(current)
+        );
+      }
+      invalidateRadar();
+    } catch (e) {
+      console.error("Error dismissing radar subscription:", e);
+    }
+  };
+
   // Мутації транзакцій
   const handleUpdateCategory = (
     txId: number,
@@ -764,6 +798,8 @@ export default function Dashboard() {
 
             <RecurringSection
               recurring={recurring}
+              radarData={radarData}
+              isLoadingRadar={isLoadingRadar}
               onAddRecurring={() => {
                 setEditingRecurring(null);
                 setIsAddingRecurring(true);
@@ -773,6 +809,8 @@ export default function Dashboard() {
                 setIsAddingRecurring(true);
               }}
               onExecuteRecurring={handleExecuteRecurring}
+              onAddDetected={handleAddDetectedFromRadar}
+              onDismissDetected={handleDismissDetectedFromRadar}
             />
 
             <div>

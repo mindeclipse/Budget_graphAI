@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Transaction, RecurringItem } from "@/types/finance";
+import { SubscriptionRadarResult } from "@/lib/subscription-radar";
 
 export interface DateRangeFilter {
   from?: string;
@@ -11,6 +12,7 @@ export const FINANCE_KEYS = {
   transactions: (range?: DateRangeFilter) =>
     range ? (["transactions", range] as const) : (["transactions"] as const),
   recurring: ["recurring"] as const,
+  radar: ["recurring", "radar"] as const,
   budget: (month: string) => ["budget", month] as const,
   analyticsPace: (from?: string, to?: string) =>
     ["analytics", "pace", from, to] as const,
@@ -86,6 +88,35 @@ export function useFinanceQueries(
     refetchOnWindowFocus: false,
   });
 
+  // Запит розумного радара підписок
+  const radarQuery = useQuery({
+    queryKey: FINANCE_KEYS.radar,
+    queryFn: async () => {
+      let dismissed = "";
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("budget_dismissed_radar_subs");
+          if (stored) {
+            const arr = JSON.parse(stored);
+            if (Array.isArray(arr)) dismissed = arr.join(",");
+          }
+        } catch {}
+      }
+
+      const url = dismissed
+        ? `/api/recurring/radar?dismissed=${encodeURIComponent(dismissed)}`
+        : "/api/recurring/radar";
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Не вдалося завантажити радар підписок");
+      return (await res.json()) as SubscriptionRadarResult;
+    },
+    enabled: Boolean(isAuthenticated),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   // Функції для ручної інвалідації кешу (скидають кеш для всіх діапазонів)
   const invalidateTransactions = () => {
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -93,6 +124,11 @@ export function useFinanceQueries(
 
   const invalidateRecurring = () => {
     queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.recurring });
+    queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.radar });
+  };
+
+  const invalidateRadar = () => {
+    queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.radar });
   };
 
   return {
@@ -104,7 +140,10 @@ export function useFinanceQueries(
     isLoadingRecurring: recurringQuery.isLoading,
     pacing: pacingQuery.data,
     isLoadingPacing: pacingQuery.isLoading,
+    radar: radarQuery.data,
+    isLoadingRadar: radarQuery.isLoading,
     invalidateTransactions,
     invalidateRecurring,
+    invalidateRadar,
   };
 }
