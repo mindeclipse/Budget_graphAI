@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useBudgetMetrics } from "@/hooks/useBudgetMetrics";
 import { BurnRateChart } from "@/components/BurnRateChart";
@@ -16,6 +16,8 @@ import { CsvImportModal } from "@/components/CsvImportModal";
 import { NewCycleModal } from "@/components/NewCycleModal";
 import { AIAnalysisDrawer } from "@/components/AIAnalysisDrawer";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
+import { QuickActionsListener } from "@/components/QuickActionsListener";
+import { CreateTransactionDrawer } from "@/components/CreateTransactionDrawer";
 import {
   AIAnalysisResponse,
   SupportedGeminiModel,
@@ -96,6 +98,9 @@ export default function Dashboard() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [activeCycle, setActiveCycle] = useState<any>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Окрема форма створення разової витрати
+  const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
 
   // Optimistic Updates у TanStack Query
   const { updateTransaction, createTransaction, deleteTransaction } =
@@ -602,6 +607,12 @@ export default function Dashboard() {
 
   return (
     <main className="mx-auto min-h-screen max-w-7xl bg-black px-4 pt-28 pb-24 font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
+      {/* Слухач шорткатів та зовнішніх лінків */}
+      <Suspense fallback={null}>
+        <QuickActionsListener
+          onAddExpense={() => setIsCreateExpenseOpen(true)}
+        />
+      </Suspense>
       {/* Навігація календарних періодів */}
       <div className="mb-4 flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 px-3.5 py-2">
         <button
@@ -1311,6 +1322,12 @@ export default function Dashboard() {
         onSelectTransaction={(tx) => {
           setSelectedTx(tx);
         }}
+      />
+
+      {/* Модальне вікно створення нової витрати */}
+      <CreateTransactionDrawer
+        isOpen={isCreateExpenseOpen}
+        onClose={() => setIsCreateExpenseOpen(false)}
       />
 
       <RecurringModal

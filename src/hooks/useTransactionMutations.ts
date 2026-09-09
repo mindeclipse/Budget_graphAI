@@ -19,6 +19,7 @@ interface CreateTransactionPayload {
   source?: "manual" | "monobank" | "recurring" | "csv";
   type?: "expense" | "income";
   created_at?: string;
+  exclude_from_budget?: boolean;
 }
 
 export function useTransactionMutations() {
