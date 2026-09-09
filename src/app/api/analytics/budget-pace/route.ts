@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { calculateBudgetPacing } from "@/lib/analytics-engine";
+import { verifySessionToken } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    const cookieStore = await cookies();
+    const session = cookieStore.get("finance_session")?.value;
+    const { valid } = await verifySessionToken(session);
+
+    if (!valid) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const now = new Date();
 
@@ -27,6 +37,16 @@ export async function GET(req: NextRequest) {
 
     const fromDate = searchParams.get("from") || defaultStart;
     const toDate = searchParams.get("to") || defaultEnd;
+
+    const startDate = new Date(fromDate);
+    const endDate = new Date(toDate);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return NextResponse.json(
+        { error: "Invalid date format" },
+        { status: 400 }
+      );
+    }
 
     const supabase = getSupabaseAdmin();
 
@@ -53,8 +73,8 @@ export async function GET(req: NextRequest) {
 
     const pacing = calculateBudgetPacing(
       (transactions || []).filter((t: any) => !t.exclude_from_budget),
-      new Date(fromDate),
-      new Date(toDate),
+      startDate,
+      endDate,
       categoryLimits,
       totalBudgetLimit
     );

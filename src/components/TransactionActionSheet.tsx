@@ -44,6 +44,7 @@ export function TransactionActionSheet({
   const [tagInput, setTagInput] = useState("");
   const [currentTags, setCurrentTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   useEffect(() => {
     if (transaction) {
@@ -51,6 +52,7 @@ export function TransactionActionSheet({
       setSelectedCategory(transaction.category_name || "");
       setCurrentTags(transaction.tags || []);
       setSaveAsRule(true);
+      setIsConfirmingDelete(false);
     }
     setTagInput("");
   }, [transaction]);
@@ -81,8 +83,14 @@ export function TransactionActionSheet({
   };
 
   const handleAddTag = async () => {
-    const cleanTag = tagInput.trim().replace(/^#/, "").toLowerCase();
-    if (!cleanTag || currentTags.includes(cleanTag)) return;
+    const cleanTag = tagInput
+      .trim()
+      .replace(/^#/, "")
+      .replace(/[^a-zA-Z0-9а-яА-Яіїєґ_\-]/g, "")
+      .toLowerCase()
+      .slice(0, 30);
+    if (!cleanTag || currentTags.includes(cleanTag) || currentTags.length >= 30)
+      return;
 
     const updated = [...currentTags, cleanTag];
     setCurrentTags(updated);
@@ -286,15 +294,35 @@ export function TransactionActionSheet({
             </form>
           </div>
 
-          {/* Видалення транзакції */}
+          {/* Видалення транзакції із захистом від випадкового натискання */}
           <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => onDelete(transaction.id)}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-900/40 bg-rose-950/20 py-2.5 text-xs font-bold text-rose-400 transition-all hover:bg-rose-900/30 active:scale-[0.99]"
-            >
-              <Trash2 size={14} /> Видалити транзакцію
-            </button>
+            {isConfirmingDelete ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingDelete(false)}
+                  className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/80 py-2.5 text-xs font-semibold text-zinc-400 transition-all hover:bg-zinc-800 active:scale-95"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(transaction.id)}
+                  className="flex-1 items-center justify-center gap-1.5 rounded-2xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-rose-950/40 transition-all hover:bg-rose-500 active:scale-95"
+                >
+                  <Trash2 size={14} className="mr-1 inline" />
+                  Точно видалити?
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDelete(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-900/40 bg-rose-950/20 py-2.5 text-xs font-bold text-rose-400 transition-all hover:bg-rose-900/30 active:scale-[0.99]"
+              >
+                <Trash2 size={14} /> Видалити транзакцію
+              </button>
+            )}
           </div>
         </div>
       </div>

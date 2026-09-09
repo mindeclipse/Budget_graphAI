@@ -42,7 +42,8 @@ export function useAuthSession() {
         if (res.ok) {
           setIsAuthenticated(true);
         } else {
-          setPinError("Невірний PIN-код");
+          const errData = await res.json().catch(() => null);
+          setPinError(errData?.error || "Невірний PIN-код");
         }
       } catch {
         setPinError("Помилка підключення");

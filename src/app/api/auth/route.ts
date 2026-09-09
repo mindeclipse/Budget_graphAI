@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { timingSafeEqual, getClientIp } from "@/lib/security";
+import { createSessionToken, verifySessionToken } from "@/lib/session";
 
-// Простий in-memory трекер невдалих спроб
+// In-memory трекер невдалих спроб
 const failedAttempts = new Map<
   string,
   { count: number; blockedUntil: number }
@@ -9,7 +11,7 @@ const failedAttempts = new Map<
 
 export async function POST(req: Request) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    const ip = getClientIp(new Headers(req.headers));
     const now = Date.now();
     const tracker = failedAttempts.get(ip);
 
@@ -25,7 +27,15 @@ export async function POST(req: Request) {
     const { pin } = await req.json();
     const correctPin = process.env.APP_ACCESS_PIN;
 
-    if (!correctPin || pin !== correctPin) {
+    const isPinValid =
+      typeof pin === "string" &&
+      typeof correctPin === "string" &&
+      timingSafeEqual(pin, correctPin);
+
+    if (!isPinValid) {
+      // Затримка 1 секунда проти атак повного перебору (brute-force)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       const currentCount = (tracker?.count || 0) + 1;
       if (currentCount >= 5) {
         failedAttempts.set(ip, {
@@ -42,8 +52,11 @@ export async function POST(req: Request) {
     // Скидаємо лічильник при успішному вході
     failedAttempts.delete(ip);
 
+    // Створюємо криптографічно підписаний HMAC-SHA256 токен
+    const sessionToken = await createSessionToken();
+
     const cookieStore = await cookies();
-    cookieStore.set("finance_session", correctPin, {
+    cookieStore.set("finance_session", sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -60,10 +73,9 @@ export async function POST(req: Request) {
 export async function GET() {
   const cookieStore = await cookies();
   const session = cookieStore.get("finance_session")?.value;
-  const correctPin = process.env.APP_ACCESS_PIN;
 
-  const isAuthenticated = Boolean(correctPin && session === correctPin);
-  return NextResponse.json({ authenticated: isAuthenticated });
+  const { valid } = await verifySessionToken(session);
+  return NextResponse.json({ authenticated: valid });
 }
 
 export async function DELETE() {

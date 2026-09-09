@@ -1,3 +1,5 @@
+export { escapeHtml } from "@/lib/security";
+
 export async function sendTelegramMessage(text: string): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;

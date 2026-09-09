@@ -45,6 +45,18 @@ export function NewCycleModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!limit || isNaN(limit) || limit <= 0 || limit > 100_000_000) {
+      alert("Вкажіть коректний ліміт від 1 до 100,000,000 ₴");
+      return;
+    }
+
+    const parsedDate = new Date(startDate);
+    if (isNaN(parsedDate.getTime())) {
+      alert("Вкажіть коректний час початку циклу");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -52,9 +64,9 @@ export function NewCycleModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
+          name: name.trim().slice(0, 100) || "Новий цикл",
           budget_limit: limit,
-          start_date: new Date(startDate).toISOString(),
+          start_date: parsedDate.toISOString(),
         }),
       });
 

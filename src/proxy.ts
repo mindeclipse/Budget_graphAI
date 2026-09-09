@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { timingSafeEqual } from "@/lib/security";
+import { verifySessionToken } from "@/lib/session";
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 1. Публічні винятки: автентифікація, вебхуки, крон, системні файли та ресурси PWA
@@ -23,8 +25,12 @@ export function proxy(req: NextRequest) {
     const authHeader = req.headers.get("authorization");
     const secretKey = process.env.APP_API_SECRET;
 
-    // Якщо ключ налаштований і співпадає із заголовком Bearer
-    if (secretKey && authHeader === `Bearer ${secretKey}`) {
+    // Якщо ключ налаштований і співпадає із заголовком Bearer (постійне за часом порівняння)
+    if (
+      secretKey &&
+      authHeader &&
+      timingSafeEqual(authHeader, `Bearer ${secretKey}`)
+    ) {
       return NextResponse.next();
     }
 
@@ -35,10 +41,10 @@ export function proxy(req: NextRequest) {
   }
 
   const session = req.cookies.get("finance_session")?.value;
-  const correctPin = process.env.APP_ACCESS_PIN;
+  const { valid } = await verifySessionToken(session);
 
   // 3. Блокування неавторизованих звернень до внутрішніх API веб-інтерфейсу
-  if (!session || session !== correctPin) {
+  if (!valid) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

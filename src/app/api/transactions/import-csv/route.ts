@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { verifySessionToken } from "@/lib/session";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 
@@ -13,7 +15,7 @@ const BATCH_SIZE = 500;
 // Схема валідації рядка перед записом
 const importedRowSchema = z.object({
   external_id: z.string().min(1).max(255),
-  amount: z.number().positive(),
+  amount: z.number().positive().max(10_000_000),
   currency: z.literal("UAH"),
   merchant_raw: z.string().min(1).max(255),
   category_name: z.string().min(1).max(100),
@@ -21,6 +23,14 @@ const importedRowSchema = z.object({
   type: z.enum(["expense", "income"]),
   created_at: z.string().datetime(),
 });
+
+function sanitizeFormulaInjection(text: string): string {
+  const trimmed = text.trim();
+  if (/^[=+\-@\t\r]/.test(trimmed)) {
+    return `'${trimmed}`;
+  }
+  return trimmed;
+}
 
 function parsePrivatDate(rawVal: any): string {
   if (!rawVal) return new Date().toISOString();
@@ -72,11 +82,31 @@ function normalizePrivatCategory(rawCategory: string): string {
 
 export async function POST(req: Request) {
   try {
+    const cookieStore = await cookies();
+    const session = cookieStore.get("finance_session")?.value;
+    const { valid } = await verifySessionToken(session);
+
+    if (!valid) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
     if (!file) {
       return NextResponse.json({ error: "Файл не надано" }, { status: 400 });
+    }
+
+    const lowerName = file.name.toLowerCase();
+    if (
+      !lowerName.endsWith(".xlsx") &&
+      !lowerName.endsWith(".xls") &&
+      !lowerName.endsWith(".csv")
+    ) {
+      return NextResponse.json(
+        { error: "Дозволені лише формати .xlsx, .xls або .csv" },
+        { status: 400 }
+      );
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -173,10 +203,12 @@ export async function POST(req: Request) {
       const createdAt = parsePrivatDate(row[dateIdx]);
       const rawMerchant =
         descIdx !== -1 && row[descIdx]
-          ? String(row[descIdx]).trim()
+          ? sanitizeFormulaInjection(String(row[descIdx]))
           : "ПриватБанк операція";
       const rawCategory =
-        catIdx !== -1 && row[catIdx] ? String(row[catIdx]).trim() : "Інше";
+        catIdx !== -1 && row[catIdx]
+          ? sanitizeFormulaInjection(String(row[catIdx]))
+          : "Інше";
 
       const isExpense = rawAmount < 0;
       const finalAmount = Math.abs(rawAmount);

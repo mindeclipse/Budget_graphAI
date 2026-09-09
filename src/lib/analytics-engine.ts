@@ -36,19 +36,36 @@ export function calculateBudgetPacing(
   totalBudgetLimit?: number
 ): BudgetPaceAnalysis {
   const now = new Date();
+
+  // Захист від невалідних дат
+  let safeStart =
+    startDate instanceof Date && !isNaN(startDate.getTime())
+      ? startDate
+      : new Date(now.getFullYear(), now.getMonth(), 1);
+  let safeEnd =
+    endDate instanceof Date && !isNaN(endDate.getTime())
+      ? endDate
+      : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  if (safeStart > safeEnd) {
+    const temp = safeStart;
+    safeStart = safeEnd;
+    safeEnd = temp;
+  }
+
   const effectiveNow =
-    now > endDate ? endDate : now < startDate ? startDate : now;
+    now > safeEnd ? safeEnd : now < safeStart ? safeStart : now;
 
   const msPerDay = 1000 * 60 * 60 * 24;
   const daysTotal = Math.max(
     1,
-    Math.round((endDate.getTime() - startDate.getTime()) / msPerDay)
+    Math.round((safeEnd.getTime() - safeStart.getTime()) / msPerDay)
   );
   const daysPassed = Math.max(
     1,
     Math.min(
       daysTotal,
-      Math.ceil((effectiveNow.getTime() - startDate.getTime()) / msPerDay)
+      Math.ceil((effectiveNow.getTime() - safeStart.getTime()) / msPerDay)
     )
   );
   const daysRemaining = Math.max(0, daysTotal - daysPassed);
@@ -57,10 +74,13 @@ export function calculateBudgetPacing(
     Math.round((daysPassed / daysTotal) * 100)
   );
 
-  // Фільтрація витрат та доходів за обраний період
+  // Фільтрація витрат та доходів за обраний період із перевіркою коректності дати
   const cycleTx = transactions.filter((t) => {
-    const txDate = new Date(t.created_at || (t as any).date);
-    return txDate >= startDate && txDate <= endDate;
+    const rawDate = t.created_at || (t as any).date;
+    if (!rawDate) return false;
+    const txDate = new Date(rawDate);
+    if (isNaN(txDate.getTime())) return false;
+    return txDate >= safeStart && txDate <= safeEnd;
   });
 
   let totalIncome = 0;
@@ -158,8 +178,8 @@ export function calculateBudgetPacing(
   categoryPacing.sort((a, b) => (b.spentPercent || 0) - (a.spentPercent || 0));
 
   return {
-    cycleStart: startDate.toISOString(),
-    cycleEnd: endDate.toISOString(),
+    cycleStart: safeStart.toISOString(),
+    cycleEnd: safeEnd.toISOString(),
     daysTotal,
     daysPassed,
     daysRemaining,

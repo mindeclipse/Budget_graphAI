@@ -1,20 +1,25 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { verifySessionToken } from "@/lib/session";
 import {
   recurringTemplateSchema,
   recurringUpdateSchema,
 } from "@/lib/validations";
 
-async function checkAuthSession() {
+async function checkAuthSession(): Promise<boolean> {
   const cookieStore = await cookies();
   const session = cookieStore.get("finance_session")?.value;
-  const correctPin = process.env.APP_ACCESS_PIN;
-  return Boolean(correctPin && session === correctPin);
+  const { valid } = await verifySessionToken(session);
+  return valid;
 }
 
 export async function GET() {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("recurring_templates")
@@ -99,16 +104,20 @@ export async function DELETE(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const numId = Number(id);
 
-    if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 });
+    if (!id || isNaN(numId) || numId <= 0 || !Number.isInteger(numId)) {
+      return NextResponse.json(
+        { error: "Valid numeric ID is required" },
+        { status: 400 }
+      );
     }
 
     const supabaseAdmin = getSupabaseAdmin();
     const { error } = await supabaseAdmin
       .from("recurring_templates")
       .delete()
-      .eq("id", Number(id));
+      .eq("id", numId);
 
     if (error) throw error;
 

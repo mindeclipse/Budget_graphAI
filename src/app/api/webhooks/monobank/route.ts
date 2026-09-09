@@ -3,18 +3,25 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCategoryByMcc } from "@/lib/mcc-mapper";
 import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 
+import { timingSafeEqual } from "@/lib/security";
+
 export const dynamic = "force-dynamic";
 
-// Валідація секретного токена вебхука
+// Валідація секретного токена вебхука (fail-closed, захист від timing attack)
 function validateWebhookSecret(req: NextRequest): boolean {
   const webhookSecret = process.env.MONOBANK_WEBHOOK_SECRET;
-  // Якщо секрет ще не налаштовано в змінних оточення, пропускаємо (для сумісності)
-  if (!webhookSecret) return true;
+  if (!webhookSecret) {
+    console.error(
+      "[Monobank Webhook] MONOBANK_WEBHOOK_SECRET is not configured"
+    );
+    return false;
+  }
 
   const { searchParams } = new URL(req.url);
   const secretParam = searchParams.get("secret");
+  if (!secretParam) return false;
 
-  return secretParam === webhookSecret;
+  return timingSafeEqual(secretParam, webhookSecret);
 }
 
 // 1. Необхідно для успішної реєстрації вебхука в Monobank API

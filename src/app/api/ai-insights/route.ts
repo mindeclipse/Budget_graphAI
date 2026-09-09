@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { verifySessionToken } from "@/lib/session";
 import { Type, Schema } from "@google/genai";
 import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
 import { AIInsightData } from "@/types/finance";
@@ -40,9 +41,9 @@ export async function POST(req: Request) {
     // 1. Перевірка сесії перед викликом Gemini (Zero Trust)
     const cookieStore = await cookies();
     const session = cookieStore.get("finance_session")?.value;
-    const correctPin = process.env.APP_ACCESS_PIN;
+    const { valid } = await verifySessionToken(session);
 
-    if (!correctPin || session !== correctPin) {
+    if (!valid) {
       return NextResponse.json(
         { error: "Доступ заборонено: відсутня активна сесія" },
         { status: 401 }

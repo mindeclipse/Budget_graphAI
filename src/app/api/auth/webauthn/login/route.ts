@@ -5,6 +5,7 @@ import {
   verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { createSessionToken } from "@/lib/session";
 
 function getRpInfo(req: Request) {
   const host =
@@ -130,17 +131,15 @@ export async function POST(req: Request) {
 
     cookieStore.delete("webauthn_auth_challenge");
 
-    // Виставляємо сесійну куку на 30 днів
-    const correctPin = process.env.APP_ACCESS_PIN;
-    if (correctPin) {
-      cookieStore.set("finance_session", correctPin, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 60 * 60 * 24 * 30,
-        path: "/",
-      });
-    }
+    // Виставляємо підписану сесійну куку на 30 днів
+    const sessionToken = await createSessionToken();
+    cookieStore.set("finance_session", sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 30,
+      path: "/",
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

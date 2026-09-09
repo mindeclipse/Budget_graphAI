@@ -48,6 +48,29 @@ export function CsvImportModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      setStatus({
+        type: "error",
+        text: "Розмір файлу перевищує 5 МБ. Будь ласка, оберіть менший файл.",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const lowerName = file.name.toLowerCase();
+    if (
+      !lowerName.endsWith(".xlsx") &&
+      !lowerName.endsWith(".xls") &&
+      !lowerName.endsWith(".csv")
+    ) {
+      setStatus({
+        type: "error",
+        text: "Дозволені лише файли з розширенням .xlsx, .xls або .csv",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setIsLoading(true);
     setStatus(null);
 

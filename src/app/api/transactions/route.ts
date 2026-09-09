@@ -1,22 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { cleanMerchantRaw } from "@/lib/normalize";
+import { verifySessionToken } from "@/lib/session";
 import {
   transactionCreateSchema,
   transactionUpdateSchema,
 } from "@/lib/validations";
 
+async function checkAuthSession(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("finance_session")?.value;
+  const { valid } = await verifySessionToken(session);
+  return valid;
+}
+
 // GET: вибірка транзакцій з підтримкою фільтрації за датами та пагінацією
 export async function GET(req: NextRequest) {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const fromDate = searchParams.get("from");
     const toDate = searchParams.get("to");
     const limitParam = searchParams.get("limit");
 
+    if (fromDate && isNaN(new Date(fromDate).getTime())) {
+      return NextResponse.json(
+        { error: "Invalid 'from' date format" },
+        { status: 400 }
+      );
+    }
+    if (toDate && isNaN(new Date(toDate).getTime())) {
+      return NextResponse.json(
+        { error: "Invalid 'to' date format" },
+        { status: 400 }
+      );
+    }
+
     const supabase = getSupabaseAdmin();
     const PAGE_SIZE = 1000;
-    const maxLimit = limitParam ? Math.min(Number(limitParam), 10000) : 10000;
+    const maxLimit = limitParam
+      ? Math.min(Math.max(Number(limitParam) || 0, 1), 10000)
+      : 10000;
 
     let allTransactions: any[] = [];
     let page = 0;
@@ -66,6 +94,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: Request) {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const rawBody = await req.json();
     const parsed = transactionCreateSchema.safeParse(rawBody);
 
@@ -96,6 +128,10 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const rawBody = await req.json();
     const parsed = transactionUpdateSchema.safeParse(rawBody);
 
@@ -145,18 +181,26 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
+    const numId = Number(id);
 
-    if (!id) {
+    if (!id || isNaN(numId) || numId <= 0 || !Number.isInteger(numId)) {
       return NextResponse.json(
-        { error: "Transaction ID required" },
+        { error: "Valid numeric Transaction ID required" },
         { status: 400 }
       );
     }
 
-    const { error } = await supabase.from("transactions").delete().eq("id", id);
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("id", numId);
     if (error) throw error;
 
     return NextResponse.json({ success: true });

@@ -5,6 +5,7 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { verifySessionToken } from "@/lib/session";
 
 function getRpInfo(req: Request) {
   const host =
@@ -22,10 +23,10 @@ function getRpInfo(req: Request) {
 export async function GET(req: Request) {
   const cookieStore = await cookies();
   const session = cookieStore.get("finance_session")?.value;
-  const correctPin = process.env.APP_ACCESS_PIN;
+  const { valid } = await verifySessionToken(session);
 
-  // Реєструвати пристрій дозволено лише після входу за PIN
-  if (!correctPin || session !== correctPin) {
+  // Реєструвати пристрій дозволено лише після пройденої авторизації
+  if (!valid) {
     return NextResponse.json({ error: "Не авторизовано" }, { status: 401 });
   }
 

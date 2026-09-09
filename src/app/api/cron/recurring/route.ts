@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getUsdRate } from "@/lib/currency";
 
+import { timingSafeEqual } from "@/lib/security";
+
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -9,8 +11,12 @@ export async function GET(req: NextRequest) {
     const authHeader = req.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 
-    if (process.env.NODE_ENV === "production") {
-      if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    if (process.env.NODE_ENV === "production" || cronSecret) {
+      if (
+        !cronSecret ||
+        !authHeader ||
+        !timingSafeEqual(authHeader, `Bearer ${cronSecret}`)
+      ) {
         return NextResponse.json(
           { error: "Unauthorized cron trigger" },
           { status: 401 }

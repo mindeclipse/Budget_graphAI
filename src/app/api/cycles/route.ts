@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { verifySessionToken } from "@/lib/session";
+
+async function checkAuthSession(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const session = cookieStore.get("finance_session")?.value;
+  const { valid } = await verifySessionToken(session);
+  return valid;
+}
 
 // Отримати активний цикл та історію останніх
 export async function GET() {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
 
     const { data: cycles, error } = await supabase
@@ -27,13 +40,40 @@ export async function GET() {
 // Почати новий цикл
 export async function POST(req: Request) {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
     const body = await req.json();
     const { name, budget_limit, start_date } = body;
 
-    const cycleStart = start_date
-      ? new Date(start_date).toISOString()
-      : new Date().toISOString();
+    const parsedLimit = Number(budget_limit);
+    if (isNaN(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100_000_000) {
+      return NextResponse.json(
+        {
+          error:
+            "Сума ліміту повинна бути більше 0 і не перевищувати 100,000,000",
+        },
+        { status: 400 }
+      );
+    }
+
+    let cycleStart = new Date().toISOString();
+    if (start_date) {
+      const parsedDate = new Date(start_date);
+      if (isNaN(parsedDate.getTime())) {
+        return NextResponse.json(
+          { error: "Некоректний формат дати" },
+          { status: 400 }
+        );
+      }
+      cycleStart = parsedDate.toISOString();
+    }
+
+    const cleanName =
+      (typeof name === "string" ? name.trim().slice(0, 100) : "") ||
+      "Новий цикл";
 
     // 1. Закриваємо попередній активний цикл із обов'язковою перевіркою результату
     const { error: closeError } = await supabase
@@ -57,8 +97,8 @@ export async function POST(req: Request) {
       .from("budget_cycles")
       .insert([
         {
-          name: name?.trim() || "Новий цикл",
-          budget_limit: Number(budget_limit) || 35000,
+          name: cleanName,
+          budget_limit: parsedLimit,
           start_date: cycleStart,
           is_active: true,
         },
@@ -82,12 +122,22 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    if (!(await checkAuthSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = getSupabaseAdmin();
     const body = await req.json();
     const { cycleId, limit } = body;
     const numericLimit = Number(limit);
 
-    if (!cycleId || isNaN(numericLimit) || numericLimit <= 0) {
+    if (
+      !cycleId ||
+      typeof cycleId !== "string" ||
+      isNaN(numericLimit) ||
+      numericLimit <= 0 ||
+      numericLimit > 100_000_000
+    ) {
       return NextResponse.json(
         { error: "Некоректний ID циклу або сума ліміту" },
         { status: 400 }

@@ -54,11 +54,20 @@ export function CreateTransactionDrawer({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount.replace(",", "."));
-    if (!parsedAmount || isNaN(parsedAmount)) return;
+    if (
+      !parsedAmount ||
+      isNaN(parsedAmount) ||
+      parsedAmount <= 0 ||
+      parsedAmount > 10_000_000
+    ) {
+      return;
+    }
+
+    const cleanMerchant = merchant.trim().slice(0, 255) || "Ручна витрата";
 
     createTransaction({
       amount: parsedAmount,
-      merchant_raw: merchant.trim() || "Ручна витрата",
+      merchant_raw: cleanMerchant,
       category_name: category,
       type: "expense",
       currency: "UAH",

@@ -33,6 +33,7 @@ export function RecurringModal({
   const [category, setCategory] = useState<string>("Підписки та сервіси");
   const [day, setDay] = useState("1");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,6 +63,7 @@ export function RecurringModal({
       setCategory("Підписки та сервіси");
       setDay("1");
     }
+    setIsConfirmingDelete(false);
   }, [item, isOpen]);
 
   if (!isOpen) return null;
@@ -69,17 +71,27 @@ export function RecurringModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount.replace(",", "."));
-    if (!title.trim() || isNaN(parsedAmount) || parsedAmount <= 0) return;
+    const rawDay = parseInt(day, 10) || 1;
+    const clampedDay = Math.min(31, Math.max(1, rawDay));
+
+    if (
+      !title.trim() ||
+      isNaN(parsedAmount) ||
+      parsedAmount <= 0 ||
+      parsedAmount > 10_000_000
+    ) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       await onSave({
         id: item?.id,
-        title: title.trim(),
+        title: title.trim().slice(0, 150),
         amount: parsedAmount,
         currency,
         category_name: category,
-        day_of_month: parseInt(day, 10) || 1,
+        day_of_month: clampedDay,
       });
       onClose();
     } catch (err) {
@@ -192,38 +204,62 @@ export function RecurringModal({
             </select>
           </div>
 
-          <div className="flex items-center gap-2 pt-3">
-            {item && item.id !== undefined && (
+          {isConfirmingDelete ? (
+            <div className="flex items-center gap-2 pt-3">
               <button
                 type="button"
-                onClick={() => onDelete(item.id!)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-900/40 bg-rose-950/20 text-rose-400 transition-all hover:bg-rose-900/30 active:scale-95"
-                title="Видалити платіж"
+                onClick={() => setIsConfirmingDelete(false)}
+                className="h-10 flex-1 rounded-xl border border-zinc-800 bg-zinc-900/60 text-xs font-semibold text-zinc-400 transition-all hover:bg-zinc-800 hover:text-white active:scale-95"
               >
-                <Trash2 size={16} />
+                Скасувати
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-10 flex-1 rounded-xl border border-zinc-800 bg-zinc-900/60 text-xs font-semibold text-zinc-400 transition-all hover:bg-zinc-800 hover:text-white active:scale-95"
-            >
-              Скасувати
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-white text-xs font-semibold text-black shadow-md transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : item ? (
-                "Оновити"
-              ) : (
-                "Зберегти"
+              <button
+                type="button"
+                onClick={() => {
+                  if (item && item.id !== undefined) {
+                    onDelete(item.id);
+                  }
+                }}
+                className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-rose-600 text-xs font-bold text-white shadow-lg shadow-rose-950/40 transition-all hover:bg-rose-500 active:scale-95"
+              >
+                <Trash2 size={14} />
+                Точно видалити?
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 pt-3">
+              {item && item.id !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingDelete(true)}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-900/40 bg-rose-950/20 text-rose-400 transition-all hover:bg-rose-900/30 active:scale-95"
+                  title="Видалити платіж"
+                >
+                  <Trash2 size={16} />
+                </button>
               )}
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-10 flex-1 rounded-xl border border-zinc-800 bg-zinc-900/60 text-xs font-semibold text-zinc-400 transition-all hover:bg-zinc-800 hover:text-white active:scale-95"
+              >
+                Скасувати
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-white text-xs font-semibold text-black shadow-md transition-all hover:bg-zinc-200 active:scale-95 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : item ? (
+                  "Оновити"
+                ) : (
+                  "Зберегти"
+                )}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
