@@ -5,7 +5,16 @@ import {
   verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { createSessionToken } from "@/lib/session";
+import {
+  createSessionToken,
+  sealChallengeToken,
+  verifyChallengeToken,
+} from "@/lib/session";
+import {
+  getCachedCredentials,
+  setCachedCredentials,
+  updateCachedCredentialCounter,
+} from "@/lib/webauthn-cache";
 
 function getRpInfo(req: Request) {
   const host =
@@ -19,28 +28,35 @@ function getRpInfo(req: Request) {
   return { rpID, expectedOrigin: `${proto}://${host}` };
 }
 
-// GET: запит параметрів для виклику сканера Face ID / Touch ID
+// GET: запит параметрів для виклику сканера Face ID / Touch ID (з pre-warming підтримкою)
 export async function GET(req: Request) {
   const { rpID } = getRpInfo(req);
   const supabase = getSupabaseAdmin();
 
-  const { data: credentials, error } = await supabase
-    .from("webauthn_credentials")
-    .select("id, transports");
+  let credentials = getCachedCredentials();
 
-  if (error) {
-    console.error("[WebAuthn Login GET] DB error:", error);
-    return NextResponse.json(
-      { error: "Помилка завантаження ключів" },
-      { status: 500 }
-    );
-  }
+  if (!credentials) {
+    const { data: dbData, error } = await supabase
+      .from("webauthn_credentials")
+      .select("id, transports, public_key, counter");
 
-  if (!credentials || credentials.length === 0) {
-    return NextResponse.json(
-      { error: "Не знайдено прив'язаних пристроїв" },
-      { status: 404 }
-    );
+    if (error) {
+      console.error("[WebAuthn Login GET] DB error:", error);
+      return NextResponse.json(
+        { error: "Помилка завантаження ключів" },
+        { status: 500 }
+      );
+    }
+
+    if (!dbData || dbData.length === 0) {
+      return NextResponse.json(
+        { error: "Не знайдено прив'язаних пристроїв" },
+        { status: 404 }
+      );
+    }
+
+    credentials = dbData;
+    setCachedCredentials(dbData);
   }
 
   const options = await generateAuthenticationOptions({
@@ -52,8 +68,15 @@ export async function GET(req: Request) {
     userVerification: "preferred",
   });
 
+  // Запечатуємо challenge та публічні ключі в HMAC-підписаний токен
+  const sealedChallenge = await sealChallengeToken(
+    options.challenge,
+    credentials,
+    300 // 5 хвилин
+  );
+
   const cookieStore = await cookies();
-  cookieStore.set("webauthn_auth_challenge", options.challenge, {
+  cookieStore.set("webauthn_auth_challenge", sealedChallenge, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
@@ -64,12 +87,12 @@ export async function GET(req: Request) {
   return NextResponse.json(options);
 }
 
-// POST: перевірка підпису Face ID та видача session cookie
+// POST: швидка перевірка підпису Face ID без повторного SELECT до бази даних
 export async function POST(req: Request) {
   const cookieStore = await cookies();
-  const expectedChallenge = cookieStore.get("webauthn_auth_challenge")?.value;
+  const rawChallengeCookie = cookieStore.get("webauthn_auth_challenge")?.value;
 
-  if (!expectedChallenge) {
+  if (!rawChallengeCookie) {
     return NextResponse.json({ error: "Виклик застарів" }, { status: 400 });
   }
 
@@ -77,18 +100,37 @@ export async function POST(req: Request) {
   const { rpID, expectedOrigin } = getRpInfo(req);
   const supabase = getSupabaseAdmin();
 
-  const { data: dbCredential, error: fetchError } = await supabase
-    .from("webauthn_credentials")
-    .select("*")
-    .eq("id", body.id)
-    .maybeSingle();
+  // 1. Спроба валідації запечатаного токена (Zero DB SELECT Latency)
+  const { valid, payload } = await verifyChallengeToken(rawChallengeCookie);
 
-  if (fetchError) {
-    console.error("[WebAuthn Login POST] Fetch DB error:", fetchError);
-    return NextResponse.json(
-      { error: "Помилка перевірки пристрою" },
-      { status: 500 }
-    );
+  let expectedChallenge: string;
+  let dbCredential: {
+    id: string;
+    public_key: string;
+    counter: number;
+    transports?: any;
+  } | null = null;
+
+  if (valid && payload) {
+    expectedChallenge = payload.challenge;
+    dbCredential = payload.credentials.find((c) => c.id === body.id) || null;
+  } else {
+    // Безпечний fallback для застарілих / незапечатаних кук
+    expectedChallenge = rawChallengeCookie;
+    const { data: fetchCredential, error: fetchError } = await supabase
+      .from("webauthn_credentials")
+      .select("*")
+      .eq("id", body.id)
+      .maybeSingle();
+
+    if (fetchError || !fetchCredential) {
+      console.error("[WebAuthn Login POST] Fallback fetch error:", fetchError);
+      return NextResponse.json(
+        { error: "Пристрій не розпізнано" },
+        { status: 404 }
+      );
+    }
+    dbCredential = fetchCredential;
   }
 
   if (!dbCredential) {
@@ -119,16 +161,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Оновлюємо лічильник для захисту від replay attacks через адмін-клієнт
-    const { error: updateError } = await supabase
-      .from("webauthn_credentials")
-      .update({ counter: verification.authenticationInfo.newCounter })
-      .eq("id", dbCredential.id);
+    const newCounter = verification.authenticationInfo.newCounter;
 
-    if (updateError) {
-      console.error("[WebAuthn Login POST] Counter update error:", updateError);
+    // Оновлюємо лічильник у локальному пам'ятному кеші
+    if (dbCredential) {
+      updateCachedCredentialCounter(dbCredential.id, newCounter);
     }
 
+    // Захист від Replay: одноразове спалювання challenge
     cookieStore.delete("webauthn_auth_challenge");
 
     // Виставляємо підписану сесійну куку на 30 днів
@@ -140,6 +180,24 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24 * 30,
       path: "/",
     });
+
+    // Оновлення лічильника в БД (захист від клонування ключів)
+    void (async () => {
+      try {
+        const { error } = await supabase
+          .from("webauthn_credentials")
+          .update({ counter: newCounter })
+          .eq("id", dbCredential.id);
+        if (error) {
+          console.error(
+            "[WebAuthn Login POST] Counter update DB error:",
+            error
+          );
+        }
+      } catch (err: unknown) {
+        console.error("[WebAuthn Login POST] Counter update exception:", err);
+      }
+    })();
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -147,3 +147,97 @@ export async function verifySessionToken(
     return { valid: false };
   }
 }
+
+export interface WebAuthnChallengeCredential {
+  id: string;
+  public_key: string;
+  counter: number;
+  transports?: any;
+}
+
+export interface WebAuthnChallengePayload {
+  challenge: string;
+  credentials: WebAuthnChallengeCredential[];
+  iat: number;
+  exp: number;
+}
+
+/**
+ * Запечатує WebAuthn challenge та інформацію про дозволені ключі в HMAC-підписаний токен.
+ * Це усуває необхідність додаткового SELECT-запиту до Supabase при верифікації входу.
+ */
+export async function sealChallengeToken(
+  challenge: string,
+  credentials: WebAuthnChallengeCredential[],
+  ttlSeconds: number = 300
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  const payload: WebAuthnChallengePayload = {
+    challenge,
+    credentials,
+    iat: now,
+    exp: now + ttlSeconds,
+  };
+
+  const payloadStr = JSON.stringify(payload);
+  const encodedPayload = base64UrlEncode(payloadStr);
+
+  const key = await getCryptoKey();
+  const signatureBytes = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(encodedPayload)
+  );
+
+  const encodedSignature = bytesToBase64Url(new Uint8Array(signatureBytes));
+  return `${encodedPayload}.${encodedSignature}`;
+}
+
+/**
+ * Перевіряє валідність запечатаного токена WebAuthn challenge.
+ * Повертає payload лише у разі валідного HMAC-підпису та відсутності застарівання.
+ */
+export async function verifyChallengeToken(
+  token?: string | null
+): Promise<{ valid: boolean; payload?: WebAuthnChallengePayload }> {
+  if (!token || typeof token !== "string") {
+    return { valid: false };
+  }
+
+  const parts = token.split(".");
+  if (parts.length !== 2) {
+    return { valid: false };
+  }
+
+  const [encodedPayload, signature] = parts;
+
+  try {
+    const payloadStr = base64UrlDecode(encodedPayload);
+    const payload: WebAuthnChallengePayload = JSON.parse(payloadStr);
+
+    if (!payload.exp || typeof payload.exp !== "number") {
+      return { valid: false };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp < now) {
+      return { valid: false };
+    }
+
+    const key = await getCryptoKey();
+    const expectedSigBytes = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(encodedPayload)
+    );
+    const expectedSig = bytesToBase64Url(new Uint8Array(expectedSigBytes));
+
+    if (!timingSafeEqual(signature, expectedSig)) {
+      return { valid: false };
+    }
+
+    return { valid: true, payload };
+  } catch {
+    return { valid: false };
+  }
+}

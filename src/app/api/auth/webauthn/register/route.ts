@@ -6,6 +6,7 @@ import {
 } from "@simplewebauthn/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySessionToken } from "@/lib/session";
+import { invalidateWebAuthnCache } from "@/lib/webauthn-cache";
 
 function getRpInfo(req: Request) {
   const host =
@@ -136,6 +137,8 @@ export async function POST(req: Request) {
       console.error("[WebAuthn Register POST] DB insert error:", insertError);
       throw insertError;
     }
+
+    invalidateWebAuthnCache();
 
     cookieStore.delete("webauthn_reg_challenge");
 

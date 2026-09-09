@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   startAuthentication,
   startRegistration,
@@ -11,6 +11,32 @@ export function useAuthSession() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+
+  // Кеш попередньо завантажених параметрів виклику WebAuthn (Pre-warming)
+  const prewarmedOptionsRef = useRef<any>(null);
+  const prewarmedTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.PublicKeyCredential) {
+      setIsBiometricSupported(true);
+    }
+  }, []);
+
+  // Фонове завантаження WebAuthn challenge для усунення 3-секундної затримки
+  const prewarmBiometrics = useCallback(async () => {
+    if (typeof window === "undefined" || !window.PublicKeyCredential) return;
+    try {
+      const res = await fetch("/api/auth/webauthn/login");
+      if (res.ok) {
+        const options = await res.json();
+        prewarmedOptionsRef.current = options;
+        prewarmedTimeRef.current = Date.now();
+      }
+    } catch {
+      // Фоновий збій безпечно ігнорується, буде fallback до звичайного fetch
+    }
+  }, []);
 
   // Перевірка активної сесії при першому завантаженні
   useEffect(() => {
@@ -20,18 +46,24 @@ export function useAuthSession() {
         sessionStorage.getItem("budget_auto_locked") === "true"
       ) {
         setIsAuthenticated(false);
+        prewarmBiometrics();
         return;
       }
       try {
         const res = await fetch("/api/auth");
         const data = await res.json();
-        setIsAuthenticated(Boolean(data.authenticated));
+        const authed = Boolean(data.authenticated);
+        setIsAuthenticated(authed);
+        if (!authed) {
+          prewarmBiometrics();
+        }
       } catch {
         setIsAuthenticated(false);
+        prewarmBiometrics();
       }
     };
     checkAuth();
-  }, []);
+  }, [prewarmBiometrics]);
 
   // Вхід через PIN-код
   const handleLogin = useCallback(
@@ -68,15 +100,25 @@ export function useAuthSession() {
     [pinInput]
   );
 
-  // Вхід через Face ID / Touch ID
+  // Вхід через Face ID / Touch ID (з підтримкою 0-latency pre-warming)
   const handleBiometricLogin = useCallback(async () => {
     setPinError("");
     setIsVerifyingPin(true);
 
     try {
-      const optsRes = await fetch("/api/auth/webauthn/login");
-      if (!optsRes.ok) throw new Error("Біометрія недоступна");
-      const options = await optsRes.json();
+      let options = prewarmedOptionsRef.current;
+      const isFresh =
+        options && Date.now() - prewarmedTimeRef.current < 4 * 60 * 1000;
+
+      if (!isFresh) {
+        const optsRes = await fetch("/api/auth/webauthn/login");
+        if (!optsRes.ok) throw new Error("Біометрія недоступна");
+        options = await optsRes.json();
+      }
+
+      // Одноразовий виклик: відразу скидаємо кеш, щоб запобігти повторному використанню
+      prewarmedOptionsRef.current = null;
+      prewarmedTimeRef.current = 0;
 
       const authResp = await startAuthentication({ optionsJSON: options });
 
@@ -95,16 +137,18 @@ export function useAuthSession() {
       } else {
         triggerHaptic("error");
         setPinError("Не вдалося розпізнати");
+        prewarmBiometrics();
       }
     } catch (err: any) {
       if (err.name !== "NotAllowedError") {
         triggerHaptic("error");
         setPinError(err.message || "Помилка Face ID");
+        prewarmBiometrics();
       }
     } finally {
       setIsVerifyingPin(false);
     }
-  }, []);
+  }, [prewarmBiometrics]);
 
   // Реєстрація пристрою для Face ID / Touch ID
   const handleRegisterDevice = useCallback(async () => {
@@ -141,8 +185,9 @@ export function useAuthSession() {
     setIsAuthenticated(false);
     setPinInput("");
     setPinError("");
+    prewarmBiometrics();
     await fetch("/api/auth", { method: "DELETE" }).catch(() => null);
-  }, []);
+  }, [prewarmBiometrics]);
 
   // Автоматичне блокування при неактивності або переході у фон
   const handleAutoLock = useCallback(async () => {
@@ -152,8 +197,9 @@ export function useAuthSession() {
     setIsAuthenticated(false);
     setPinInput("");
     setPinError("");
+    prewarmBiometrics();
     await fetch("/api/auth", { method: "DELETE" }).catch(() => null);
-  }, []);
+  }, [prewarmBiometrics]);
 
   useAutoLock({
     isAuthenticated,
@@ -165,6 +211,7 @@ export function useAuthSession() {
   return {
     isAuthenticated,
     isVerifyingPin,
+    isBiometricSupported,
     pinInput,
     setPinInput,
     pinError,

@@ -12,6 +12,7 @@ interface PinAuthScreenProps {
   isVerifyingPin: boolean;
   onLogin: (e: React.FormEvent) => void;
   onBiometricLogin: () => void;
+  isBiometricSupported?: boolean;
 }
 
 export function PinAuthScreen({
@@ -22,6 +23,7 @@ export function PinAuthScreen({
   isVerifyingPin,
   onLogin,
   onBiometricLogin,
+  isBiometricSupported = true,
 }: PinAuthScreenProps) {
   if (isLoading) {
     return (
@@ -33,16 +35,55 @@ export function PinAuthScreen({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-black p-4 text-white">
-      <div className="w-full max-w-xs space-y-6 rounded-3xl border border-zinc-900 bg-zinc-950 p-6 text-center shadow-2xl">
+      <div className="w-full max-w-xs space-y-5 rounded-3xl border border-zinc-900 bg-zinc-950 p-6 text-center shadow-2xl">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400">
           <Lock size={20} />
         </div>
         <div>
           <h2 className="text-base font-bold text-white">Вхід до фінансів</h2>
-          <p className="mt-1 text-xs text-zinc-500">Введіть PIN-код доступу</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            {isBiometricSupported
+              ? "Touch ID / Face ID або PIN-код"
+              : "Введіть PIN-код доступу"}
+          </p>
         </div>
 
-        <form onSubmit={onLogin} className="space-y-4">
+        {/* Головна дія (Primary Action): швидкий біометричний вхід */}
+        {isBiometricSupported && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("medium");
+                onBiometricLogin();
+              }}
+              disabled={isVerifyingPin}
+              className="group flex w-full items-center justify-center gap-2.5 rounded-2xl border border-sky-500/30 bg-sky-500/10 py-3.5 text-xs font-semibold text-sky-400 transition-all hover:border-sky-500/50 hover:bg-sky-500/20 active:scale-[0.98] disabled:opacity-40"
+              title="Швидкий вхід за допомогою Face ID / Touch ID"
+            >
+              <Fingerprint
+                size={18}
+                className="transition-transform group-hover:scale-110"
+              />
+              <span>
+                {isVerifyingPin
+                  ? "Перевірка..."
+                  : "Увійти через Face ID / Touch ID"}
+              </span>
+            </button>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <div className="h-px flex-1 bg-zinc-800/80" />
+              <span className="text-[10px] font-medium tracking-wider text-zinc-500 uppercase">
+                або PIN-код
+              </span>
+              <div className="h-px flex-1 bg-zinc-800/80" />
+            </div>
+          </div>
+        )}
+
+        {/* Форма введення PIN-коду (без нав'язливого autoFocus на мобільних) */}
+        <form onSubmit={onLogin} className="space-y-3.5">
           <input
             type="password"
             inputMode="numeric"
@@ -52,36 +93,21 @@ export function PinAuthScreen({
               triggerHaptic("light");
               onPinChange(e.target.value);
             }}
-            placeholder="••••"
-            autoFocus
-            className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 py-3 text-center font-mono text-xl tracking-[0.4em] text-white transition-all focus:border-zinc-600 focus:outline-none"
+            placeholder="••••••••••••"
+            className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 py-2.5 text-center font-mono text-lg tracking-[0.3em] text-white placeholder-zinc-600 transition-all focus:border-zinc-600 focus:outline-none"
           />
 
           {pinError && (
             <p className="text-xs font-medium text-rose-400">{pinError}</p>
           )}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic("medium");
-                onBiometricLogin();
-              }}
-              disabled={isVerifyingPin}
-              className="flex items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-300 transition-all hover:border-zinc-700 hover:text-white disabled:opacity-40"
-              title="Увійти за допомогою Face ID / Touch ID"
-            >
-              <Fingerprint size={18} />
-            </button>
-            <button
-              type="submit"
-              disabled={isVerifyingPin || !pinInput}
-              className="flex-1 rounded-2xl bg-white py-3 text-xs font-bold text-black transition-all hover:bg-zinc-200 disabled:opacity-40"
-            >
-              {isVerifyingPin ? "Перевірка..." : "Розблокувати"}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isVerifyingPin || !pinInput}
+            className="w-full rounded-2xl bg-zinc-800 py-2.5 text-xs font-semibold text-zinc-200 transition-all hover:bg-zinc-700 hover:text-white active:scale-[0.98] disabled:opacity-40"
+          >
+            {isVerifyingPin ? "Перевірка..." : "Розблокувати за PIN"}
+          </button>
         </form>
       </div>
     </main>

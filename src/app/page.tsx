@@ -114,6 +114,7 @@ export default function Dashboard() {
   const {
     isAuthenticated,
     isVerifyingPin,
+    isBiometricSupported,
     pinInput,
     setPinInput,
     pinError,
@@ -810,6 +811,7 @@ export default function Dashboard() {
         isVerifyingPin={isVerifyingPin}
         onLogin={handleLogin}
         onBiometricLogin={handleBiometricLogin}
+        isBiometricSupported={isBiometricSupported}
       />
     );
   }
