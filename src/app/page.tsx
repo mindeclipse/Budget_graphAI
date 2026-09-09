@@ -674,7 +674,7 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-7xl bg-black px-4 pt-28 pb-24 font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
+    <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-28 pb-24 font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
       {/* Слухач шорткатів та зовнішніх лінків */}
       <Suspense fallback={null}>
         <QuickActionsListener

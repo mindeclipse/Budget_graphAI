@@ -14,7 +14,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#000000",
+  themeColor: "#09090b",
 };
 
 export default function RootLayout({
@@ -23,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="uk" className="bg-black">
-      <body className="bg-black text-white antialiased">
+    <html lang="uk" className="bg-zinc-950">
+      <body className="bg-zinc-950 text-zinc-100 antialiased">
         <Providers>{children}</Providers>
         <Toaster position="top-center" richColors closeButton />
       </body>
