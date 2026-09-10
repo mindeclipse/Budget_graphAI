@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet,
   FileText,
@@ -20,6 +20,7 @@ import { CATEGORIES } from "@/constants/categories";
 import { InvestmentAsset } from "@/types/finance";
 import { triggerHaptic } from "@/lib/haptics";
 import { toast } from "sonner";
+import { sortInvestments } from "@/components/dashboard/InvestmentsCard";
 
 export interface BankStatementModalProps {
   isOpen: boolean;
@@ -101,6 +102,11 @@ export function BankStatementModal({
   const [selectedAssetId, setSelectedAssetId] = useState<string>("none");
   const [updateAssetCostBasis, setUpdateAssetCostBasis] =
     useState<boolean>(true);
+
+  const sortedInvestments = useMemo(
+    () => sortInvestments(investments || []),
+    [investments]
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -592,7 +598,7 @@ export function BankStatementModal({
                     <option value="none">
                       Без прив&apos;язки (тільки операція в капіталі)
                     </option>
-                    {investments.map((asset) => (
+                    {sortedInvestments.map((asset) => (
                       <option key={asset.id} value={String(asset.id)}>
                         [{asset.asset_type.toUpperCase()}] {asset.asset_name} (
                         {Number(asset.invested_amount).toLocaleString("uk-UA")}{" "}
