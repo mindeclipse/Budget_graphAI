@@ -74,11 +74,11 @@ export function CapitalYieldMetrics({
         {/* Картка 1: Середньозважена доходність портфеля */}
         <div className="flex flex-col justify-between rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4 transition-all hover:border-zinc-700/80">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
                 <Percent size={16} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <span className="text-[11px] font-bold tracking-wider text-zinc-300 uppercase">
                   Середньозважена доходність
                 </span>
@@ -88,8 +88,9 @@ export function CapitalYieldMetrics({
               </div>
             </div>
 
-            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-              Портфель + Скарбнички
+            <span className="inline-flex w-[100px] shrink-0 flex-col items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-center text-[10px] leading-tight font-semibold text-emerald-400">
+              <span>Портфель +</span>
+              <span>Скарбнички</span>
             </span>
           </div>
 
@@ -118,11 +119,11 @@ export function CapitalYieldMetrics({
         {/* Картка 2: Прогноз річного прибутку */}
         <div className="flex flex-col justify-between rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4 transition-all hover:border-zinc-700/80">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-400">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-400">
                 <Coins size={16} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <span className="text-[11px] font-bold tracking-wider text-zinc-300 uppercase">
                   Прогноз річного прибутку
                 </span>
@@ -132,8 +133,9 @@ export function CapitalYieldMetrics({
               </div>
             </div>
 
-            <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400">
-              Пасивний дохід
+            <span className="inline-flex w-[100px] shrink-0 flex-col items-center justify-center rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-center text-[10px] leading-tight font-semibold text-sky-400">
+              <span>Пасивний</span>
+              <span>дохід</span>
             </span>
           </div>
 
