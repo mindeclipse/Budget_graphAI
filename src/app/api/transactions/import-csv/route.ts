@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySessionToken } from "@/lib/session";
 import * as XLSX from "xlsx";
-import { parsePrivatStatementRows } from "@/lib/privat-parser";
+import { parseBankStatementRows } from "@/lib/bank-statement-parser";
 
 export const dynamic = "force-dynamic";
 
@@ -142,12 +142,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // ── Парсинг рядків через privat-parser ──────────────────
+    // ── Парсинг рядків виписки через bank-statement-parser ────
     const {
       transactions: parsed,
       totalRows,
       skippedRows,
-    } = parsePrivatStatementRows(rows);
+    } = parseBankStatementRows(rows);
 
     if (parsed.length === 0) {
       return NextResponse.json(
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
         .from("transactions")
         .select("external_id")
         .in("external_id", chunk)
-        .eq("source", "privatbank_statement");
+        .in("source", ["privatbank_statement", "bank_statement"]);
       (data || []).forEach((r: { external_id: string }) =>
         existingIds.add(r.external_id)
       );

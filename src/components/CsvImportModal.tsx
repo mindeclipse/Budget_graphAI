@@ -125,10 +125,10 @@ export function CsvImportModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">
-                Імпорт виписки ПриватБанку
+                Імпорт виписки банку
               </h3>
               <p className="text-[11px] text-zinc-400">
-                Підтримуються файли .xlsx та .csv
+                Підтримуються файли .xlsx, .xls та .csv
               </p>
             </div>
           </div>
@@ -145,8 +145,9 @@ export function CsvImportModal({
         {/* Тіло модалки */}
         <div className="space-y-4">
           <p className="text-xs leading-relaxed text-zinc-400">
-            Оригінальні виписки напряму з Приват24. Дублікати вже внесених
-            операцій відфільтровуються автоматично за датою та сумою.
+            Виписки вашого банку (ПриватБанк, Монобанк, А-Банк тощо). Дублікати
+            вже внесених операцій відфільтровуються автоматично за датою та
+            сумою.
           </p>
 
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/30 p-6 text-center transition-colors hover:border-zinc-700">

@@ -5,7 +5,8 @@ import {
   sanitizeFormulaInjection,
   normalizePrivatCategory,
   parsePrivatStatementRows,
-} from "@/lib/privat-parser";
+  parseBankStatementRows,
+} from "@/lib/bank-statement-parser";
 
 // ─────────────────────────────────────────────────────────────
 // parsePrivatDate

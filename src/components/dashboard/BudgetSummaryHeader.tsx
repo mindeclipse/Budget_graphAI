@@ -262,7 +262,7 @@ export function BudgetSummaryHeader({
                   className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-900"
                 >
                   <Upload size={14} className="text-zinc-400" />
-                  <span>Імпорт Приват24</span>
+                  <span>Імпорт виписки</span>
                 </button>
 
                 <button
