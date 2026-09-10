@@ -30,43 +30,76 @@ export interface BackupPayload {
 }
 
 /**
+ * Вибірка всіх рядків з таблиці Supabase з автоматичною пагінацією
+ * для обходу системного ліміту PostgREST у 1000 рядків.
+ */
+export async function fetchAllRowsFromTable<T = any>(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  tableName: string,
+  orderColumn = "id",
+  ascending = true
+): Promise<T[]> {
+  const PAGE_SIZE = 1000;
+  const allRows: T[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from(tableName)
+      .select("*")
+      .order(orderColumn, { ascending })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error(
+        `[fetchAllRowsFromTable] Помилка завантаження з ${tableName}:`,
+        error
+      );
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      hasMore = false;
+    } else {
+      allRows.push(...(data as T[]));
+      if (data.length < PAGE_SIZE) {
+        hasMore = false;
+      } else {
+        from += PAGE_SIZE;
+      }
+    }
+  }
+
+  return allRows;
+}
+
+/**
  * Генерує повний об'єкт бекапу з усіх таблиць бази даних Supabase
  */
 export async function generateBackupData(): Promise<BackupPayload> {
   const supabase = getSupabaseAdmin();
 
   const [
-    txRes,
-    cyclesRes,
-    recurringRes,
-    rulesRes,
-    goalsRes,
-    investRes,
-    catBudgetsRes,
-    wishlistRes,
-    costPerUseRes,
+    transactions,
+    budget_cycles,
+    recurring_templates,
+    merchant_rules,
+    savings_goals,
+    investments,
+    category_budgets,
+    wishlist_items,
+    cost_per_use_items,
   ] = await Promise.all([
-    supabase.from("transactions").select("*").order("id", { ascending: true }),
-    supabase
-      .from("budget_cycles")
-      .select("*")
-      .order("start_date", { ascending: true }),
-    supabase
-      .from("recurring_templates")
-      .select("*")
-      .order("id", { ascending: true }),
-    supabase.from("merchant_rules").select("*"),
-    supabase.from("savings_goals").select("*").order("id", { ascending: true }),
-    supabase.from("investments").select("*").order("id", { ascending: true }),
-    supabase.from("category_budgets").select("*"),
-    supabase
-      .from("wishlist_items")
-      .select("*")
-      .order("id", { ascending: true }),
-    supabase
-      .from("cost_per_use_items")
-      .select("*")
-      .order("id", { ascending: true }),
+    fetchAllRowsFromTable(supabase, "transactions", "id", true),
+    fetchAllRowsFromTable(supabase, "budget_cycles", "start_date", true),
+    fetchAllRowsFromTable(supabase, "recurring_templates", "id", true),
+    fetchAllRowsFromTable(supabase, "merchant_rules", "id", true),
+    fetchAllRowsFromTable(supabase, "savings_goals", "id", true),
+    fetchAllRowsFromTable(supabase, "investments", "id", true),
+    fetchAllRowsFromTable(supabase, "category_budgets", "id", true),
+    fetchAllRowsFromTable(supabase, "wishlist_items", "id", true),
+    fetchAllRowsFromTable(supabase, "cost_per_use_items", "id", true),
   ]);
 
   const backupPayload: BackupPayload = {
@@ -74,26 +107,26 @@ export async function generateBackupData(): Promise<BackupPayload> {
     timestamp: new Date().toISOString(),
     app: "BudgetGraph AI",
     data: {
-      transactions: txRes.data || [],
-      budget_cycles: cyclesRes.data || [],
-      recurring_templates: recurringRes.data || [],
-      merchant_rules: rulesRes.data || [],
-      savings_goals: goalsRes.data || [],
-      investments: investRes.data || [],
-      category_budgets: catBudgetsRes.data || [],
-      wishlist_items: wishlistRes.data || [],
-      cost_per_use_items: costPerUseRes.data || [],
+      transactions,
+      budget_cycles,
+      recurring_templates,
+      merchant_rules,
+      savings_goals,
+      investments,
+      category_budgets,
+      wishlist_items,
+      cost_per_use_items,
     },
     counts: {
-      transactions: txRes.data?.length || 0,
-      budget_cycles: cyclesRes.data?.length || 0,
-      recurring_templates: recurringRes.data?.length || 0,
-      merchant_rules: rulesRes.data?.length || 0,
-      savings_goals: goalsRes.data?.length || 0,
-      investments: investRes.data?.length || 0,
-      category_budgets: catBudgetsRes.data?.length || 0,
-      wishlist_items: wishlistRes.data?.length || 0,
-      cost_per_use_items: costPerUseRes.data?.length || 0,
+      transactions: transactions.length,
+      budget_cycles: budget_cycles.length,
+      recurring_templates: recurring_templates.length,
+      merchant_rules: merchant_rules.length,
+      savings_goals: savings_goals.length,
+      investments: investments.length,
+      category_budgets: category_budgets.length,
+      wishlist_items: wishlist_items.length,
+      cost_per_use_items: cost_per_use_items.length,
     },
   };
 

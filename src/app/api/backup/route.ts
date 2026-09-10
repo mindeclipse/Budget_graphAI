@@ -129,12 +129,25 @@ export async function POST(req: Request) {
       if (!error) restoredSummary.budget_cycles = data.budget_cycles.length;
     }
 
-    // 7. Відновлення транзакцій
+    // 7. Відновлення транзакцій (порціями по 250 для безпечного відновлення великих бекапів)
     if (Array.isArray(data.transactions) && data.transactions.length > 0) {
-      const { error } = await supabase
-        .from("transactions")
-        .upsert(data.transactions, { onConflict: "id" });
-      if (!error) restoredSummary.transactions = data.transactions.length;
+      const BATCH_SIZE = 250;
+      let restoredCount = 0;
+      for (let i = 0; i < data.transactions.length; i += BATCH_SIZE) {
+        const chunk = data.transactions.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase
+          .from("transactions")
+          .upsert(chunk, { onConflict: "id" });
+        if (error) {
+          console.error(
+            "[API backup restore] Помилка пакетного відновлення транзакцій:",
+            error
+          );
+          throw error;
+        }
+        restoredCount += chunk.length;
+      }
+      restoredSummary.transactions = restoredCount;
     }
 
     // 8. Відновлення листа бажань (wishlist_items)

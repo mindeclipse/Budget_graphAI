@@ -101,10 +101,36 @@ export async function GET(req: NextRequest) {
       query = query.lte("created_at", toDate);
     }
 
-    let { data, error } = await query.range(
-      offset,
-      offset + requestedLimit - 1
-    );
+    const CHUNK_SIZE = 1000;
+    let data: any[] = [];
+    let error: any = null;
+
+    if (requestedLimit <= CHUNK_SIZE) {
+      const res = await query.range(offset, offset + requestedLimit - 1);
+      data = res.data || [];
+      error = res.error;
+    } else {
+      let currentOffset = offset;
+      let remaining = requestedLimit;
+      while (remaining > 0) {
+        const fetchCount = Math.min(remaining, CHUNK_SIZE);
+        const res = await query.range(
+          currentOffset,
+          currentOffset + fetchCount - 1
+        );
+        if (res.error) {
+          error = res.error;
+          break;
+        }
+        const chunk = res.data || [];
+        data.push(...chunk);
+        if (chunk.length < fetchCount) {
+          break;
+        }
+        currentOffset += chunk.length;
+        remaining -= chunk.length;
+      }
+    }
 
     // Захисний механізм: якщо колонка deleted_at ще не створена в Supabase через міграцію
     if (
@@ -134,12 +160,46 @@ export async function GET(req: NextRequest) {
       if (fromDate) fallbackQuery = fallbackQuery.gte("created_at", fromDate);
       if (toDate) fallbackQuery = fallbackQuery.lte("created_at", toDate);
 
-      const fallbackRes = await fallbackQuery.range(
-        offset,
-        offset + requestedLimit - 1
-      );
-      data = (fallbackRes.data || []).map((t) => ({ ...t, deleted_at: null }));
-      error = fallbackRes.error;
+      if (requestedLimit <= CHUNK_SIZE) {
+        const fallbackRes = await fallbackQuery.range(
+          offset,
+          offset + requestedLimit - 1
+        );
+        data = (fallbackRes.data || []).map((t) => ({
+          ...t,
+          deleted_at: null,
+        }));
+        error = fallbackRes.error;
+      } else {
+        let fallbackData: any[] = [];
+        let fallbackOffset = offset;
+        let fallbackRemaining = requestedLimit;
+        let fallbackError: any = null;
+
+        while (fallbackRemaining > 0) {
+          const fetchCount = Math.min(fallbackRemaining, CHUNK_SIZE);
+          const fallbackRes = await fallbackQuery.range(
+            fallbackOffset,
+            fallbackOffset + fetchCount - 1
+          );
+          if (fallbackRes.error) {
+            fallbackError = fallbackRes.error;
+            break;
+          }
+          const chunk = (fallbackRes.data || []).map((t) => ({
+            ...t,
+            deleted_at: null,
+          }));
+          fallbackData.push(...chunk);
+          if (chunk.length < fetchCount) {
+            break;
+          }
+          fallbackOffset += chunk.length;
+          fallbackRemaining -= chunk.length;
+        }
+        data = fallbackData;
+        error = fallbackError;
+      }
     }
 
     if (error) {

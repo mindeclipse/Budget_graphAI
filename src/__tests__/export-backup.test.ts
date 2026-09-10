@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { exportFinancialDataToExcel } from "@/lib/export-excel";
+import { fetchAllRowsFromTable } from "@/lib/backup-service";
 import * as XLSX from "xlsx";
 import { Transaction, InvestmentAsset, SavingsGoal } from "@/types/finance";
 
@@ -102,5 +103,37 @@ describe("Excel Export & JSON Backup Integrity", () => {
     expect(Array.isArray(mockBackup.data.category_budgets)).toBe(true);
     expect(Array.isArray(mockBackup.data.wishlist_items)).toBe(true);
     expect(Array.isArray(mockBackup.data.cost_per_use_items)).toBe(true);
+  });
+
+  it("fetchAllRowsFromTable коректно вибирає всі сторінки, якщо кількість рядків перевищує 1000", async () => {
+    const page1 = Array.from({ length: 1000 }, (_, i) => ({ id: i + 1 }));
+    const page2 = Array.from({ length: 250 }, (_, i) => ({ id: 1000 + i + 1 }));
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            range: vi.fn().mockImplementation((from: number) => {
+              if (from === 0) {
+                return Promise.resolve({ data: page1, error: null });
+              } else if (from === 1000) {
+                return Promise.resolve({ data: page2, error: null });
+              }
+              return Promise.resolve({ data: [], error: null });
+            }),
+          }),
+        }),
+      }),
+    };
+
+    const results = await fetchAllRowsFromTable(
+      mockSupabase as any,
+      "transactions",
+      "id",
+      true
+    );
+    expect(results).toHaveLength(1250);
+    expect(results[0].id).toBe(1);
+    expect(results[1249].id).toBe(1250);
   });
 });
