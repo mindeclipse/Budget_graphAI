@@ -73,11 +73,23 @@ export async function POST(req: Request) {
         restoredSummary.category_budgets = data.category_budgets.length;
     }
 
-    // 2. Відновлення правил мерчантів (upsert by pattern)
+    // 2. Відновлення правил мерчантів (upsert by pattern, сумісність з clean_merchant)
     if (Array.isArray(data.merchant_rules) && data.merchant_rules.length > 0) {
+      const sanitizedRules = data.merchant_rules.map((r: any) => ({
+        pattern: String(r.pattern || "")
+          .trim()
+          .toLowerCase(),
+        clean_merchant: (
+          r.clean_merchant ||
+          r.normalized_name ||
+          r.pattern ||
+          ""
+        ).trim(),
+        category_name: String(r.category_name || "Інше").trim(),
+      }));
       const { error } = await supabase
         .from("merchant_rules")
-        .upsert(data.merchant_rules, { onConflict: "pattern" });
+        .upsert(sanitizedRules, { onConflict: "pattern" });
       if (!error) restoredSummary.merchant_rules = data.merchant_rules.length;
     }
 

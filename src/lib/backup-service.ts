@@ -132,6 +132,8 @@ export async function sendBackupToTelegram(customCaption?: string): Promise<{
         `• Регулярних витрат: <b>${backup.counts.recurring_templates}</b>`,
         `• Цілей накопичення: <b>${backup.counts.savings_goals}</b>`,
         `• Інвестицій: <b>${backup.counts.investments}</b>`,
+        `• Списку бажань: <b>${backup.counts.wishlist_items}</b>`,
+        `• Речей (Cost per use): <b>${backup.counts.cost_per_use_items}</b>`,
         ``,
         `ℹ️ <i>Файл придатний для миттєвого відновлення через додаток у розділі Налаштування.</i>`,
       ].join("\n");
