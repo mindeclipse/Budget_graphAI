@@ -23,10 +23,17 @@ interface CreateTransactionPayload {
   currency?: "UAH" | "USD" | "EUR" | "PLN";
   merchant_raw: string;
   category_name?: string;
-  source?: "manual" | "monobank" | "recurring" | "csv";
+  source?:
+    | "manual"
+    | "monobank"
+    | "recurring"
+    | "csv"
+    | "inzhur_statement"
+    | "bank_receipt_pdf";
   type?: "expense" | "income" | "investment";
   created_at?: string;
   exclude_from_budget?: boolean;
+  metadata?: Record<string, any> | null;
 }
 
 export function useTransactionMutations() {
@@ -187,6 +194,8 @@ export function useTransactionMutations() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      queryClient.invalidateQueries({ queryKey: ["recurring", "radar"] });
     },
   });
 
@@ -259,6 +268,7 @@ export function useTransactionMutations() {
         type: newTx.type || "expense",
         created_at: newTx.created_at || new Date().toISOString(),
         exclude_from_budget: false,
+        metadata: newTx.metadata || null,
       } as Transaction;
 
       queryClient.setQueriesData<Transaction[]>(
@@ -309,6 +319,8 @@ export function useTransactionMutations() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["recurring"] });
+      queryClient.invalidateQueries({ queryKey: ["recurring", "radar"] });
     },
   });
 

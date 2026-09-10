@@ -304,12 +304,19 @@ export function buildUpcomingSchedule(
 
     monthlyTotal += expectedUah;
 
-    // Шукаємо, чи була вже транзакція для цього шаблону в поточному місяці
+    // Шукаємо, чи була вже транзакція для цього шаблону в поточному періоді
     const matchedTx = monthExpenses.find((tx) => {
+      // 0. Прямий збіг за ID шаблону в метаданих транзакції
+      const metaRecId = (tx as any).metadata?.recurring_id;
+      if (metaRecId != null && Number(metaRecId) === tmpl.id) {
+        return true;
+      }
+
       // 1. Якщо джерело 'recurring' і збігається назва
       if (
         tx.source === "recurring" &&
-        tx.merchant_raw.toLowerCase().includes(tmpl.title.toLowerCase())
+        (tx.merchant_raw.toLowerCase().includes(tmpl.title.toLowerCase()) ||
+          tmpl.title.toLowerCase().includes(tx.merchant_raw.toLowerCase()))
       ) {
         return true;
       }
@@ -321,7 +328,8 @@ export function buildUpcomingSchedule(
       const nameMatch =
         cleanTx.includes(cleanTmpl) ||
         cleanTmpl.includes(cleanTx) ||
-        tx.merchant_raw.toLowerCase().includes(tmpl.title.toLowerCase());
+        tx.merchant_raw.toLowerCase().includes(tmpl.title.toLowerCase()) ||
+        tmpl.title.toLowerCase().includes(tx.merchant_raw.toLowerCase());
 
       const amountMatch =
         Math.abs(Number(tx.amount) - expectedUah) / Math.max(1, expectedUah) <=
@@ -335,6 +343,7 @@ export function buildUpcomingSchedule(
 
     if (matchedTx) {
       status = "paid";
+      daysRemaining = 0;
       paidThisMonth += Number(matchedTx.amount);
     } else {
       if (tmpl.day_of_month === currentDay) {

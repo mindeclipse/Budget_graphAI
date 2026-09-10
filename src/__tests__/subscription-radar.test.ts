@@ -280,5 +280,111 @@ describe("Subscription Radar Engine", () => {
       expect(netflix.status).toBe("overdue");
       expect(netflix.days_remaining).toBe(-15); // 5 - 20 = -15
     });
+
+    it("завчасне проведення підписки (Київстар заплановано на 11-е, проведено 10-го числа): статус paid, days_remaining 0, опускається в кінець", () => {
+      const kyivstarTemplate: RecurringItem = {
+        id: 77,
+        title: "Київстар",
+        amount: 250,
+        currency: "UAH",
+        category_name: "Підписки та сервіси",
+        day_of_month: 11,
+        is_active: true,
+      };
+
+      const spotifyTemplate: RecurringItem = {
+        id: 88,
+        title: "Spotify",
+        amount: 260,
+        currency: "UAH",
+        category_name: "Підписки та сервіси",
+        day_of_month: 18,
+        is_active: true,
+      };
+
+      // Сьогодні 10 вересня 2026 (за 1 день до планової дати 11 вересня)
+      const referenceDate = new Date(2026, 8, 10); // 8 = September
+
+      // Користувач завчасно провів платіж 10 вересня
+      const executedTransactions: Transaction[] = [
+        {
+          id: 501,
+          merchant_raw: "Київстар",
+          amount: 250,
+          currency: "UAH",
+          category_name: "Підписки та сервіси",
+          created_at: "2026-09-10T14:30:00Z",
+          source: "recurring",
+          type: "expense",
+          metadata: {
+            recurring_id: 77,
+          },
+        },
+      ];
+
+      const { upcoming, metrics } = buildUpcomingSchedule(
+        [kyivstarTemplate, spotifyTemplate],
+        executedTransactions,
+        41.5,
+        referenceDate
+      );
+
+      const kyivstar = upcoming.find((u) => u.id === 77)!;
+      const spotify = upcoming.find((u) => u.id === 88)!;
+
+      // Перевіряємо, що Київстар визнано сплаченим
+      expect(kyivstar.status).toBe("paid");
+      expect(kyivstar.days_remaining).toBe(0); // НЕ "Через 1 дн."!
+
+      // Spotify залишається майбутнім
+      expect(spotify.status).toBe("upcoming");
+      expect(spotify.days_remaining).toBe(8); // 18 - 10 = 8
+
+      // Перевіряємо порядок у списку: не оплачений Spotify перший, оплачений Київстар — внизу!
+      expect(upcoming[0].id).toBe(88); // Spotify
+      expect(upcoming[1].id).toBe(77); // Київстар (опустився вниз!)
+
+      // Метрики
+      expect(metrics.paid_this_month).toBe(250);
+      expect(metrics.remaining_this_month).toBe(260);
+    });
+
+    it("зіставляє транзакцію за metadata.recurring_id навіть якщо користувач ввів іншу назву мерчанта", () => {
+      const template: RecurringItem = {
+        id: 99,
+        title: "Apple iCloud",
+        amount: 120,
+        currency: "UAH",
+        category_name: "Підписки та сервіси",
+        day_of_month: 26,
+        is_active: true,
+      };
+
+      const transactions: Transaction[] = [
+        {
+          id: 502,
+          merchant_raw: "Оплата за хмару через термінал", // відмінна назва
+          amount: 120,
+          currency: "UAH",
+          category_name: "Підписки та сервіси",
+          created_at: "2026-09-10T15:00:00Z",
+          source: "recurring",
+          type: "expense",
+          metadata: {
+            recurring_id: 99,
+          },
+        },
+      ];
+
+      const { upcoming } = buildUpcomingSchedule(
+        [template],
+        transactions,
+        41.5,
+        new Date(2026, 8, 10)
+      );
+
+      expect(upcoming[0].status).toBe("paid");
+      expect(upcoming[0].days_remaining).toBe(0);
+    });
   });
 });

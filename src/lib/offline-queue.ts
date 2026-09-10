@@ -3,10 +3,17 @@ export interface QueuedTransactionPayload {
   currency?: "UAH" | "USD" | "EUR" | "PLN";
   merchant_raw: string;
   category_name?: string;
-  source?: "manual" | "monobank" | "recurring" | "csv";
+  source?:
+    | "manual"
+    | "monobank"
+    | "recurring"
+    | "csv"
+    | "inzhur_statement"
+    | "bank_receipt_pdf";
   type?: "expense" | "income" | "investment";
   created_at?: string;
   exclude_from_budget?: boolean;
+  metadata?: Record<string, any> | null;
 }
 
 export interface QueuedTransaction {

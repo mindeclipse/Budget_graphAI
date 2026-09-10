@@ -8,6 +8,7 @@ import {
   buildUpcomingSchedule,
 } from "@/lib/subscription-radar";
 import { Transaction, RecurringItem } from "@/types/finance";
+import { getCycleDateRange } from "@/lib/cycle-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -51,13 +52,14 @@ export async function GET(req: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Отримуємо транзакції за останні 180 днів для точного виявлення циклічності
+    // 1. Отримуємо транзакції за останні 180 днів для точного виявлення циклічності (виключаючи видалені)
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 180);
 
     const { data: rawTransactions, error: txError } = await supabaseAdmin
       .from("transactions")
       .select("*")
+      .is("deleted_at", null)
       .gte("created_at", fromDate.toISOString())
       .order("created_at", { ascending: true });
 
@@ -74,26 +76,46 @@ export async function GET(req: NextRequest) {
     const transactions = (rawTransactions || []) as Transaction[];
     const templates = (rawTemplates || []) as RecurringItem[];
 
-    // 3. Фільтруємо транзакції поточного місяця для аналізу статусів сплати
-    const now = new Date();
-    const startOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1
-    ).toISOString();
-    const endOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999
-    ).toISOString();
+    // 3. Визначаємо межі активного зарплатного циклу або календарного місяця
+    const { data: activeCycle } = await supabaseAdmin
+      .from("budget_cycles")
+      .select("*")
+      .eq("is_active", true)
+      .maybeSingle();
 
-    const currentMonthTransactions = transactions.filter(
-      (t) => t.created_at >= startOfMonth && t.created_at <= endOfMonth
-    );
+    const now = new Date();
+    let periodStart: Date;
+    let periodEnd: Date;
+
+    const fromQuery = searchParams.get("from");
+    const toQuery = searchParams.get("to");
+
+    if (fromQuery && toQuery) {
+      periodStart = new Date(fromQuery);
+      periodEnd = new Date(toQuery);
+    } else if (activeCycle && activeCycle.start_date) {
+      const cycleRange = getCycleDateRange(activeCycle, now);
+      periodStart = new Date(cycleRange.startDate);
+      periodStart.setHours(0, 0, 0, 0);
+      periodEnd = new Date(cycleRange.endDate);
+      periodEnd.setHours(23, 59, 59, 999);
+    } else {
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      periodEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
+    }
+
+    const currentPeriodTransactions = transactions.filter((t) => {
+      const time = new Date(t.created_at).getTime();
+      return time >= periodStart.getTime() && time <= periodEnd.getTime();
+    });
 
     // 4. Отримуємо актуальний комерційний курс USD
     const usdRate = await getUsdRate();
@@ -106,7 +128,7 @@ export async function GET(req: NextRequest) {
     );
     const { upcoming, metrics } = buildUpcomingSchedule(
       templates,
-      currentMonthTransactions,
+      currentPeriodTransactions,
       usdRate,
       now
     );

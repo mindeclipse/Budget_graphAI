@@ -90,7 +90,24 @@ export function SubscriptionRadar({
       );
     });
   }, [radarData?.detected, dismissedSignatures]);
-  const upcoming = radarData?.upcoming || [];
+  const sortedUpcoming = useMemo(() => {
+    const raw = radarData?.upcoming || [];
+    const statusOrder: Record<string, number> = {
+      due_today: 0,
+      upcoming: 1,
+      overdue: 2,
+      paid: 3,
+    };
+    return [...raw].sort((a, b) => {
+      const orderA = statusOrder[a.status] ?? 1;
+      const orderB = statusOrder[b.status] ?? 1;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return a.day_of_month - b.day_of_month;
+    });
+  }, [radarData?.upcoming]);
+
   const metrics = radarData?.metrics;
 
   const totalMonthly =
@@ -100,8 +117,8 @@ export function SubscriptionRadar({
   const remainingThisMonth = metrics?.remaining_this_month ?? 0;
   const paidThisMonth = metrics?.paid_this_month ?? 0;
 
-  const paidCount = upcoming.filter((u) => u.status === "paid").length;
-  const totalCount = upcoming.length;
+  const paidCount = sortedUpcoming.filter((u) => u.status === "paid").length;
+  const totalCount = sortedUpcoming.length;
   const progressPercent =
     totalCount > 0 ? Math.round((paidCount / totalCount) * 100) : 0;
 
@@ -142,7 +159,7 @@ export function SubscriptionRadar({
           }`}
         >
           <CalendarClock size={13} />
-          <span>Календар ({upcoming.length})</span>
+          <span>Календар ({sortedUpcoming.length})</span>
         </button>
 
         <button
@@ -201,13 +218,13 @@ export function SubscriptionRadar({
             </div>
           )}
 
-          {upcoming.length === 0 ? (
+          {sortedUpcoming.length === 0 ? (
             <div className="py-6 text-center text-xs text-zinc-600">
               Немає активних списань на цей місяць
             </div>
           ) : (
             <div className="space-y-2">
-              {upcoming.map((item) => {
+              {sortedUpcoming.map((item) => {
                 const originalTemplate = recurring.find(
                   (r) => r.id === item.id
                 );

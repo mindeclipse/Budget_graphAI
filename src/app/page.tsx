@@ -35,6 +35,8 @@ import { DetectedSubscription } from "@/lib/subscription-radar";
 import { BurnRateChart } from "@/components/dashboard/BurnRateChart";
 import { MoMComparison } from "@/components/dashboard/MoMComparison";
 import { QuickActionsListener } from "@/components/QuickActionsListener";
+import { triggerHaptic } from "@/lib/haptics";
+import { toast } from "sonner";
 
 // Dynamic Code Splitting для важких модальних вікон
 const CategoryDetailModal = dynamic(
@@ -147,6 +149,7 @@ export default function Dashboard() {
     radar: radarData,
     isLoadingRadar,
     invalidateRadar,
+    markRecurringPaidOptimistic,
   } = useFinanceQueries(isAuthenticated);
 
   // Відфільтровуємо транзакції, виключені з бюджету
@@ -692,6 +695,14 @@ export default function Dashboard() {
         merchantTitle = `${item.title} ($${item.amount})`;
       }
 
+      // 1. Миттєве оптимістичне оновлення Радара (0ms) — підписка одразу стає «Сплачено» та опускається вниз
+      markRecurringPaidOptimistic(item.id, finalAmount);
+      triggerHaptic("success");
+      toast.success("Підписку проведено", {
+        description: `${item.title} — ${finalAmount.toLocaleString("uk-UA")} ₴ враховано в цьому циклі`,
+      });
+
+      // 2. Створення транзакції з метаданими прив'язки до шаблону
       const newTx = {
         amount: finalAmount,
         currency: "UAH" as const,
@@ -699,15 +710,24 @@ export default function Dashboard() {
         category_name: item.category_name,
         source: "recurring" as const,
         type: "expense" as const,
+        metadata: {
+          recurring_id: item.id,
+        },
       };
 
       createTransaction(newTx, {
+        onSuccess: () => {
+          invalidateRadar();
+          invalidateRecurring();
+        },
         onError: (err: any) => {
           console.error("Помилка списання регулярного платежу:", err);
+          invalidateRadar();
         },
       });
     } catch (err) {
       console.error("Помилка підготовки транзакції:", err);
+      invalidateRadar();
     } finally {
       setIsExecutingRecurring(null);
     }

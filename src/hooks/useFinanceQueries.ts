@@ -140,6 +140,55 @@ export function useFinanceQueries(
     queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.radar });
   };
 
+  const markRecurringPaidOptimistic = (itemId: number, paidAmount: number) => {
+    queryClient.setQueryData(
+      FINANCE_KEYS.radar,
+      (old: SubscriptionRadarResult | undefined) => {
+        if (!old) return old;
+        const updatedUpcoming = (old.upcoming || []).map((u) => {
+          if (u.id === itemId) {
+            return {
+              ...u,
+              status: "paid" as const,
+              days_remaining: 0,
+              paid_at: new Date().toISOString(),
+              paid_amount: paidAmount,
+            };
+          }
+          return u;
+        });
+
+        const statusOrder: Record<string, number> = {
+          due_today: 0,
+          upcoming: 1,
+          overdue: 2,
+          paid: 3,
+        };
+        updatedUpcoming.sort((a, b) => {
+          const orderA = statusOrder[a.status] ?? 1;
+          const orderB = statusOrder[b.status] ?? 1;
+          if (orderA !== orderB) {
+            return orderA - orderB;
+          }
+          return a.day_of_month - b.day_of_month;
+        });
+
+        return {
+          ...old,
+          upcoming: updatedUpcoming,
+          metrics: {
+            ...old.metrics,
+            paid_this_month: (old.metrics?.paid_this_month || 0) + paidAmount,
+            remaining_this_month: Math.max(
+              0,
+              (old.metrics?.remaining_this_month || 0) - paidAmount
+            ),
+          },
+        };
+      }
+    );
+  };
+
   return {
     transactions: transactionsQuery.data || [],
     isLoadingTransactions: transactionsQuery.isLoading,
@@ -155,6 +204,7 @@ export function useFinanceQueries(
     invalidateInvestmentTransactions,
     invalidateRecurring,
     invalidateRadar,
+    markRecurringPaidOptimistic,
   };
 }
 
