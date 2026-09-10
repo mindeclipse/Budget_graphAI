@@ -13,26 +13,26 @@ import {
 } from "recharts";
 import { TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
 
-interface Transaction {
+import { Transaction, RecurringItem, BudgetCycle } from "@/types/finance";
+
+export type { BudgetCycle, RecurringItem, Transaction };
+
+export type BurnRateTransaction = {
   id?: number | string;
   amount: number | string;
   created_at: string;
-  type?: string;
+  type?: "expense" | "income" | "investment" | string;
   exclude_from_budget?: boolean;
-}
+} & Omit<Partial<Transaction>, "id" | "type">;
 
-import { BudgetCycle } from "@/types/finance";
-
-export interface RecurringItem {
+export type BurnRateRecurringItem = {
   id?: number | string;
   title?: string;
   amount: number | string;
   day_of_month: number;
-  currency?: string;
+  currency?: "UAH" | "USD" | string;
   is_active?: boolean;
-}
-
-export type { BudgetCycle };
+} & Omit<Partial<RecurringItem>, "id" | "currency">;
 
 export interface BurnRatePoint {
   day: number;
@@ -43,11 +43,11 @@ export interface BurnRatePoint {
 }
 
 export interface CalculateBurnRateParams {
-  transactions: Transaction[];
+  transactions: (Transaction | BurnRateTransaction)[];
   budgetLimit: number;
   recurringTotal?: number;
   selectedMonthKey: string;
-  recurring?: RecurringItem[];
+  recurring?: (RecurringItem | BurnRateRecurringItem)[];
   usdRate?: number;
   activeCycle?: BudgetCycle | null;
   currentDate?: Date;

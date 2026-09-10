@@ -22,7 +22,7 @@ import { DailyDynamicsChart } from "@/components/dashboard/DailyDynamicsChart";
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
 import { AICard } from "@/components/dashboard/AICard";
 import { TransactionsList } from "@/components/dashboard/TransactionsList";
-import { RecurringSection } from "@/components/dashboard/RecurringSection";
+import { SubscriptionRadar } from "@/components/dashboard/SubscriptionRadar";
 import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
 import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
 import { WishlistCard } from "@/components/dashboard/WishlistCard";
@@ -974,10 +974,10 @@ export default function Dashboard() {
               onDeleteCategoryBudget={handleDeleteCategoryBudget}
             />
 
-            <RecurringSection
+            <SubscriptionRadar
               recurring={recurring}
               radarData={radarData}
-              isLoadingRadar={isLoadingRadar}
+              isLoading={isLoadingRadar}
               onAddRecurring={() => {
                 setEditingRecurring(null);
                 setIsAddingRecurring(true);

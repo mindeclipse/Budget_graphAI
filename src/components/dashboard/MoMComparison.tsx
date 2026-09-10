@@ -15,14 +15,7 @@ import {
 } from "lucide-react";
 import { calculatePersonalCpi, PersonalCpiReport } from "@/lib/personal-cpi";
 import { usePersonalCpiQuery } from "@/hooks/useFinanceQueries";
-
-interface Transaction {
-  id: number;
-  amount: number;
-  category_name: string;
-  type?: string;
-  created_at: string;
-}
+import { Transaction } from "@/types/finance";
 
 interface MoMComparisonProps {
   currentTransactions: Transaction[];
