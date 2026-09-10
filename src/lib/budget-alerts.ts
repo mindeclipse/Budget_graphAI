@@ -21,7 +21,6 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
   const now = new Date();
 
   const kyivTodayStr = getKyivDateString(now);
-  const kyivMonthStr = kyivTodayStr.slice(0, 7); // "YYYY-MM"
 
   // 1. Дедуплікація сповіщень за сьогодні
   const { data: existingAlert } = await supabase

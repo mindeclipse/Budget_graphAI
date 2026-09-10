@@ -4,7 +4,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { Type, Schema } from "@google/genai";
 import { cleanMerchantRaw } from "@/lib/normalize";
 import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
-import { timingSafeEqual } from "@/lib/security";
+import { getClientIp, timingSafeEqual } from "@/lib/security";
+import { checkAiRateLimit } from "@/lib/rate-limiter";
 import { z } from "zod";
 
 const classifySchema: Schema = {
@@ -53,6 +54,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized: Invalid or missing Bearer token" },
         { status: 401 }
+      );
+    }
+
+    // 2. Захист квоти Gemini від зациклених викликів (макс. 60 / хв)
+    const ip = getClientIp(req.headers);
+    const rateLimit = checkAiRateLimit(`ai_classify_${ip}`, 60, 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Забагато запитів класифікації. Зачекайте ${rateLimit.retryAfterSeconds} с.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds || 60),
+          },
+        }
       );
     }
 
@@ -151,16 +169,34 @@ export async function POST(req: NextRequest) {
 
       try {
         const ai = getGeminiClient();
-        const response = await ai.models.generateContent({
-          model: GEMINI_MODELS.CLASSIFICATION,
-          contents: prompt,
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: classifySchema,
-            temperature: 0.1,
-          },
-        });
+        let response;
+        try {
+          response = await ai.models.generateContent({
+            model: GEMINI_MODELS.CLASSIFICATION,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json",
+              responseSchema: classifySchema,
+              temperature: 0.1,
+            },
+          });
+        } catch (primaryErr) {
+          console.warn(
+            `Primary classification model ${GEMINI_MODELS.CLASSIFICATION} failed, falling back to ${GEMINI_MODELS.FAST}:`,
+            primaryErr
+          );
+          response = await ai.models.generateContent({
+            model: GEMINI_MODELS.FAST,
+            contents: prompt,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json",
+              responseSchema: classifySchema,
+              temperature: 0.1,
+            },
+          });
+        }
 
         const parsed = JSON.parse(response.text || "{}");
         cleanTitle = parsed.cleanTitle || cleaned;

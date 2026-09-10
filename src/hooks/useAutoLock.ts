@@ -45,8 +45,13 @@ export function useAutoLock({
       "touchstart",
     ];
 
+    let lastActivityTime = 0;
     const handleActivity = () => {
-      resetInactivityTimer();
+      const now = Date.now();
+      if (now - lastActivityTime >= 1000) {
+        lastActivityTime = now;
+        resetInactivityTimer();
+      }
     };
 
     events.forEach((evt) =>

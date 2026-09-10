@@ -15,6 +15,12 @@ import {
   setCachedCredentials,
   updateCachedCredentialCounter,
 } from "@/lib/webauthn-cache";
+import { getClientIp } from "@/lib/security";
+import {
+  checkRateLimit,
+  recordFailedAttempt,
+  resetRateLimit,
+} from "@/lib/rate-limiter";
 
 function getRpInfo(req: Request) {
   const host =
@@ -89,6 +95,18 @@ export async function GET(req: Request) {
 
 // POST: швидка перевірка підпису Face ID без повторного SELECT до бази даних
 export async function POST(req: Request) {
+  const ip = getClientIp(new Headers(req.headers));
+  const rateKey = `webauthn_${ip}`;
+  const limitStatus = await checkRateLimit(rateKey);
+  if (!limitStatus.allowed) {
+    return NextResponse.json(
+      {
+        error: `Забагато спроб біометричного входу. Спробуйте через ${limitStatus.waitMinutes || 15} хв.`,
+      },
+      { status: 429 }
+    );
+  }
+
   const cookieStore = await cookies();
   const rawChallengeCookie = cookieStore.get("webauthn_auth_challenge")?.value;
 
@@ -155,11 +173,15 @@ export async function POST(req: Request) {
     });
 
     if (!verification.verified) {
+      await recordFailedAttempt(rateKey);
       return NextResponse.json(
         { error: "Біометричний підпис не підтверджено" },
         { status: 401 }
       );
     }
+
+    // Скидаємо лічильник помилок при успішному вході
+    await resetRateLimit(rateKey);
 
     const newCounter = verification.authenticationInfo.newCounter;
 
