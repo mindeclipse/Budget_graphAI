@@ -87,19 +87,40 @@ export async function POST(req: NextRequest) {
     ).trim();
 
     const supabase = getSupabaseAdmin();
-    // В БД колонка називається clean_merchant
-    const { data, error } = await supabase
+    // Перевіряємо case-insensitive збіг патерну, щоб запобігти дублюванню (наприклад: Ovatsiia та ovatsiia)
+    const { data: existingRule } = await supabase
       .from("merchant_rules")
-      .upsert(
-        {
+      .select("id")
+      .ilike("pattern", cleanPattern)
+      .maybeSingle();
+
+    let data, error;
+    if (existingRule) {
+      const res = await supabase
+        .from("merchant_rules")
+        .update({
           pattern: cleanPattern,
           clean_merchant: finalCleanMerchant,
           category_name: category_name.trim(),
-        },
-        { onConflict: "pattern" }
-      )
-      .select()
-      .single();
+        })
+        .eq("id", existingRule.id)
+        .select()
+        .single();
+      data = res.data;
+      error = res.error;
+    } else {
+      const res = await supabase
+        .from("merchant_rules")
+        .insert({
+          pattern: cleanPattern,
+          clean_merchant: finalCleanMerchant,
+          category_name: category_name.trim(),
+        })
+        .select()
+        .single();
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.error("[API merchant-rules POST] DB error:", error);
@@ -142,11 +163,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    const cleanPattern = pattern.trim().toLowerCase();
     const supabase = getSupabaseAdmin();
     const { error } = await supabase
       .from("merchant_rules")
       .delete()
-      .eq("pattern", pattern.trim());
+      .ilike("pattern", cleanPattern);
 
     if (error) {
       console.error("[API merchant-rules DELETE] DB error:", error);

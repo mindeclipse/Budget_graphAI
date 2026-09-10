@@ -127,8 +127,13 @@ export async function POST(req: NextRequest) {
       const lowerCleaned = cleaned.toLowerCase();
       const lowerRaw = validMerchant.toLowerCase();
 
-      const matchedRule = rules.find((r) => {
-        const p = r.pattern.toLowerCase();
+      // Сортуємо правила від довших до коротших патернів, щоб специфічні правила мали вищий пріоритет
+      const sortedRules = [...rules].sort(
+        (a, b) => (b.pattern?.length || 0) - (a.pattern?.length || 0)
+      );
+
+      const matchedRule = sortedRules.find((r) => {
+        const p = (r.pattern || "").toLowerCase();
         return lowerCleaned.includes(p) || lowerRaw.includes(p);
       });
 
@@ -206,15 +211,35 @@ export async function POST(req: NextRequest) {
         categoryName = parsed.categoryName || "Інше";
         classificationSource = "gemini_ai";
 
-        // Кешуємо нове правило в базу, щоб наступного разу спрацював Ешелон 1
-        await supabaseAdmin.from("merchant_rules").upsert(
-          {
-            pattern: cleaned,
-            clean_merchant: cleanTitle,
-            category_name: categoryName,
-          },
-          { onConflict: "pattern" }
-        );
+        // Кешуємо нове правило в базу (у нижньому регістрі), щоб наступного разу спрацював Ешелон 1
+        const patternToSave = cleanMerchantRaw(rawMerchant || cleaned)
+          .trim()
+          .toLowerCase();
+
+        if (patternToSave) {
+          const { data: existingRule } = await supabaseAdmin
+            .from("merchant_rules")
+            .select("id")
+            .ilike("pattern", patternToSave)
+            .maybeSingle();
+
+          if (existingRule) {
+            await supabaseAdmin
+              .from("merchant_rules")
+              .update({
+                pattern: patternToSave,
+                clean_merchant: cleanTitle,
+                category_name: categoryName,
+              })
+              .eq("id", existingRule.id);
+          } else {
+            await supabaseAdmin.from("merchant_rules").insert({
+              pattern: patternToSave,
+              clean_merchant: cleanTitle,
+              category_name: categoryName,
+            });
+          }
+        }
       } catch (aiErr) {
         console.error("Gemini classification failed, using fallbacks:", aiErr);
       }
@@ -226,12 +251,16 @@ export async function POST(req: NextRequest) {
       .insert({
         amount,
         currency,
-        merchant_raw: cleanTitle, // зберігаємо зрозумілу назву для інтерфейсу
+        merchant_raw: cleanTitle || cleaned || rawMerchant,
         category_name: categoryName,
         source,
         type,
         created_at: new Date().toISOString(),
         exclude_from_budget: false,
+        metadata: {
+          raw_merchant: rawMerchant,
+          classification_source: classificationSource,
+        },
       })
       .select()
       .single();

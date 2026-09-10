@@ -327,16 +327,47 @@ export async function PATCH(req: NextRequest) {
 
     if (txError) throw txError;
 
-    if (save_as_rule && merchant_raw && category_name) {
-      const pattern = cleanMerchantRaw(merchant_raw);
-      await supabase.from("merchant_rules").upsert(
-        {
-          pattern,
-          clean_merchant: clean_title || pattern,
-          category_name,
-        },
-        { onConflict: "pattern" }
-      );
+    if (save_as_rule && category_name) {
+      // Пріоритет: вихідна назва мерчанта з metadata.raw_merchant (якщо транзакція з банку/Apple Pay),
+      // інакше поточний merchant_raw транзакції
+      const { data: currentTx } = await supabase
+        .from("transactions")
+        .select("metadata, merchant_raw")
+        .eq("id", id)
+        .maybeSingle();
+
+      const sourceMerchant =
+        currentTx?.metadata?.raw_merchant ||
+        merchant_raw ||
+        currentTx?.merchant_raw;
+
+      if (sourceMerchant) {
+        const pattern = cleanMerchantRaw(sourceMerchant).trim().toLowerCase();
+        if (pattern) {
+          const { data: existingRule } = await supabase
+            .from("merchant_rules")
+            .select("id")
+            .ilike("pattern", pattern)
+            .maybeSingle();
+
+          if (existingRule) {
+            await supabase
+              .from("merchant_rules")
+              .update({
+                pattern,
+                clean_merchant: clean_title || pattern,
+                category_name,
+              })
+              .eq("id", existingRule.id);
+          } else {
+            await supabase.from("merchant_rules").insert({
+              pattern,
+              clean_merchant: clean_title || pattern,
+              category_name,
+            });
+          }
+        }
+      }
     }
 
     return NextResponse.json({ success: true, updated: updatedRows?.[0] });

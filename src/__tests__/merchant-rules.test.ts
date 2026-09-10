@@ -116,4 +116,53 @@ describe("Merchant Rules Auto-Categorization Engine", () => {
     expect(match?.cleanTitle).toBe("Doner Kebab на Шевченка");
     expect(match?.category).toBe("Кафе та ресторани");
   });
+
+  it("надає вищий пріоритет довшим та більш специфічним патернам", () => {
+    const rules: MerchantRule[] = [
+      {
+        pattern: "blyzenko",
+        clean_merchant: "Близенько",
+        category_name: "Продукти",
+      },
+      {
+        pattern: "blyzenko lviv ekspres",
+        clean_merchant: "Близенько Експрес",
+        category_name: "Продукти",
+      },
+    ];
+
+    // Сортування за спаданням довжини патерна
+    const sorted = [...rules].sort(
+      (a, b) => (b.pattern?.length || 0) - (a.pattern?.length || 0)
+    );
+
+    const raw = "Blyzenko Lviv Ekspres #12";
+    const cleaned = cleanMerchantRaw(raw);
+    const matched = sorted.find((r) => {
+      const p = r.pattern.toLowerCase();
+      return cleaned.toLowerCase().includes(p) || raw.toLowerCase().includes(p);
+    });
+
+    expect(matched?.clean_merchant).toBe("Близенько Експрес");
+  });
+
+  it("гарантує збіг патернів незалежно від регістру (Ovatsiia vs ovatsiia)", () => {
+    const rules: MerchantRule[] = [
+      {
+        pattern: "ovatsiia",
+        clean_merchant: "Чарка",
+        category_name: "Куріння",
+      },
+    ];
+
+    const raw = "Ovatsiia";
+    const cleaned = cleanMerchantRaw(raw);
+    const matched = rules.find((r) => {
+      const p = r.pattern.toLowerCase();
+      return cleaned.toLowerCase().includes(p) || raw.toLowerCase().includes(p);
+    });
+
+    expect(matched).toBeDefined();
+    expect(matched?.clean_merchant).toBe("Чарка");
+  });
 });
