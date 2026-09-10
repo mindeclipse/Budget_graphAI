@@ -28,6 +28,7 @@ import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
 import { WishlistCard } from "@/components/dashboard/WishlistCard";
 import { CostPerUseCard } from "@/components/dashboard/CostPerUseCard";
 import { CapitalHistoryCard } from "@/components/dashboard/CapitalHistoryCard";
+import { CapitalYieldMetrics } from "@/components/dashboard/CapitalYieldMetrics";
 import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { exportFinancialDataToExcel } from "@/lib/export-excel";
 import { DetectedSubscription } from "@/lib/subscription-radar";
@@ -1068,6 +1069,13 @@ export default function Dashboard() {
       {/* Вкладка 3: Капітал & Цілі (Скарбнички, Runway, Інвестиційний портфель, Анти-імпульс, Cost-per-Use та Окрема історія капіталу) */}
       {activeTab === "wealth" && (
         <div className="space-y-6">
+          {/* Зведена аналітика капіталу: Середньозважена доходність (%) та Прогноз річного прибутку (грн) */}
+          <CapitalYieldMetrics
+            investments={investments}
+            savingsGoals={savingsGoals}
+            rates={commercialRates}
+          />
+
           {/* Ряд 1: Скарбнички та Інвестиційний портфель */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <SavingsGoalsCard
