@@ -315,6 +315,7 @@ describe("Inzhur Statement Parser & Security", () => {
       interface MockTx {
         id: number;
         type: string;
+        source?: string;
         category_name: string;
         merchant_raw: string;
         amount: number;
@@ -323,42 +324,36 @@ describe("Inzhur Statement Parser & Security", () => {
         tags?: string[];
       }
 
-      // Імітація окремого запиту інвестицій (5000 записів Inzhur)
+      // Імітація виписки Inzhur: є зарахування на 20000 ₴ та купівля ОВДП
       const investmentTransactions: MockTx[] = [
         {
           id: 101,
           type: "investment",
+          source: "inzhur_statement",
           category_name: "Інвестиції",
-          merchant_raw: "Inzhur REIT • Дивіденди",
-          amount: 500,
-          created_at: "2026-09-01T12:00:00Z",
+          merchant_raw: "Поповнення брокерського рахунку",
+          amount: 20000,
+          created_at: "2026-09-05T12:00:00Z",
           exclude_from_budget: false,
         },
         {
           id: 102,
           type: "investment",
+          source: "inzhur_statement",
           category_name: "Інвестиції",
-          merchant_raw: "ОВДП • Купівля",
-          amount: 10000,
-          created_at: "2026-08-15T12:00:00Z",
+          merchant_raw: "ОВДП • Купівля 20 облігацій",
+          amount: 20050,
+          created_at: "2026-09-05T12:00:00Z",
           exclude_from_budget: false,
         },
       ];
 
-      // Імітація загального списку транзакцій, де є банківський переказ на Inzhur та дублікат id 101
+      // Імітація загального списку транзакцій (виписка банку)
       const rawTransactions: MockTx[] = [
         {
-          id: 101, // дублікат id 101 (наявний в обох джерелах)
-          type: "investment",
-          category_name: "Інвестиції",
-          merchant_raw: "Inzhur REIT • Дивіденди",
-          amount: 500,
-          created_at: "2026-09-01T12:00:00Z",
-          exclude_from_budget: false,
-        },
-        {
-          id: 250, // банківський переказ на Inzhur з Привату (type: transfer)
+          id: 250, // Банківський переказ на Inzhur (той самий платіж на 20000 ₴, що вже є в Inzhur виписці як id 101)
           type: "transfer",
+          source: "privatbank_statement",
           category_name: "Інвестиції (Inzhur)",
           merchant_raw: "ТОВ «ІНЖУР КЕПІТАЛ»",
           amount: 20000,
@@ -366,8 +361,19 @@ describe("Inzhur Statement Parser & Security", () => {
           exclude_from_budget: false,
         },
         {
-          id: 999, // звичайна витрата (не капітал)
+          id: 260, // Свіжий банківський переказ на Inzhur, для якого ще немає виписки Inzhur
+          type: "transfer",
+          source: "privatbank_statement",
+          category_name: "Інвестиції (Inzhur)",
+          merchant_raw: "ТОВ «ІНЖУР КЕПІТАЛ»",
+          amount: 5000,
+          created_at: "2026-09-09T10:00:00Z",
+          exclude_from_budget: false,
+        },
+        {
+          id: 999, // Звичайна витрата (не капітал)
           type: "expense",
+          source: "privatbank_statement",
           category_name: "Продукти",
           merchant_raw: "Сільпо",
           amount: 450,
@@ -375,8 +381,9 @@ describe("Inzhur Statement Parser & Security", () => {
           exclude_from_budget: false,
         },
         {
-          id: 888, // поповнення скарбнички
+          id: 888, // Поповнення скарбнички
           type: "transfer",
+          source: "privatbank_statement",
           category_name: "Заощадження",
           merchant_raw: "Скарбничка",
           amount: 1000,
@@ -385,14 +392,18 @@ describe("Inzhur Statement Parser & Security", () => {
         },
       ];
 
-      // Логіка об'єднання з Dashboard (src/app/page.tsx)
-      const txMap = new Map<number, any>();
+      // Логіка розумної дедуплікації (src/app/page.tsx)
+      const txMap = new Map<number, MockTx>();
 
       for (const t of investmentTransactions) {
         if (!t.exclude_from_budget) {
           txMap.set(t.id, t);
         }
       }
+
+      const hasInzhurStatement = investmentTransactions.some(
+        (t) => t.source === "inzhur_statement"
+      );
 
       for (const t of rawTransactions) {
         if (t.exclude_from_budget) continue;
@@ -406,9 +417,32 @@ describe("Inzhur Statement Parser & Security", () => {
               tag.toLowerCase().includes("інвест")
           );
 
-        if (isCapital) {
-          txMap.set(t.id, t);
+        if (!isCapital) continue;
+
+        const isInzhurBankTransfer =
+          t.source !== "inzhur_statement" &&
+          (t.merchant_raw?.toLowerCase().includes("інжур") ||
+            t.merchant_raw?.toLowerCase().includes("inzhur") ||
+            t.category_name?.toLowerCase().includes("inzhur"));
+
+        if (isInzhurBankTransfer && hasInzhurStatement) {
+          const hasMatchingInzhurDeposit = investmentTransactions.some(
+            (inv) =>
+              inv.source === "inzhur_statement" &&
+              Math.abs(Number(inv.amount) - Number(t.amount)) < 0.01 &&
+              Math.abs(
+                new Date(inv.created_at).getTime() -
+                  new Date(t.created_at).getTime()
+              ) <
+                3 * 24 * 60 * 60 * 1000
+          );
+
+          if (hasMatchingInzhurDeposit) {
+            continue; // Відсікаємо банківський дублікат id 250!
+          }
         }
+
+        txMap.set(t.id, t);
       }
 
       const merged = Array.from(txMap.values()).sort(
@@ -416,12 +450,21 @@ describe("Inzhur Statement Parser & Security", () => {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
-      // Має містити 4 операції: id 888, 250, 101, 102 (без дубля 101 та без звичайної витрати 999)
+      // Має містити:
+      // 1. id 260 (свіжий переказ 5000 ₴, виписки якого ще немає)
+      // 2. id 888 (скарбничка 1000 ₴)
+      // 3. id 101 (Поповнення брокерського рахунку 20000 ₴ з Inzhur)
+      // 4. id 102 (Купівля ОВДП 20050 ₴ з Inzhur)
+      // І жодного дубліката id 250 (банківський переказ на 20000 ₴ відсічено, бо є id 101)
       expect(merged.length).toBe(4);
-      expect(merged.map((m) => m.id)).toEqual([888, 250, 101, 102]);
-      expect(merged.find((m) => m.id === 250)?.merchant_raw).toBe(
+      expect(merged.find((m) => m.id === 250)).toBeUndefined(); // Дублікат відсічено!
+      expect(merged.find((m) => m.id === 101)?.merchant_raw).toBe(
+        "Поповнення брокерського рахунку"
+      );
+      expect(merged.find((m) => m.id === 260)?.merchant_raw).toBe(
         "ТОВ «ІНЖУР КЕПІТАЛ»"
       );
+      expect(merged.find((m) => m.id === 888)?.merchant_raw).toBe("Скарбничка");
       expect(merged.find((m) => m.id === 999)).toBeUndefined();
     });
 
