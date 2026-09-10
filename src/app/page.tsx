@@ -622,7 +622,9 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Помилка збереження бюджету:", error);
       if (activeCycle?.budget_limit) {
-        setActiveCycle((prev: BudgetCycle | null) => (prev ? { ...prev } : null));
+        setActiveCycle((prev: BudgetCycle | null) =>
+          prev ? { ...prev } : null
+        );
       }
     }
   };

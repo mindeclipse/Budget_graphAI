@@ -23,7 +23,8 @@ export function getCycleDateRange(
     const endDate = cycle.end_date
       ? new Date(cycle.end_date)
       : new Date(
-          startDate.getTime() + DEFAULT_CYCLE_DURATION_DAYS * 24 * 60 * 60 * 1000
+          startDate.getTime() +
+            DEFAULT_CYCLE_DURATION_DAYS * 24 * 60 * 60 * 1000
         );
 
     return {
