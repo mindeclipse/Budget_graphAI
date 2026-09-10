@@ -496,15 +496,42 @@ export default function Dashboard() {
     });
   }, [filteredTransactions, deferredSearchQuery, activeTag]);
 
-  // Вибірка транзакцій для вкладки "Капітал & Цілі" — використовує окремий
-  // запит investmentTransactions (ліміт 5000, без date-фільтру), щоб
-  // охопити всю повну історію Inzhur/ОВДП незалежно від кількості витрат.
+  // Вибірка транзакцій для вкладки "Капітал & Цілі" — поєднує:
+  // 1) Окремий запит investmentTransactions (ліміт 5000, без date-фільтру) для всієї історії Inzhur/ОВДП
+  // 2) Транзакції з загального списку rawTransactions, що стосуються капіталу (банківські перекази на Inzhur,
+  //    поповнення скарбничок, операції з категорій «Інвестиції» чи «Заощадження», або з тегами «капітал»/«інвест»)
+  // 3) Гарантована дедуплікація за id через Map та сортування за спаданням дати
   const capitalTransactions = useMemo(() => {
-    return [...investmentTransactions].sort(
+    const txMap = new Map<number, Transaction>();
+
+    for (const t of investmentTransactions) {
+      if (!t.exclude_from_budget) {
+        txMap.set(t.id, t);
+      }
+    }
+
+    for (const t of rawTransactions) {
+      if (t.exclude_from_budget) continue;
+      const isCapital =
+        t.type === "investment" ||
+        t.category_name?.toLowerCase().includes("інвест") ||
+        t.category_name?.toLowerCase().includes("заощадж") ||
+        t.tags?.some(
+          (tag: string) =>
+            tag.toLowerCase().includes("капітал") ||
+            tag.toLowerCase().includes("інвест")
+        );
+
+      if (isCapital) {
+        txMap.set(t.id, t);
+      }
+    }
+
+    return Array.from(txMap.values()).sort(
       (a: Transaction, b: Transaction) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [investmentTransactions]);
+  }, [investmentTransactions, rawTransactions]);
 
   // 8. Стан модальних вікон
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);

@@ -36,7 +36,12 @@ export async function GET(req: NextRequest) {
 
     // Фільтрація за типом транзакції через allowlist (захист від ін'єкцій)
     const rawTypeParam = searchParams.get("type");
-    const ALLOWED_TYPES = ["investment", "expense"] as const;
+    const ALLOWED_TYPES = [
+      "investment",
+      "expense",
+      "income",
+      "transfer",
+    ] as const;
     type AllowedType = (typeof ALLOWED_TYPES)[number];
     const typeFilter: AllowedType | null =
       rawTypeParam && ALLOWED_TYPES.includes(rawTypeParam as AllowedType)

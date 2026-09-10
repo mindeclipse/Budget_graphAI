@@ -310,5 +310,148 @@ describe("Inzhur Statement Parser & Security", () => {
       const capitalOps = transactions.filter(capitalFilter);
       expect(capitalOps.length).toBe(2);
     });
+
+    it("перевіряє дедуплікацію та коректне об'єднання investmentTransactions з банківськими переказами на Inzhur", () => {
+      interface MockTx {
+        id: number;
+        type: string;
+        category_name: string;
+        merchant_raw: string;
+        amount: number;
+        created_at: string;
+        exclude_from_budget: boolean;
+        tags?: string[];
+      }
+
+      // Імітація окремого запиту інвестицій (5000 записів Inzhur)
+      const investmentTransactions: MockTx[] = [
+        {
+          id: 101,
+          type: "investment",
+          category_name: "Інвестиції",
+          merchant_raw: "Inzhur REIT • Дивіденди",
+          amount: 500,
+          created_at: "2026-09-01T12:00:00Z",
+          exclude_from_budget: false,
+        },
+        {
+          id: 102,
+          type: "investment",
+          category_name: "Інвестиції",
+          merchant_raw: "ОВДП • Купівля",
+          amount: 10000,
+          created_at: "2026-08-15T12:00:00Z",
+          exclude_from_budget: false,
+        },
+      ];
+
+      // Імітація загального списку транзакцій, де є банківський переказ на Inzhur та дублікат id 101
+      const rawTransactions: MockTx[] = [
+        {
+          id: 101, // дублікат id 101 (наявний в обох джерелах)
+          type: "investment",
+          category_name: "Інвестиції",
+          merchant_raw: "Inzhur REIT • Дивіденди",
+          amount: 500,
+          created_at: "2026-09-01T12:00:00Z",
+          exclude_from_budget: false,
+        },
+        {
+          id: 250, // банківський переказ на Inzhur з Привату (type: transfer)
+          type: "transfer",
+          category_name: "Інвестиції (Inzhur)",
+          merchant_raw: "ТОВ «ІНЖУР КЕПІТАЛ»",
+          amount: 20000,
+          created_at: "2026-09-05T10:00:00Z",
+          exclude_from_budget: false,
+        },
+        {
+          id: 999, // звичайна витрата (не капітал)
+          type: "expense",
+          category_name: "Продукти",
+          merchant_raw: "Сільпо",
+          amount: 450,
+          created_at: "2026-09-06T10:00:00Z",
+          exclude_from_budget: false,
+        },
+        {
+          id: 888, // поповнення скарбнички
+          type: "transfer",
+          category_name: "Заощадження",
+          merchant_raw: "Скарбничка",
+          amount: 1000,
+          created_at: "2026-09-08T10:00:00Z",
+          exclude_from_budget: false,
+        },
+      ];
+
+      // Логіка об'єднання з Dashboard (src/app/page.tsx)
+      const txMap = new Map<number, any>();
+
+      for (const t of investmentTransactions) {
+        if (!t.exclude_from_budget) {
+          txMap.set(t.id, t);
+        }
+      }
+
+      for (const t of rawTransactions) {
+        if (t.exclude_from_budget) continue;
+        const isCapital =
+          t.type === "investment" ||
+          t.category_name?.toLowerCase().includes("інвест") ||
+          t.category_name?.toLowerCase().includes("заощадж") ||
+          t.tags?.some(
+            (tag: string) =>
+              tag.toLowerCase().includes("капітал") ||
+              tag.toLowerCase().includes("інвест")
+          );
+
+        if (isCapital) {
+          txMap.set(t.id, t);
+        }
+      }
+
+      const merged = Array.from(txMap.values()).sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Має містити 4 операції: id 888, 250, 101, 102 (без дубля 101 та без звичайної витрати 999)
+      expect(merged.length).toBe(4);
+      expect(merged.map((m) => m.id)).toEqual([888, 250, 101, 102]);
+      expect(merged.find((m) => m.id === 250)?.merchant_raw).toBe(
+        "ТОВ «ІНЖУР КЕПІТАЛ»"
+      );
+      expect(merged.find((m) => m.id === 999)).toBeUndefined();
+    });
+
+    it("перевіряє безпеку allowlist ALLOWED_TYPES для фільтрації транзакцій", () => {
+      const ALLOWED_TYPES = [
+        "investment",
+        "expense",
+        "income",
+        "transfer",
+      ] as const;
+      type AllowedType = (typeof ALLOWED_TYPES)[number];
+
+      const validateType = (raw: string | null): AllowedType | null => {
+        return raw && ALLOWED_TYPES.includes(raw as AllowedType)
+          ? (raw as AllowedType)
+          : null;
+      };
+
+      // Валідні типи проходять
+      expect(validateType("investment")).toBe("investment");
+      expect(validateType("expense")).toBe("expense");
+      expect(validateType("income")).toBe("income");
+      expect(validateType("transfer")).toBe("transfer");
+
+      // Спроби ін'єкції або невалідні типи безпечно відхиляються (fail-safe)
+      expect(validateType("'; DROP TABLE transactions; --")).toBeNull();
+      expect(validateType("admin")).toBeNull();
+      expect(validateType("<script>")).toBeNull();
+      expect(validateType("")).toBeNull();
+      expect(validateType(null)).toBeNull();
+    });
   });
 });
