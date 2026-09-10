@@ -80,7 +80,7 @@ export const DEFAULT_STAPLE_CATEGORIES: CpiCategoryConfig[] = [
 ];
 
 export interface CalculateCpiOptions {
-  minAmount?: number; // Minimum transaction threshold to filter out micro-transactions (default: 30 UAH)
+  minAmount?: number; // Minimum transaction threshold to filter out micro-transactions (default: 20 UAH)
   periodMode?: "yoy" | "baseline" | "mom";
   currentPeriodLabel?: string;
   previousPeriodLabel?: string;
@@ -89,14 +89,14 @@ export interface CalculateCpiOptions {
 
 /**
  * Розраховує Персональний індекс інфляції (Personal CPI) на основі реального середнього чека
- * у базових категоріях повсякденного попиту (продукти, пальне, аптеки).
+ * у базових категоріях повсякденного попиту (продукти, куріння, аптеки).
  */
 export function calculatePersonalCpi(
   currentTransactions: CpiTransaction[],
   previousTransactions: CpiTransaction[],
   options: CalculateCpiOptions = {}
 ): PersonalCpiReport {
-  const minAmount = options.minAmount ?? 30;
+  const minAmount = options.minAmount ?? 20;
   const periodMode = options.periodMode ?? "baseline";
   const periodLabel = options.currentPeriodLabel ?? "Поточний період";
   const previousPeriodLabel = options.previousPeriodLabel ?? "Базовий період";

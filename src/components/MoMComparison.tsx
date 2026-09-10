@@ -355,7 +355,7 @@ export function MoMComparison({
               <span className="text-zinc-400">
                 {activeCpiReport.previousPeriodLabel}
               </span>
-              . Дрібні чеки (&lt;30 ₴) відфільтровано.
+              . Дрібні чеки (&lt;20 ₴) відфільтровано.
             </p>
           </div>
         )}

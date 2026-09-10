@@ -87,7 +87,7 @@ describe("Personal CPI Analytics Engine", () => {
       expect(report.overallInflationRate).toBe(20.0);
     });
 
-    it("відсікає мікро-транзакції (шум < 30 грн)", () => {
+    it("відсікає мікро-транзакції (шум < 20 грн)", () => {
       const prevTransactions: CpiTransaction[] = [
         {
           amount: 10,
