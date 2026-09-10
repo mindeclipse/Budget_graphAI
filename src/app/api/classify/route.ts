@@ -255,13 +255,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Розрахунок безпечного щоденного залишку та тексту для сповіщення Apple Shortcuts
-    const safeDailyRemaining = await computeSafeDailyBudget(supabaseAdmin);
+    // 4. Розрахунок актуального щоденного залишку та тексту для сповіщення Apple Shortcuts
+    const dailyBudget = await computeSafeDailyBudget(supabaseAdmin);
     const quickSummary = formatQuickSummary(
       cleanTitle,
       amount,
       categoryName,
-      safeDailyRemaining,
+      dailyBudget,
       roundupResult?.roundupAmount
     );
 
@@ -274,7 +274,12 @@ export async function POST(req: NextRequest) {
       amount,
       currency,
       source: classificationSource,
-      safeDailyRemaining,
+      safeDailyRemaining: dailyBudget?.todayRemaining ?? null,
+      todayRemaining: dailyBudget?.todayRemaining ?? null,
+      todayTarget: dailyBudget?.todayTarget ?? null,
+      todaySpent: dailyBudget?.todaySpent ?? null,
+      cycleRemaining: dailyBudget?.cycleRemaining ?? null,
+      daysRemaining: dailyBudget?.daysRemaining ?? null,
       quickSummary,
       roundup: roundupResult
         ? {

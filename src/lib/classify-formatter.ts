@@ -1,10 +1,30 @@
 import { getCycleDateRange, DEFAULT_BUDGET_LIMIT } from "@/lib/cycle-utils";
 
+export interface DailyBudgetInfo {
+  todayRemaining: number;
+  todayTarget: number;
+  todaySpent: number;
+  cycleRemaining: number;
+  daysRemaining: number;
+}
+
+/**
+ * Повертає дату у часовому поясі Києва (Europe/Kyiv) у форматі YYYY-MM-DD.
+ */
+export function getKyivDateString(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Kyiv",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(date));
+}
+
 export function formatQuickSummary(
   cleanTitle: string,
   amount: number,
   categoryName: string,
-  safeDailyRemaining: number | null,
+  dailyBudget: DailyBudgetInfo | number | null,
   roundupAmount?: number | null
 ): string {
   const amountFormatted = `${Number(amount)
@@ -19,11 +39,21 @@ export function formatQuickSummary(
     summary += ` • Подушка: +${roundupFormatted}`;
   }
 
-  if (safeDailyRemaining !== null) {
-    if (safeDailyRemaining > 0) {
-      summary += ` • На день: ${safeDailyRemaining.toLocaleString("uk-UA").replace(/\u00A0/g, " ")} ₴`;
-    } else {
+  if (dailyBudget !== null && dailyBudget !== undefined) {
+    const todayRemaining =
+      typeof dailyBudget === "number"
+        ? dailyBudget
+        : dailyBudget.todayRemaining;
+
+    if (todayRemaining > 0) {
+      summary += ` • На день: ${todayRemaining.toLocaleString("uk-UA").replace(/\u00A0/g, " ")} ₴`;
+    } else if (todayRemaining === 0) {
       summary += ` • Денний бюджет вичерпано`;
+    } else {
+      const overspent = Math.abs(todayRemaining)
+        .toLocaleString("uk-UA")
+        .replace(/\u00A0/g, " ");
+      summary += ` • На день: -${overspent} ₴ (переліміт)`;
     }
   }
 
@@ -31,11 +61,10 @@ export function formatQuickSummary(
 }
 
 export async function computeSafeDailyBudget(
-  supabaseAdmin: any
-): Promise<number | null> {
+  supabaseAdmin: any,
+  now: Date = new Date()
+): Promise<DailyBudgetInfo | null> {
   try {
-    const now = new Date();
-
     // 1. Отримуємо активний цикл або стандартний календарний місяць
     const { data: activeCycle } = await supabaseAdmin
       .from("budget_cycles")
@@ -53,21 +82,16 @@ export async function computeSafeDailyBudget(
     const cycleStart = range.startDate;
     const cycleEnd = range.endDate;
 
-    const msPerDay = 1000 * 60 * 60 * 24;
-    const daysTotal = Math.max(
-      1,
-      Math.round((cycleEnd.getTime() - cycleStart.getTime()) / msPerDay)
-    );
-    const daysPassed = Math.max(
-      1,
-      Math.min(
-        daysTotal,
-        Math.ceil((now.getTime() - cycleStart.getTime()) / msPerDay)
-      )
-    );
-    const daysRemaining = Math.max(1, daysTotal - daysPassed);
+    const todayStr = getKyivDateString(now);
+    const cycleEndStr = getKyivDateString(cycleEnd);
 
-    // 2. Постійні витрати
+    // Розрахунок кількості календарних днів від сьогодні (включно) до кінця циклу
+    const dToday = new Date(todayStr + "T00:00:00Z");
+    const dEnd = new Date(cycleEndStr + "T00:00:00Z");
+    const msDiff = dEnd.getTime() - dToday.getTime();
+    const daysRemaining = Math.max(1, Math.round(msDiff / 86400000) + 1);
+
+    // 2. Постійні витрати (шаблони обов'язкових платежів: оренда, підписки)
     const { data: recurringItems } = await supabaseAdmin
       .from("recurring_templates")
       .select("amount, currency, is_active")
@@ -81,26 +105,62 @@ export async function computeSafeDailyBudget(
       0
     );
 
-    // 3. Витрати за період (вже з урахуванням доданої транзакції)
+    // Змінний бюджет на щоденні споживчі витрати (їжа, кафе, авто, покупки тощо)
+    const variableBudget = Math.max(0, budgetLimit - recurringTotal);
+
+    // 3. Витрати за цикл (тільки споживчі витрати; виключаємо recurring-платежі щоб уникнути подвійного списання)
     const { data: periodTx } = await supabaseAdmin
       .from("transactions")
-      .select("amount, type, exclude_from_budget, created_at")
+      .select("amount, type, source, exclude_from_budget, created_at")
       .gte("created_at", cycleStart.toISOString())
-      .lte("created_at", cycleEnd.toISOString());
+      .lte("created_at", cycleEnd.toISOString())
+      .is("deleted_at", null);
 
-    const periodExpenses = (periodTx || []).filter(
-      (t: any) => t.type === "expense" && !t.exclude_from_budget
+    const variableExpenses = (periodTx || []).filter(
+      (t: any) =>
+        t.type === "expense" &&
+        !t.exclude_from_budget &&
+        t.source !== "recurring"
     );
 
-    const totalSpentPeriod = periodExpenses.reduce(
-      (sum: number, t: any) => sum + Number(t.amount || 0),
-      0
+    // Розділяємо витрати: зроблені до початку сьогоднішнього дня vs витрачені сьогодні
+    let spentBeforeToday = 0;
+    let spentToday = 0;
+
+    for (const t of variableExpenses) {
+      const amt = Number(t.amount || 0);
+      const txDayStr = getKyivDateString(t.created_at);
+      if (txDayStr < todayStr) {
+        spentBeforeToday += amt;
+      } else if (txDayStr === todayStr) {
+        spentToday += amt;
+      }
+    }
+
+    // Залишок змінного бюджету на початок поточного дня
+    const budgetAtStartOfDay = variableBudget - spentBeforeToday;
+
+    // Денний таргет (ліміт) на сьогодні
+    const todayTarget =
+      budgetAtStartOfDay > 0 && daysRemaining > 0
+        ? Math.round(budgetAtStartOfDay / daysRemaining)
+        : 0;
+
+    // Реальний залишок на СЬОГОДНІ: зменшується строго 1:1 на кожну гривню витрати
+    const todayRemaining = Math.round(todayTarget - spentToday);
+
+    // Загальний залишок змінного бюджету до кінця активного циклу
+    const cycleRemaining = Math.round(
+      variableBudget - (spentBeforeToday + spentToday)
     );
 
-    const variableBudget = Math.max(0, budgetLimit - recurringTotal);
-    const remainingBudget = Math.max(0, variableBudget - totalSpentPeriod);
-
-    return Math.round(remainingBudget / daysRemaining);
+    return {
+      todayRemaining,
+      todayTarget,
+      todaySpent: Math.round(spentToday * 100) / 100,
+      cycleRemaining,
+      daysRemaining,
+    };
   } catch (err) {
     console.error("Помилка розрахунку safeDailyRemaining у classify:", err);
     return null;
