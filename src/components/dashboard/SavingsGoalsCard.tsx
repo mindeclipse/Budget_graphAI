@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   PiggyBank,
   Plus,
@@ -96,10 +97,15 @@ export function SavingsGoalsCard({
   onRefresh,
 }: SavingsGoalsCardProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [depositGoalId, setDepositGoalId] = useState<number | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Стейт нової цілі
   const [newName, setNewName] = useState("");
@@ -504,336 +510,399 @@ export function SavingsGoalsCard({
       )}
 
       {/* Модалка поповнення скарбнички */}
-      {depositGoalId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-white">
-                Поповнити скарбничку
-              </h4>
-              <button
-                onClick={() => setDepositGoalId(null)}
-                className="text-zinc-500 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleDeposit} className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">
-                  Сума поповнення
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  autoFocus
-                  required
-                  placeholder="наприклад 2000"
-                  value={depositAmount}
-                  onChange={(e) => setDepositAmount(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
+      {depositGoalId !== null &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+            <div
+              className="fixed inset-0"
+              onClick={() => setDepositGoalId(null)}
+              aria-hidden="true"
+            />
 
-              <div className="flex gap-2">
-                {[500, 1000, 2000, 5000].map((quick) => (
-                  <button
-                    key={quick}
-                    type="button"
-                    onClick={() => setDepositAmount(String(quick))}
-                    className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 py-1.5 text-[11px] font-medium text-zinc-300 hover:border-zinc-700"
-                  >
-                    +{quick}
-                  </button>
-                ))}
-              </div>
+            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+              {/* Mobile handle indicator */}
+              <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
+                <h4 className="text-sm font-bold text-white">
+                  Поповнити скарбничку
+                </h4>
                 <button
                   type="button"
                   onClick={() => setDepositGoalId(null)}
-                  className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  className="text-zinc-500 hover:text-white"
                 >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <CheckCircle2 size={13} />
-                  )}
-                  Поповнити
+                  <X size={16} />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form
+                onSubmit={handleDeposit}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-400">
+                      Сума поповнення
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      autoFocus
+                      required
+                      placeholder="наприклад 2000"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    {[500, 1000, 2000, 5000].map((quick) => (
+                      <button
+                        key={quick}
+                        type="button"
+                        onClick={() => setDepositAmount(String(quick))}
+                        className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 py-1.5 text-[11px] font-medium text-zinc-300 hover:border-zinc-700"
+                      >
+                        +{quick}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                  <button
+                    type="button"
+                    onClick={() => setDepositGoalId(null)}
+                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={13} />
+                    )}
+                    Поповнити
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Модалка редагування цілі */}
-      {editGoal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-white">
-                Редагувати скарбничку
-              </h4>
-              <button
-                onClick={() => {
-                  setEditGoal(null);
-                  setEditError("");
-                }}
-                className="text-zinc-500 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleUpdateGoal} className="space-y-3">
-              {editError && (
-                <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
-                  {editError}
-                </p>
-              )}
+      {editGoal !== null &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+            <div
+              className="fixed inset-0"
+              onClick={() => {
+                setEditGoal(null);
+                setEditError("");
+              }}
+              aria-hidden="true"
+            />
 
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">
-                  Назва
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
+            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+              {/* Mobile handle indicator */}
+              <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Накопичено (сума)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    required
-                    placeholder="0"
-                    value={editCurrent}
-                    onChange={(e) => setEditCurrent(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                  <p className="mt-0.5 text-[9px] text-zinc-500">
-                    Поточні збереження
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Цільова сума
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="Без ліміту"
-                    value={editTarget}
-                    onChange={(e) => setEditTarget(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                  <p className="mt-0.5 text-[9px] text-zinc-500">
-                    Порожнє = безстроково
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Валюта
-                  </label>
-                  <select
-                    value={editCurrency}
-                    onChange={(e) => setEditCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  >
-                    <option value="UAH">UAH (₴)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="PLN">PLN (zł)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Дедлайн (опціонально)
-                  </label>
-                  <input
-                    type="date"
-                    value={editTargetDate}
-                    onChange={(e) => setEditTargetDate(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
+                <h4 className="text-sm font-bold text-white">
+                  Редагувати скарбничку
+                </h4>
                 <button
                   type="button"
                   onClick={() => {
                     setEditGoal(null);
                     setEditError("");
                   }}
-                  className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  className="text-zinc-500 hover:text-white"
                 >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <CheckCircle2 size={13} />
-                  )}
-                  Зберегти
+                  <X size={16} />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form
+                onSubmit={handleUpdateGoal}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                  {editError && (
+                    <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                      {editError}
+                    </p>
+                  )}
+
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-400">
+                      Назва
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Накопичено (сума)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        required
+                        placeholder="0"
+                        value={editCurrent}
+                        onChange={(e) => setEditCurrent(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                      <p className="mt-0.5 text-[9px] text-zinc-500">
+                        Поточні збереження
+                      </p>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Цільова сума
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Без ліміту"
+                        value={editTarget}
+                        onChange={(e) => setEditTarget(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                      <p className="mt-0.5 text-[9px] text-zinc-500">
+                        Порожнє = безстроково
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Валюта
+                      </label>
+                      <select
+                        value={editCurrency}
+                        onChange={(e) => setEditCurrency(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      >
+                        <option value="UAH">UAH (₴)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="PLN">PLN (zł)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Дедлайн (опціонально)
+                      </label>
+                      <input
+                        type="date"
+                        value={editTargetDate}
+                        onChange={(e) => setEditTargetDate(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditGoal(null);
+                      setEditError("");
+                    }}
+                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={13} />
+                    )}
+                    Зберегти
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Модалка створення нової цілі */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-white">
-                Нова ціль заощаджень
-              </h4>
-              <button
-                onClick={() => {
-                  setIsAddModalOpen(false);
-                  setCreateError("");
-                }}
-                className="text-zinc-500 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateGoal} className="space-y-3">
-              {createError && (
-                <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
-                  {createError}
-                </p>
-              )}
+      {isAddModalOpen &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+            <div
+              className="fixed inset-0"
+              onClick={() => {
+                setIsAddModalOpen(false);
+                setCreateError("");
+              }}
+              aria-hidden="true"
+            />
 
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">
-                  Назва цілі
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="наприклад Подушка безпеки або Скарбничка"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                />
-              </div>
+            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+              {/* Mobile handle indicator */}
+              <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Цільова сума (опціонально)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="Без обмеження"
-                    value={newTarget}
-                    onChange={(e) => setNewTarget(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                  <p className="mt-0.5 text-[9px] text-zinc-500">
-                    Залиште порожнім для скарбнички без мети
-                  </p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Вже є (початкова)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={newCurrent}
-                    onChange={(e) => setNewCurrent(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Валюта
-                  </label>
-                  <select
-                    value={newCurrency}
-                    onChange={(e) => setNewCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  >
-                    <option value="UAH">UAH (₴)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="PLN">PLN (zł)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Дедлайн (опціонально)
-                  </label>
-                  <input
-                    type="date"
-                    value={newTargetDate}
-                    onChange={(e) => setNewTargetDate(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
+                <h4 className="text-sm font-bold text-white">
+                  Нова ціль заощаджень
+                </h4>
                 <button
                   type="button"
                   onClick={() => {
                     setIsAddModalOpen(false);
                     setCreateError("");
                   }}
-                  className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  className="text-zinc-500 hover:text-white"
                 >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Plus size={13} />
-                  )}
-                  Створити
+                  <X size={16} />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form
+                onSubmit={handleCreateGoal}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                  {createError && (
+                    <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
+                      {createError}
+                    </p>
+                  )}
+
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-400">
+                      Назва цілі
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="наприклад Подушка безпеки або Скарбничка"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Цільова сума (опціонально)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Без обмеження"
+                        value={newTarget}
+                        onChange={(e) => setNewTarget(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                      <p className="mt-0.5 text-[9px] text-zinc-500">
+                        Залиште порожнім для скарбнички без мети
+                      </p>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Вже є (початкова)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0"
+                        value={newCurrent}
+                        onChange={(e) => setNewCurrent(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Валюта
+                      </label>
+                      <select
+                        value={newCurrency}
+                        onChange={(e) => setNewCurrency(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      >
+                        <option value="UAH">UAH (₴)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="PLN">PLN (zł)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Дедлайн (опціонально)
+                      </label>
+                      <input
+                        type="date"
+                        value={newTargetDate}
+                        onChange={(e) => setNewTargetDate(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddModalOpen(false);
+                      setCreateError("");
+                    }}
+                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Plus size={13} />
+                    )}
+                    Створити
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

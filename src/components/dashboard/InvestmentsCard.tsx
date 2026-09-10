@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   TrendingUp,
   Plus,
@@ -84,9 +85,14 @@ export function InvestmentsCard({
   onRefresh,
 }: InvestmentsCardProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [editAsset, setEditAsset] = useState<InvestmentAsset | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const hiddenDatePickerRef = useRef<HTMLInputElement>(null);
 
@@ -460,218 +466,237 @@ export function InvestmentsCard({
       )}
 
       {/* Модалка додавання / редагування активу */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-white">
-                {editAsset ? "Редагувати актив" : "Новий інвестиційний актив"}
-              </h4>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-zinc-500 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveAsset} className="space-y-3">
-              {formError && (
-                <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 text-xs text-rose-400">
-                  {formError}
-                </p>
-              )}
+      {isAddModalOpen &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+            <div
+              className="fixed inset-0"
+              onClick={() => setIsAddModalOpen(false)}
+              aria-hidden="true"
+            />
 
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">
-                  Назва активу
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="наприклад ОВДП UA400022... або S&P 500"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setFormError("");
-                  }}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
+            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+              {/* Mobile handle indicator */}
+              <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Тип активу
-                  </label>
-                  <select
-                    value={assetType}
-                    onChange={(e) => setAssetType(e.target.value as any)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                  >
-                    <option value="bonds">ОВДП (Облігації)</option>
-                    <option value="stocks">Акції / ETF</option>
-                    <option value="reit">REIT</option>
-                    <option value="crypto">Криптовалюта</option>
-                    <option value="deposit">Депозит</option>
-                    <option value="other">Інше</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Валюта
-                  </label>
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                  >
-                    <option value="UAH">UAH (₴)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="PLN">PLN (zł)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Вкладено (Cost)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    required
-                    placeholder="10000"
-                    value={invested}
-                    onChange={(e) => {
-                      setInvested(e.target.value);
-                      setFormError("");
-                    }}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Поточна вартість
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    required
-                    placeholder="11500"
-                    value={currentVal}
-                    onChange={(e) => {
-                      setCurrentVal(e.target.value);
-                      setFormError("");
-                    }}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-xs text-zinc-400">
-                    Дохідність річна (%)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="16.5"
-                    value={yieldPct}
-                    onChange={(e) => {
-                      setYieldPct(e.target.value);
-                      setFormError("");
-                    }}
-                    className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 flex items-center justify-between text-xs text-zinc-400">
-                    <span>Дата погашення</span>
-                    <span className="text-[10px] text-zinc-500">
-                      ДД.ММ.РРРР
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="напр. 25.04.2028"
-                      value={maturityDateInput}
-                      onChange={(e) => {
-                        setMaturityDateInput(e.target.value);
-                        setFormError("");
-                      }}
-                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 py-2 pr-8 pl-3 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        hiddenDatePickerRef.current?.showPicker?.()
-                      }
-                      className="absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-400 transition-colors hover:text-white"
-                      title="Вибрати з календаря"
-                    >
-                      <Calendar size={14} />
-                    </button>
-                    <input
-                      ref={hiddenDatePickerRef}
-                      type="date"
-                      tabIndex={-1}
-                      aria-hidden="true"
-                      className="pointer-events-none absolute bottom-0 left-0 h-0 w-0 opacity-0"
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          setMaturityDateInput(
-                            formatIsoToDisplayDate(e.target.value)
-                          );
-                          setFormError("");
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-zinc-400">
-                  Нотатки (опціонально)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Брокер, рахунок, умови виплати тощо..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
+                <h4 className="text-sm font-bold text-white">
+                  {editAsset ? "Редагувати актив" : "Новий інвестиційний актив"}
+                </h4>
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  className="text-zinc-500 hover:text-white"
                 >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Plus size={13} />
-                  )}
-                  {editAsset ? "Зберегти" : "Додати"}
+                  <X size={16} />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form
+                onSubmit={handleSaveAsset}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                  {formError && (
+                    <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 text-xs text-rose-400">
+                      {formError}
+                    </p>
+                  )}
+
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-400">
+                      Назва активу
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="наприклад ОВДП UA400022... або S&P 500"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        setFormError("");
+                      }}
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Тип активу
+                      </label>
+                      <select
+                        value={assetType}
+                        onChange={(e) => setAssetType(e.target.value as any)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="bonds">ОВДП (Облігації)</option>
+                        <option value="stocks">Акції / ETF</option>
+                        <option value="reit">REIT</option>
+                        <option value="crypto">Криптовалюта</option>
+                        <option value="deposit">Депозит</option>
+                        <option value="other">Інше</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Валюта
+                      </label>
+                      <select
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="UAH">UAH (₴)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="PLN">PLN (zł)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Вкладено (Cost)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        required
+                        placeholder="10000"
+                        value={invested}
+                        onChange={(e) => {
+                          setInvested(e.target.value);
+                          setFormError("");
+                        }}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Поточна вартість
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        required
+                        placeholder="11500"
+                        value={currentVal}
+                        onChange={(e) => {
+                          setCurrentVal(e.target.value);
+                          setFormError("");
+                        }}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-zinc-400">
+                        Дохідність річна (%)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="16.5"
+                        value={yieldPct}
+                        onChange={(e) => {
+                          setYieldPct(e.target.value);
+                          setFormError("");
+                        }}
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 flex items-center justify-between text-xs text-zinc-400">
+                        <span>Дата погашення</span>
+                        <span className="text-[10px] text-zinc-500">
+                          ДД.ММ.РРРР
+                        </span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="напр. 25.04.2028"
+                          value={maturityDateInput}
+                          onChange={(e) => {
+                            setMaturityDateInput(e.target.value);
+                            setFormError("");
+                          }}
+                          className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 py-2 pr-8 pl-3 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            hiddenDatePickerRef.current?.showPicker?.()
+                          }
+                          className="absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-400 transition-colors hover:text-white"
+                          title="Вибрати з календаря"
+                        >
+                          <Calendar size={14} />
+                        </button>
+                        <input
+                          ref={hiddenDatePickerRef}
+                          type="date"
+                          tabIndex={-1}
+                          aria-hidden="true"
+                          className="pointer-events-none absolute bottom-0 left-0 h-0 w-0 opacity-0"
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setMaturityDateInput(
+                                formatIsoToDisplayDate(e.target.value)
+                              );
+                              setFormError("");
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-zinc-400">
+                      Нотатки (опціонально)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Брокер, рахунок, умови виплати тощо..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Plus size={13} />
+                    )}
+                    {editAsset ? "Зберегти" : "Додати"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
