@@ -26,7 +26,7 @@ export const GEMINI_MODELS = {
   FAST: "gemini-3.5-flash-lite" as const,
   BALANCED: "gemini-3.5-flash" as const,
   REASONING: "gemini-3.7-flash" as const,
-  CLASSIFICATION: "gemini-2.5-flash" as const,
+  CLASSIFICATION: "gemini-3.5-flash" as const,
 };
 
 /**
