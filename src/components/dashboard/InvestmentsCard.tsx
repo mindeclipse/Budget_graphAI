@@ -15,6 +15,10 @@ import {
   PieChart,
 } from "lucide-react";
 import { InvestmentAsset } from "@/types/finance";
+import { parseFlexibleNumber } from "@/lib/normalize";
+import { convertToUah } from "@/lib/portfolio-analytics";
+
+export { parseFlexibleNumber };
 
 interface InvestmentsCardProps {
   investments: InvestmentAsset[];
@@ -74,19 +78,6 @@ export function formatIsoToDisplayDate(iso?: string | null): string {
   return iso;
 }
 
-/**
- * Очищує та парсить числові значення з підтримкою ком, пробілів та символів валют
- */
-export function parseFlexibleNumber(val?: string | number | null): number {
-  if (val == null) return 0;
-  if (typeof val === "number") return isNaN(val) ? 0 : val;
-  const clean = String(val)
-    .replace(/[\s\u00A0₴$€]/g, "")
-    .replace(",", ".");
-  const num = parseFloat(clean);
-  return isNaN(num) ? 0 : num;
-}
-
 export function InvestmentsCard({
   investments,
   rates = { USD: 41.5, EUR: 45.3, PLN: 10.6 },
@@ -110,14 +101,6 @@ export function InvestmentsCard({
   const [maturityDateInput, setMaturityDateInput] = useState("");
   const [notes, setNotes] = useState("");
 
-  const convertToUah = (amount: number, curr: string) => {
-    const c = curr.toUpperCase();
-    if (c === "USD") return amount * rates.USD;
-    if (c === "EUR") return amount * rates.EUR;
-    if (c === "PLN") return amount * rates.PLN;
-    return amount;
-  };
-
   // Розрахунок загальних показників у гривні
   let totalPortfolioUah = 0;
   let totalInvestedUah = 0;
@@ -131,8 +114,16 @@ export function InvestmentsCard({
   };
 
   investments.forEach((inv) => {
-    const invUah = convertToUah(Number(inv.invested_amount) || 0, inv.currency);
-    const curUah = convertToUah(Number(inv.current_value) || 0, inv.currency);
+    const invUah = convertToUah(
+      Number(inv.invested_amount) || 0,
+      inv.currency,
+      rates
+    );
+    const curUah = convertToUah(
+      Number(inv.current_value) || 0,
+      inv.currency,
+      rates
+    );
 
     totalInvestedUah += invUah;
     totalPortfolioUah += curUah;

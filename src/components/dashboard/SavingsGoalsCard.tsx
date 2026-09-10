@@ -15,7 +15,10 @@ import {
   Infinity as InfinityIcon,
 } from "lucide-react";
 import { SavingsGoal } from "@/types/finance";
-import { parseFlexibleNumber } from "./InvestmentsCard";
+import { parseFlexibleNumber } from "@/lib/normalize";
+import { convertToUah } from "@/lib/portfolio-analytics";
+
+export { convertToUah };
 
 export const CURRENCY_SYMBOLS: Record<string, string> = {
   UAH: "₴",
@@ -35,22 +38,6 @@ export interface SavingsMetrics {
   activeCurrencies: string[];
   totalSavedUahEquivalent: number;
   runwayMonths: string;
-}
-
-export function convertToUah(
-  amount: number,
-  curr: string,
-  rates: { USD: number; EUR: number; PLN: number } = {
-    USD: 41.5,
-    EUR: 45.3,
-    PLN: 10.6,
-  }
-): number {
-  const c = (curr || "UAH").toUpperCase();
-  if (c === "USD") return amount * (rates.USD || 41.5);
-  if (c === "EUR") return amount * (rates.EUR || 45.3);
-  if (c === "PLN") return amount * (rates.PLN || 10.6);
-  return amount;
 }
 
 export function calculateSavingsMetrics(

@@ -91,27 +91,6 @@ export function useFinanceQueries(
     refetchOnWindowFocus: false,
   });
 
-  // Запит аналітики темпу та лімітів витрат
-  const pacingQuery = useQuery({
-    queryKey: FINANCE_KEYS.analyticsPace(dateRange?.from, dateRange?.to),
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (dateRange?.from) params.set("from", dateRange.from);
-      if (dateRange?.to) params.set("to", dateRange.to);
-
-      const res = await fetch(
-        `/api/analytics/budget-pace?${params.toString()}`
-      );
-      if (!res.ok) throw new Error("Не вдалося завантажити аналітику темпу");
-      const data = await res.json();
-      return data.pacing;
-    },
-    enabled: Boolean(isAuthenticated),
-    staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
   // Запит розумного радара підписок
   const radarQuery = useQuery({
     queryKey: FINANCE_KEYS.radar,
@@ -162,16 +141,14 @@ export function useFinanceQueries(
   };
 
   return {
-    transactions: (transactionsQuery.data || []).filter(
-      (t: any) => !t.exclude_from_budget
-    ),
+    transactions: transactionsQuery.data || [],
     isLoadingTransactions: transactionsQuery.isLoading,
     investmentTransactions: investmentTransactionsQuery.data || [],
     isLoadingInvestmentTransactions: investmentTransactionsQuery.isLoading,
     recurring: recurringQuery.data || [],
     isLoadingRecurring: recurringQuery.isLoading,
-    pacing: pacingQuery.data,
-    isLoadingPacing: pacingQuery.isLoading,
+    pacing: undefined,
+    isLoadingPacing: false,
     radar: radarQuery.data,
     isLoadingRadar: radarQuery.isLoading,
     invalidateTransactions,
@@ -179,6 +156,34 @@ export function useFinanceQueries(
     invalidateRecurring,
     invalidateRadar,
   };
+}
+
+/**
+ * Окремий хук для запиту аналітики темпу витрат (на вимогу)
+ */
+export function useBudgetPaceQuery(
+  isAuthenticated: boolean | null,
+  dateRange?: DateRangeFilter
+) {
+  return useQuery({
+    queryKey: FINANCE_KEYS.analyticsPace(dateRange?.from, dateRange?.to),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (dateRange?.from) params.set("from", dateRange.from);
+      if (dateRange?.to) params.set("to", dateRange.to);
+
+      const res = await fetch(
+        `/api/analytics/budget-pace?${params.toString()}`
+      );
+      if (!res.ok) throw new Error("Не вдалося завантажити аналітику темпу");
+      const data = await res.json();
+      return data.pacing;
+    },
+    enabled: Boolean(isAuthenticated),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 }
 
 export function usePersonalCpiQuery(

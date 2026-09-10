@@ -23,3 +23,16 @@ export function cleanMerchantRaw(raw: string): string {
       .trim()
   );
 }
+
+/**
+ * Очищує та парсить числові значення з підтримкою ком, пробілів та символів валют
+ */
+export function parseFlexibleNumber(val?: string | number | null): number {
+  if (val == null) return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const clean = String(val)
+    .replace(/[\s\u00A0₴$€]/g, "")
+    .replace(",", ".");
+  const num = parseFloat(clean);
+  return isNaN(num) ? 0 : num;
+}
