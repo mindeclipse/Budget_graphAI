@@ -77,8 +77,9 @@ const AIAnalysisDrawer = dynamic(
   () => import("@/components/AIAnalysisDrawer").then((m) => m.AIAnalysisDrawer),
   { ssr: false }
 );
-const CsvImportModal = dynamic(
-  () => import("@/components/CsvImportModal").then((m) => m.CsvImportModal),
+const BankStatementModal = dynamic(
+  () =>
+    import("@/components/BankStatementModal").then((m) => m.BankStatementModal),
   { ssr: false }
 );
 const InzhurImportModal = dynamic(
@@ -102,12 +103,17 @@ const TagProjectModal = dynamic(
 
 import {
   Transaction,
+  BudgetCycle,
   RecurringItem,
   SavingsGoal,
   InvestmentAsset,
   WishlistItem,
   CostPerUseItem,
 } from "@/types/finance";
+import {
+  getCycleDateRange,
+  filterTransactionsByDateRange,
+} from "@/lib/cycle-utils";
 import {
   AIAnalysisResponse,
   SupportedGeminiModel,
@@ -152,8 +158,8 @@ export default function Dashboard() {
     "overview"
   );
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [activeCycle, setActiveCycle] = useState<any>(null);
-  const [previousCycle, setPreviousCycle] = useState<any>(null);
+  const [activeCycle, setActiveCycle] = useState<BudgetCycle | null>(null);
+  const [previousCycle, setPreviousCycle] = useState<BudgetCycle | null>(null);
 
   // Стан для розширених фінансових можливостей
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
@@ -199,7 +205,7 @@ export default function Dashboard() {
       }
       if (Array.isArray(data.cycles) && data.cycles.length > 0) {
         const activeIdx = data.cycles.findIndex(
-          (c: any) => c.id === data.activeCycle?.id || c.is_active
+          (c: BudgetCycle) => c.id === data.activeCycle?.id || c.is_active
         );
         const prev =
           activeIdx !== -1
@@ -317,27 +323,21 @@ export default function Dashboard() {
       };
     }
 
-    const currentStart = new Date(activeCycle.start_date).getTime();
-    const currentEnd = activeCycle.end_date
-      ? new Date(activeCycle.end_date).getTime()
-      : Infinity;
+    const currentRange = getCycleDateRange(activeCycle);
+    const curr = filterTransactionsByDateRange(
+      transactions,
+      currentRange.startMs,
+      currentRange.endMs
+    );
 
-    const curr = transactions.filter((t: any) => {
-      const txTime = new Date(t.created_at).getTime();
-      return txTime >= currentStart && txTime <= currentEnd;
-    });
-
-    let prev: any[] = [];
+    let prev: Transaction[] = [];
     if (previousCycle) {
-      const prevStart = new Date(previousCycle.start_date).getTime();
-      const prevEnd = previousCycle.end_date
-        ? new Date(previousCycle.end_date).getTime()
-        : currentStart;
-
-      prev = transactions.filter((t: any) => {
-        const txTime = new Date(t.created_at).getTime();
-        return txTime >= prevStart && txTime < prevEnd;
-      });
+      const prevRange = getCycleDateRange(previousCycle);
+      prev = filterTransactionsByDateRange(
+        transactions,
+        prevRange.startMs,
+        currentRange.startMs
+      );
     }
 
     return {
@@ -606,7 +606,7 @@ export default function Dashboard() {
   const handleSaveBudgetLimit = async (newLimit: number) => {
     if (!activeCycle?.id) return;
 
-    setActiveCycle((prev: any) =>
+    setActiveCycle((prev: BudgetCycle | null) =>
       prev ? { ...prev, budget_limit: newLimit } : prev
     );
 
@@ -621,7 +621,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Помилка збереження бюджету:", error);
       if (activeCycle?.budget_limit) {
-        setActiveCycle((prev: any) => ({ ...prev }));
+        setActiveCycle((prev: BudgetCycle | null) => (prev ? { ...prev } : null));
       }
     }
   };
@@ -1216,7 +1216,7 @@ export default function Dashboard() {
       )}
 
       {isImportModalOpen && (
-        <CsvImportModal
+        <BankStatementModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
           onSuccess={() => {

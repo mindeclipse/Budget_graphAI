@@ -38,6 +38,16 @@ export interface InvestmentAsset {
   created_at: string;
 }
 
+export interface BudgetCycle {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date?: string | null;
+  budget_limit: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
 export interface CategoryBudget {
   id: number;
   category_name: string;

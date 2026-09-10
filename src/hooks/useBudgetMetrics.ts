@@ -1,8 +1,11 @@
 import { useMemo } from "react";
-import { Transaction, RecurringItem } from "@/types/finance";
+import { Transaction, RecurringItem, BudgetCycle } from "@/types/finance";
 import { CATEGORY_COLORS } from "@/constants/categories";
-
-const CYCLE_DURATION_DAYS = 30; // Стандартна тривалість зарплатного циклу
+import {
+  filterBudgetTransactions,
+  calculateCycleDaysRemaining,
+  DEFAULT_BUDGET_LIMIT,
+} from "@/lib/cycle-utils";
 
 function getPreviousMonthKey(monthKey: string): string {
   const [year, month] = monthKey.split("-").map(Number);
@@ -12,14 +15,7 @@ function getPreviousMonthKey(monthKey: string): string {
   return `${prevYear}-${prevMonth}`;
 }
 
-export interface BudgetCycle {
-  id: string;
-  name: string;
-  start_date: string;
-  end_date?: string | null;
-  budget_limit: number;
-  is_active: boolean;
-}
+export type { BudgetCycle };
 
 export interface BudgetMetricsParams {
   transactions: Transaction[];
@@ -95,24 +91,16 @@ export function useBudgetMetrics({
 
   // 2. Транзакції, що входять у розрахунок ліміту активного циклу
   const budgetTransactions = useMemo(() => {
-    if (!isCurrentMonth || !activeCycle) {
-      return monthTransactions;
-    }
-
-    const cycleStart = new Date(activeCycle.start_date).getTime();
-    const cycleEnd = activeCycle.end_date
-      ? new Date(activeCycle.end_date).getTime()
-      : Infinity;
-
-    return transactions.filter((t) => {
-      if (t.exclude_from_budget || t.type !== "expense") return false;
-      const txTime = new Date(t.created_at).getTime();
-      return txTime >= cycleStart && txTime <= cycleEnd;
-    });
+    return filterBudgetTransactions(
+      transactions,
+      activeCycle,
+      isCurrentMonth,
+      monthTransactions
+    );
   }, [transactions, monthTransactions, isCurrentMonth, activeCycle]);
 
   // Ліміт бюджету: береться напряму зі стейту page.tsx (там він вже безпечно прив'язаний до циклу)
-  const effectiveLimit = budgetLimit || 30000;
+  const effectiveLimit = budgetLimit || DEFAULT_BUDGET_LIMIT;
 
   // Вибірка попереднього місяця для блоку MoM
   const prevMonthKey = useMemo(
@@ -147,29 +135,12 @@ export function useBudgetMetrics({
 
   // ✅ Оптимізація: Розрахунок метрик прогресу. 'now' створюється ТІЛЬКИ всередині розрахунку.
   const budgetMetrics = useMemo<BudgetMetricsResult>(() => {
-    let daysRemaining = 0;
     const now = new Date();
-
-    if (activeCycle && isCurrentMonth) {
-      const cycleStart = new Date(activeCycle.start_date);
-      const cycleEnd = activeCycle.end_date
-        ? new Date(activeCycle.end_date)
-        : new Date(
-            cycleStart.getTime() + CYCLE_DURATION_DAYS * 24 * 60 * 60 * 1000
-          );
-
-      const diffMs = cycleEnd.getTime() - now.getTime();
-      const msPerDay = 1000 * 60 * 60 * 24;
-
-      daysRemaining = Math.max(0, Math.ceil(diffMs / msPerDay));
-    } else if (isCurrentMonth) {
-      const totalDaysInMonth = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth() + 1,
-        0
-      ).getDate();
-      daysRemaining = Math.max(1, totalDaysInMonth - now.getDate() + 1);
-    }
+    const daysRemaining = calculateCycleDaysRemaining(
+      activeCycle,
+      selectedDate,
+      now
+    );
 
     const variableBudget = Math.max(0, effectiveLimit - recurringTotal);
     const remaining = variableBudget - totalSpent;

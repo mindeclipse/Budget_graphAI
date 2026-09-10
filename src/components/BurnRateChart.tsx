@@ -21,6 +21,8 @@ interface Transaction {
   exclude_from_budget?: boolean;
 }
 
+import { BudgetCycle } from "@/types/finance";
+
 export interface RecurringItem {
   id?: number | string;
   title?: string;
@@ -30,14 +32,7 @@ export interface RecurringItem {
   is_active?: boolean;
 }
 
-export interface BudgetCycle {
-  id?: string;
-  name?: string;
-  start_date: string;
-  end_date?: string | null;
-  budget_limit?: number;
-  is_active?: boolean;
-}
+export type { BudgetCycle };
 
 export interface BurnRatePoint {
   day: number;
