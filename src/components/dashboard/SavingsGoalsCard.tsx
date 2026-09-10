@@ -520,20 +520,20 @@ export function SavingsGoalsCard({
               aria-hidden="true"
             />
 
-            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+            <div className="relative z-10 flex max-h-[90dvh] min-h-[42vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:min-h-0 sm:rounded-3xl">
               {/* Mobile handle indicator */}
               <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
-                <h4 className="text-sm font-bold text-white">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-6 py-4">
+                <h4 className="text-base font-semibold text-white">
                   Поповнити скарбничку
                 </h4>
                 <button
                   type="button"
                   onClick={() => setDepositGoalId(null)}
-                  className="text-zinc-500 hover:text-white"
+                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
 
@@ -541,9 +541,9 @@ export function SavingsGoalsCard({
                 onSubmit={handleDeposit}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
-                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-400">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                       Сума поповнення
                     </label>
                     <input
@@ -554,17 +554,17 @@ export function SavingsGoalsCard({
                       placeholder="наприклад 2000"
                       value={depositAmount}
                       onChange={(e) => setDepositAmount(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base font-medium text-white focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2.5">
                     {[500, 1000, 2000, 5000].map((quick) => (
                       <button
                         key={quick}
                         type="button"
                         onClick={() => setDepositAmount(String(quick))}
-                        className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 py-1.5 text-[11px] font-medium text-zinc-300 hover:border-zinc-700"
+                        className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 py-2 text-xs font-medium text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white"
                       >
                         +{quick}
                       </button>
@@ -572,23 +572,23 @@ export function SavingsGoalsCard({
                   </div>
                 </div>
 
-                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                <div className="flex gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
                   <button
                     type="button"
                     onClick={() => setDepositGoalId(null)}
-                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                    className="flex-1 rounded-xl border border-zinc-800 py-2.5 text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white"
                   >
                     Скасувати
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 active:scale-95 disabled:opacity-50"
                   >
                     {isSubmitting ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      <CheckCircle2 size={13} />
+                      <CheckCircle2 size={14} />
                     )}
                     Поповнити
                   </button>
@@ -613,12 +613,12 @@ export function SavingsGoalsCard({
               aria-hidden="true"
             />
 
-            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+            <div className="relative z-10 flex max-h-[90dvh] min-h-[60vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:min-h-0 sm:rounded-3xl">
               {/* Mobile handle indicator */}
               <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
-                <h4 className="text-sm font-bold text-white">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-6 py-4">
+                <h4 className="text-base font-semibold text-white">
                   Редагувати скарбничку
                 </h4>
                 <button
@@ -627,9 +627,9 @@ export function SavingsGoalsCard({
                     setEditGoal(null);
                     setEditError("");
                   }}
-                  className="text-zinc-500 hover:text-white"
+                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
 
@@ -637,7 +637,7 @@ export function SavingsGoalsCard({
                 onSubmit={handleUpdateGoal}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
-                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
                   {editError && (
                     <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
                       {editError}
@@ -645,7 +645,7 @@ export function SavingsGoalsCard({
                   )}
 
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-400">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                       Назва
                     </label>
                     <input
@@ -653,13 +653,13 @@ export function SavingsGoalsCard({
                       required
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Накопичено (сума)
                       </label>
                       <input
@@ -669,14 +669,14 @@ export function SavingsGoalsCard({
                         placeholder="0"
                         value={editCurrent}
                         onChange={(e) => setEditCurrent(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       />
-                      <p className="mt-0.5 text-[9px] text-zinc-500">
+                      <p className="mt-1 text-[10px] text-zinc-500">
                         Поточні збереження
                       </p>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Цільова сума
                       </label>
                       <input
@@ -685,23 +685,23 @@ export function SavingsGoalsCard({
                         placeholder="Без ліміту"
                         value={editTarget}
                         onChange={(e) => setEditTarget(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       />
-                      <p className="mt-0.5 text-[9px] text-zinc-500">
+                      <p className="mt-1 text-[10px] text-zinc-500">
                         Порожнє = безстроково
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Валюта
                       </label>
                       <select
                         value={editCurrency}
                         onChange={(e) => setEditCurrency(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       >
                         <option value="UAH">UAH (₴)</option>
                         <option value="USD">USD ($)</option>
@@ -710,39 +710,39 @@ export function SavingsGoalsCard({
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Дедлайн (опціонально)
                       </label>
                       <input
                         type="date"
                         value={editTargetDate}
                         onChange={(e) => setEditTargetDate(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                <div className="flex gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
                   <button
                     type="button"
                     onClick={() => {
                       setEditGoal(null);
                       setEditError("");
                     }}
-                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                    className="flex-1 rounded-xl border border-zinc-800 py-2.5 text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white"
                   >
                     Скасувати
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 active:scale-95 disabled:opacity-50"
                   >
                     {isSubmitting ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      <CheckCircle2 size={13} />
+                      <CheckCircle2 size={14} />
                     )}
                     Зберегти
                   </button>
@@ -767,12 +767,12 @@ export function SavingsGoalsCard({
               aria-hidden="true"
             />
 
-            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+            <div className="relative z-10 flex max-h-[90dvh] min-h-[60vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:min-h-0 sm:rounded-3xl">
               {/* Mobile handle indicator */}
               <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
-                <h4 className="text-sm font-bold text-white">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-6 py-4">
+                <h4 className="text-base font-semibold text-white">
                   Нова ціль заощаджень
                 </h4>
                 <button
@@ -781,9 +781,9 @@ export function SavingsGoalsCard({
                     setIsAddModalOpen(false);
                     setCreateError("");
                   }}
-                  className="text-zinc-500 hover:text-white"
+                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
 
@@ -791,7 +791,7 @@ export function SavingsGoalsCard({
                 onSubmit={handleCreateGoal}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
-                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
                   {createError && (
                     <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
                       {createError}
@@ -799,7 +799,7 @@ export function SavingsGoalsCard({
                   )}
 
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-400">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                       Назва цілі
                     </label>
                     <input
@@ -808,13 +808,13 @@ export function SavingsGoalsCard({
                       placeholder="наприклад Подушка безпеки або Скарбничка"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Цільова сума (опціонально)
                       </label>
                       <input
@@ -823,14 +823,14 @@ export function SavingsGoalsCard({
                         placeholder="Без обмеження"
                         value={newTarget}
                         onChange={(e) => setNewTarget(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       />
-                      <p className="mt-0.5 text-[9px] text-zinc-500">
+                      <p className="mt-1 text-[10px] text-zinc-500">
                         Залиште порожнім для скарбнички без мети
                       </p>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Вже є (початкова)
                       </label>
                       <input
@@ -839,20 +839,20 @@ export function SavingsGoalsCard({
                         placeholder="0"
                         value={newCurrent}
                         onChange={(e) => setNewCurrent(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Валюта
                       </label>
                       <select
                         value={newCurrency}
                         onChange={(e) => setNewCurrency(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       >
                         <option value="UAH">UAH (₴)</option>
                         <option value="USD">USD ($)</option>
@@ -861,39 +861,39 @@ export function SavingsGoalsCard({
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Дедлайн (опціонально)
                       </label>
                       <input
                         type="date"
                         value={newTargetDate}
                         onChange={(e) => setNewTargetDate(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                <div className="flex gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
                   <button
                     type="button"
                     onClick={() => {
                       setIsAddModalOpen(false);
                       setCreateError("");
                     }}
-                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                    className="flex-1 rounded-xl border border-zinc-800 py-2.5 text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white"
                   >
                     Скасувати
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-semibold text-white hover:bg-emerald-500 active:scale-95 disabled:opacity-50"
                   >
                     {isSubmitting ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      <Plus size={13} />
+                      <Plus size={14} />
                     )}
                     Створити
                   </button>

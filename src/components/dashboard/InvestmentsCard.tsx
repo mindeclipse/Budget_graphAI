@@ -476,20 +476,20 @@ export function InvestmentsCard({
               aria-hidden="true"
             />
 
-            <div className="relative z-10 flex max-h-[90dvh] w-full max-w-sm flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+            <div className="relative z-10 flex max-h-[90dvh] min-h-[60vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:min-h-0 sm:rounded-3xl">
               {/* Mobile handle indicator */}
               <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
-              <div className="flex items-center justify-between border-b border-zinc-800/80 px-5 py-3.5 sm:px-6 sm:py-4">
-                <h4 className="text-sm font-bold text-white">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 px-6 py-4">
+                <h4 className="text-base font-semibold text-white">
                   {editAsset ? "Редагувати актив" : "Новий інвестиційний актив"}
                 </h4>
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="text-zinc-500 hover:text-white"
+                  className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
 
@@ -497,15 +497,15 @@ export function InvestmentsCard({
                 onSubmit={handleSaveAsset}
                 className="flex min-h-0 flex-1 flex-col overflow-hidden"
               >
-                <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 sm:px-6">
+                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
                   {formError && (
-                    <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2 text-xs text-rose-400">
+                    <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
                       {formError}
                     </p>
                   )}
 
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-400">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                       Назва активу
                     </label>
                     <input
@@ -517,19 +517,19 @@ export function InvestmentsCard({
                         setName(e.target.value);
                         setFormError("");
                       }}
-                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Тип активу
                       </label>
                       <select
                         value={assetType}
                         onChange={(e) => setAssetType(e.target.value as any)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
                       >
                         <option value="bonds">ОВДП (Облігації)</option>
                         <option value="stocks">Акції / ETF</option>
@@ -540,13 +540,13 @@ export function InvestmentsCard({
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Валюта
                       </label>
                       <select
                         value={currency}
                         onChange={(e) => setCurrency(e.target.value)}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-2.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
                       >
                         <option value="UAH">UAH (₴)</option>
                         <option value="USD">USD ($)</option>
@@ -556,9 +556,9 @@ export function InvestmentsCard({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Вкладено (Cost)
                       </label>
                       <input
@@ -571,11 +571,11 @@ export function InvestmentsCard({
                           setInvested(e.target.value);
                           setFormError("");
                         }}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Поточна вартість
                       </label>
                       <input
@@ -588,14 +588,14 @@ export function InvestmentsCard({
                           setCurrentVal(e.target.value);
                           setFormError("");
                         }}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-xs text-zinc-400">
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                         Дохідність річна (%)
                       </label>
                       <input
@@ -607,11 +607,11 @@ export function InvestmentsCard({
                           setYieldPct(e.target.value);
                           setFormError("");
                         }}
-                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 flex items-center justify-between text-xs text-zinc-400">
+                      <label className="mb-1.5 flex items-center justify-between text-xs font-medium text-zinc-300">
                         <span>Дата погашення</span>
                         <span className="text-[10px] text-zinc-500">
                           ДД.ММ.РРРР
@@ -626,17 +626,17 @@ export function InvestmentsCard({
                             setMaturityDateInput(e.target.value);
                             setFormError("");
                           }}
-                          className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 py-2 pr-8 pl-3 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+                          className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 py-2.5 pr-9 pl-3.5 text-sm text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
                         />
                         <button
                           type="button"
                           onClick={() =>
                             hiddenDatePickerRef.current?.showPicker?.()
                           }
-                          className="absolute top-1/2 right-2.5 -translate-y-1/2 text-zinc-400 transition-colors hover:text-white"
+                          className="absolute top-1/2 right-3 -translate-y-1/2 text-zinc-400 transition-colors hover:text-white"
                           title="Вибрати з календаря"
                         >
-                          <Calendar size={14} />
+                          <Calendar size={15} />
                         </button>
                         <input
                           ref={hiddenDatePickerRef}
@@ -658,7 +658,7 @@ export function InvestmentsCard({
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs text-zinc-400">
+                    <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                       Нотатки (опціонально)
                     </label>
                     <input
@@ -666,28 +666,28 @@ export function InvestmentsCard({
                       placeholder="Брокер, рахунок, умови виплати тощо..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+                <div className="flex gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
                   <button
                     type="button"
                     onClick={() => setIsAddModalOpen(false)}
-                    className="flex-1 rounded-xl border border-zinc-800 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-900"
+                    className="flex-1 rounded-xl border border-zinc-800 py-2.5 text-xs font-medium text-zinc-400 hover:bg-zinc-900 hover:text-white"
                   >
                     Скасувати
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500 active:scale-95 disabled:opacity-50"
                   >
                     {isSubmitting ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                     ) : (
-                      <Plus size={13} />
+                      <Plus size={14} />
                     )}
                     {editAsset ? "Зберегти" : "Додати"}
                   </button>
