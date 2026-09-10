@@ -109,10 +109,10 @@ export function CapitalHistoryCard({
               <button
                 onClick={onImportInzhur}
                 className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition-all hover:bg-emerald-500/20 hover:text-emerald-300 active:scale-95"
-                title="Завантажити виписку Inzhur (.xlsx)"
+                title="Завантажити виписку або квитанцію (.xlsx, .pdf)"
               >
                 <FileSpreadsheet size={13} />
-                <span>Імпорт XLSX</span>
+                <span>Імпорт</span>
               </button>
             )}
 

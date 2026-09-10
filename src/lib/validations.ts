@@ -12,12 +12,22 @@ export const transactionCreateSchema = z.object({
     .min(1, "Назва не може бути порожньою")
     .max(255),
   category_name: z.string().trim().min(1).max(100).default("Інше"),
-  source: z.enum(["manual", "monobank", "recurring", "csv"]).default("manual"),
+  source: z
+    .enum([
+      "manual",
+      "monobank",
+      "recurring",
+      "csv",
+      "inzhur_statement",
+      "bank_receipt_pdf",
+    ])
+    .default("manual"),
   type: z.enum(["expense", "income", "investment"]).default("expense"),
   created_at: z.string().datetime().optional(),
   parent_transaction_id: z.number().int().positive().optional().nullable(),
   original_amount: z.number().positive().optional().nullable(),
   original_currency: z.string().optional().nullable(),
+  metadata: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 export const transactionUpdateSchema = z.object({
@@ -30,6 +40,7 @@ export const transactionUpdateSchema = z.object({
     .max(30, "Максимум 30 тегів")
     .optional(),
   save_as_rule: z.boolean().optional(),
+  metadata: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 export const recurringTemplateSchema = z.object({

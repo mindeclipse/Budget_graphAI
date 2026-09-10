@@ -36,6 +36,34 @@ describe("Validations - Zod Schemas", () => {
       expect(result.success).toBe(true);
     });
 
+    it("успішно валідує джерело bank_receipt_pdf та метадані квитанції", () => {
+      const receiptTx = {
+        amount: 35758.74,
+        currency: "UAH",
+        merchant_raw: "ТОВ «ІНЖУР КЕПІТАЛ»",
+        category_name: "Інвестиції",
+        source: "bank_receipt_pdf",
+        type: "investment",
+        metadata: {
+          receipt: {
+            fileName: "1_квитанція.pdf",
+            fileSize: 61580,
+            mimeType: "application/pdf",
+            bankName: "ПриватБанк",
+            purpose: "Оплата за цінні папери",
+          },
+        },
+      };
+      const result = transactionCreateSchema.safeParse(receiptTx);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.source).toBe("bank_receipt_pdf");
+        expect((result.data.metadata as any)?.receipt?.fileName).toBe(
+          "1_квитанція.pdf"
+        );
+      }
+    });
+
     it("відхиляє від'ємні та нульові суми", () => {
       expect(
         transactionCreateSchema.safeParse({

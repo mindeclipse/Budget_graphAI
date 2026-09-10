@@ -13,6 +13,18 @@ export interface Transaction {
   original_amount?: number | null;
   original_currency?: string | null;
   deleted_at?: string | null;
+  metadata?: Record<string, any> | null;
+}
+
+export interface TransactionReceiptMetadata {
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  base64?: string;
+  bankName?: string;
+  purpose?: string;
+  payer?: string;
+  attachedAt?: string;
 }
 
 export interface SavingsGoal {

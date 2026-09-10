@@ -569,6 +569,9 @@ export default function Dashboard() {
   // 8. Стан модальних вікон
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importModalType, setImportModalType] = useState<
+    "expense" | "investment"
+  >("expense");
   const [isInzhurImportOpen, setIsInzhurImportOpen] = useState(false);
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
@@ -906,7 +909,10 @@ export default function Dashboard() {
         recurringTotal={recurringTotal}
         transactionCount={filteredTransactions.length}
         onOpenNewCycle={() => setIsCycleModalOpen(true)}
-        onOpenImport={() => setIsImportModalOpen(true)}
+        onOpenImport={() => {
+          setImportModalType("expense");
+          setIsImportModalOpen(true);
+        }}
         onRegisterDevice={handleRegisterDevice}
         onLogout={handleLogout}
         onExportExcel={handleExportExcel}
@@ -1130,7 +1136,10 @@ export default function Dashboard() {
             transactions={capitalTransactions}
             onSelectTransaction={setSelectedTx}
             onAddCapital={() => setIsCreateExpenseOpen(true)}
-            onImportInzhur={() => setIsInzhurImportOpen(true)}
+            onImportInzhur={() => {
+              setImportModalType("investment");
+              setIsImportModalOpen(true);
+            }}
           />
         </div>
       )}
@@ -1178,6 +1187,10 @@ export default function Dashboard() {
           onDelete={handleDeleteTransaction}
           onOpenSplit={(tx) => setSplitTx(tx)}
           onOpenTagProject={setSelectedProjectTag}
+          onReceiptUpdated={() => {
+            invalidateTransactions();
+            invalidateInvestmentTransactions();
+          }}
         />
       )}
 
@@ -1226,8 +1239,13 @@ export default function Dashboard() {
           onClose={() => setIsImportModalOpen(false)}
           onSuccess={() => {
             setIsImportModalOpen(false);
-            window.location.reload();
+            invalidateTransactions();
+            invalidateInvestmentTransactions();
+            loadWealthData();
           }}
+          investments={investments}
+          initialType={importModalType}
+          onInvestmentsChange={loadWealthData}
         />
       )}
 

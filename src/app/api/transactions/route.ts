@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from("transactions")
       .select(
-        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency, deleted_at"
+        "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency, deleted_at, metadata"
       )
       .order("created_at", { ascending: false });
 
@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
       let fallbackQuery = supabase
         .from("transactions")
         .select(
-          "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency"
+          "id, created_at, amount, currency, merchant_raw, category_name, source, type, exclude_from_budget, tags, parent_transaction_id, original_amount, original_currency, metadata"
         )
         .order("created_at", { ascending: false });
 
@@ -277,8 +277,15 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const { id, category_name, merchant_raw, clean_title, tags, save_as_rule } =
-      parsed.data;
+    const {
+      id,
+      category_name,
+      merchant_raw,
+      clean_title,
+      tags,
+      save_as_rule,
+      metadata,
+    } = parsed.data;
     const supabase = getSupabaseAdmin();
 
     const updateData: Record<string, any> = {};
@@ -286,6 +293,23 @@ export async function PATCH(req: NextRequest) {
     if (clean_title || merchant_raw)
       updateData.merchant_raw = clean_title || merchant_raw;
     if (tags !== undefined) updateData.tags = tags;
+
+    if (metadata !== undefined) {
+      if (metadata === null) {
+        updateData.metadata = null;
+      } else {
+        const { data: currentTx } = await supabase
+          .from("transactions")
+          .select("metadata")
+          .eq("id", id)
+          .single();
+        const existingMeta =
+          currentTx?.metadata && typeof currentTx.metadata === "object"
+            ? currentTx.metadata
+            : {};
+        updateData.metadata = { ...existingMeta, ...metadata };
+      }
+    }
 
     const { data: updatedRows, error: txError } = await supabase
       .from("transactions")
