@@ -58,11 +58,11 @@ export function sanitizeFormulaInjection(text: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────
-// parsePrivatDate
+// parseBankDate
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Парсить дату/час з виписки ПриватБанку.
+ * Парсить дату/час з виписки банку.
  *
  * Підтримані формати:
  *   • Date-об'єкти від SheetJS (cellDates: true) — з UTC-нормалізацією
@@ -70,17 +70,13 @@ export function sanitizeFormulaInjection(text: string): string {
  *   • "DD.MM.YYYY HH:mm:ss" / "DD.MM.YYYY HH:mm" / "DD.MM.YYYY"
  *   • "YYYY-MM-DD" / "YYYY-MM-DDTHH:mm:ssZ"
  *   • 2-значний рік: YY < 70 → 20YY, YY >= 70 → 19YY
- *
- * Час з виписки зберігається точно як UTC (Приват записує Kyiv-час,
- * зберігаємо його без конверсії, бо точний TZ-офсет у файлі невідомий).
  */
-export function parsePrivatDate(rawVal: any): string {
+export function parseBankDate(rawVal: any): string {
   if (!rawVal) return new Date().toISOString();
 
   // Date-об'єкт від SheetJS (cellDates: true)
   if (rawVal instanceof Date) {
     if (isNaN(rawVal.getTime())) return new Date().toISOString();
-    // Зберігаємо точний час як UTC — виписка Приват містить час операції
     return rawVal.toISOString();
   }
 
@@ -138,12 +134,14 @@ export function parsePrivatDate(rawVal: any): string {
   return new Date().toISOString();
 }
 
+export const parsePrivatDate = parseBankDate;
+
 // ─────────────────────────────────────────────────────────────
-// parsePrivatAmount
+// parseBankAmount
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Надійно конвертує суму з виписки Приват:
+ * Надійно конвертує суму з виписки банку:
  *   • Нативне число (від SheetJS raw:true): -79.98 → 79.98, зберігає знак
  *   • Рядок з пробілами/символами: "-1 234,56 UAH" → 1234.56
  *   • Європейський формат: "-9.956,76" → 9956.76
@@ -151,7 +149,7 @@ export function parsePrivatDate(rawVal: any): string {
  *
  * Повертає { abs: number, isNegative: boolean }.
  */
-export function parsePrivatAmount(val: any): {
+export function parseBankAmount(val: any): {
   abs: number;
   isNegative: boolean;
 } {
@@ -198,11 +196,13 @@ export function parsePrivatAmount(val: any): {
   return { abs: isNaN(num) ? 0 : num, isNegative };
 }
 
+export const parsePrivatAmount = parseBankAmount;
+
 // ─────────────────────────────────────────────────────────────
-// normalizePrivatCategory
+// normalizeBankCategory
 // ─────────────────────────────────────────────────────────────
 
-export function normalizePrivatCategory(raw: string): string {
+export function normalizeBankCategory(raw: string): string {
   const cat = String(raw || "")
     .toLowerCase()
     .trim();
@@ -229,31 +229,33 @@ export function normalizePrivatCategory(raw: string): string {
   return raw.trim() || "Інше";
 }
 
+export const normalizePrivatCategory = normalizeBankCategory;
+
 // ─────────────────────────────────────────────────────────────
 // parseCurrency
 // ─────────────────────────────────────────────────────────────
 
-const ALLOWED_CURRENCIES: PrivatCurrency[] = ["UAH", "USD", "EUR", "PLN"];
+const ALLOWED_CURRENCIES: BankCurrency[] = ["UAH", "USD", "EUR", "PLN"];
 
-function parseCurrency(raw: any): PrivatCurrency {
+function parseCurrency(raw: any): BankCurrency {
   const s = String(raw || "")
     .trim()
-    .toUpperCase() as PrivatCurrency;
+    .toUpperCase() as BankCurrency;
   return ALLOWED_CURRENCIES.includes(s) ? s : "UAH";
 }
 
 // ─────────────────────────────────────────────────────────────
-// parsePrivatStatementRows  — головна функція парсингу
+// parseBankStatementRows  — головна функція парсингу виписок
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Заголовки колонок виписки Приват24 (UA/EN, нечутливо до регістру):
+ * Заголовки колонок виписки банків (UA/EN, нечутливо до регістру):
  *   Дата | Категорія | Картка | Опис операції
  *   Сума в валюті картки | Валюта картки
  *   Сума в валюті транзакції | Валюта транзакції
  *   Залишок на кінець | Валюта залишку
  */
-export function parsePrivatStatementRows(rows: any[][]): PrivatParseResult {
+export function parseBankStatementRows(rows: any[][]): BankParseResult {
   if (!rows || rows.length < 2) {
     return { transactions: [], totalRows: 0, skippedRows: 0 };
   }
@@ -333,37 +335,37 @@ export function parsePrivatStatementRows(rows: any[][]): PrivatParseResult {
   }
 
   // ── 3. Обробка рядків ─────────────────────────────────────
-  const transactions: ParsedPrivatTransaction[] = [];
+  const transactions: ParsedBankTransaction[] = [];
   let skippedRows = 0;
   const dataRows = rows.slice(headerRowIdx + 1);
 
-  for (const row of dataRows) {
-    if (!row || row.length <= idx.amount) {
+  for (let r = 0; r < dataRows.length; r++) {
+    const row = dataRows[r];
+    if (!row || row.length === 0) {
       skippedRows++;
       continue;
     }
 
-    // Пропускаємо порожні рядки та підсумки
     const rawAmountCell = row[idx.amount];
     if (rawAmountCell == null || rawAmountCell === "") {
       skippedRows++;
       continue;
     }
 
-    const { abs: amount, isNegative } = parsePrivatAmount(rawAmountCell);
+    const { abs: amount, isNegative } = parseBankAmount(rawAmountCell);
     if (amount === 0 || isNaN(amount)) {
       skippedRows++;
       continue;
     }
 
-    const createdAt = parsePrivatDate(
+    const createdAt = parseBankDate(
       idx.date !== -1 ? row[idx.date] : undefined
     );
 
     const rawDesc =
       idx.desc !== -1 && row[idx.desc] != null
         ? sanitizeFormulaInjection(String(row[idx.desc]))
-        : "ПриватБанк операція";
+        : "Банківська операція";
 
     const rawCategory =
       idx.category !== -1 && row[idx.category] != null
@@ -383,12 +385,12 @@ export function parsePrivatStatementRows(rows: any[][]): PrivatParseResult {
       .replace(/[^a-zа-яіїєґ0-9]/gi, "");
     const externalId = `pb_${isoDatePart}_${amount.toFixed(2)}_${currency}_${descSlug}`;
 
-    const parseResult = privatTransactionSchema.safeParse({
+    const parseResult = bankTransactionSchema.safeParse({
       external_id: externalId.slice(0, 255),
       amount,
       currency,
       merchant_raw: rawDesc.slice(0, 255),
-      category_name: normalizePrivatCategory(rawCategory).slice(0, 100),
+      category_name: normalizeBankCategory(rawCategory).slice(0, 100),
       source: "privatbank_statement" as const,
       type,
       exclude_from_budget: false as const,
@@ -409,6 +411,4 @@ export function parsePrivatStatementRows(rows: any[][]): PrivatParseResult {
   };
 }
 
-export const parseBankStatementRows = parsePrivatStatementRows;
-export const parseBankDate = parsePrivatDate;
-export const normalizeBankCategory = normalizePrivatCategory;
+export const parsePrivatStatementRows = parseBankStatementRows;
