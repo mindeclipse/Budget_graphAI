@@ -3,7 +3,10 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySessionToken } from "@/lib/session";
 import * as XLSX from "xlsx";
-import { parseInzhurStatementRows } from "@/lib/inzhur-parser";
+import {
+  parseInzhurStatementRows,
+  ParsedInzhurTransaction,
+} from "@/lib/inzhur-parser";
 
 export const dynamic = "force-dynamic";
 
@@ -154,12 +157,12 @@ export async function POST(req: Request) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Отримання вже існуючих external_id для дедуплікації
+    // 1. Отримання вже існуючих записів капіталу для надійної та перехресної дедуплікації
     const { data: existingRecords, error: fetchErr } = await supabaseAdmin
       .from("transactions")
-      .select("external_id")
-      .eq("source", "inzhur_statement")
-      .not("external_id", "is", null);
+      .select("id, external_id, amount, created_at, source, merchant_raw")
+      .is("deleted_at", null)
+      .eq("type", "investment");
 
     if (fetchErr) {
       console.error("[Inzhur Import] Error fetching existing IDs:", fetchErr);
@@ -167,12 +170,67 @@ export async function POST(req: Request) {
     }
 
     const existingIds = new Set(
-      (existingRecords || []).map((r: any) => r.external_id)
+      (existingRecords || []).map((r: any) => r.external_id).filter(Boolean)
     );
 
-    const newItems = validatedTransactions.filter(
-      (item) => !existingIds.has(item.external_id)
+    // Список існуючих операцій не з виписки Inzhur (наприклад, завантажених як PDF-квитанція)
+    const nonInzhurRecords = (existingRecords || []).filter(
+      (r: any) => r.source !== "inzhur_statement"
     );
+
+    const newItems: ParsedInzhurTransaction[] = [];
+
+    for (const item of validatedTransactions) {
+      // А. Дедуплікація за точним external_id Inzhur
+      if (existingIds.has(item.external_id)) {
+        continue;
+      }
+
+      // Б. Розумна дедуплікація проти квитанцій bank_receipt_pdf:
+      // Якщо в межах 3 днів уже є платіж на ту саму точну суму
+      const itemTime = new Date(item.created_at).getTime();
+      const matchIndex = nonInzhurRecords.findIndex((existing: any) => {
+        const existingTime = new Date(existing.created_at).getTime();
+        const diffDays =
+          Math.abs(itemTime - existingTime) / (1000 * 60 * 60 * 24);
+        return (
+          Math.abs(Number(existing.amount) - Number(item.amount)) < 0.01 &&
+          diffDays <= 3
+        );
+      });
+
+      if (matchIndex !== -1) {
+        const matched = nonInzhurRecords[matchIndex];
+        // Видаляємо з черги зіставлень, щоб одна квитанція не зіставилась двічі
+        nonInzhurRecords.splice(matchIndex, 1);
+        existingIds.add(item.external_id);
+
+        // Оновлюємо external_id у існуючій транзакції для прив'язки
+        const updateData: Record<string, any> = {
+          external_id: item.external_id,
+        };
+
+        // Якщо попередня назва була загальною (наприклад "ТОВ «ІНЖУР КЕПІТАЛ»"),
+        // оновлюємо її на детальну назву паперу з виписки Inzhur
+        if (
+          matched.merchant_raw &&
+          (matched.merchant_raw.toLowerCase().includes("інжур") ||
+            matched.merchant_raw.toLowerCase().includes("inzhur")) &&
+          item.merchant_raw
+        ) {
+          updateData.merchant_raw = item.merchant_raw;
+        }
+
+        await supabaseAdmin
+          .from("transactions")
+          .update(updateData)
+          .eq("id", matched.id);
+
+        continue;
+      }
+
+      newItems.push(item);
+    }
 
     const skippedDuplicates = validatedTransactions.length - newItems.length;
 
