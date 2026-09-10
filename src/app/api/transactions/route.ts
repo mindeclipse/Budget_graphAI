@@ -7,6 +7,7 @@ import {
   transactionCreateSchema,
   transactionUpdateSchema,
 } from "@/lib/validations";
+import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 
 async function checkAuthSession(): Promise<boolean> {
   const cookieStore = await cookies();
@@ -249,6 +250,13 @@ export async function POST(req: Request) {
     if (error) {
       console.error("[API transactions POST] DB error:", error);
       throw error;
+    }
+
+    // Перевірка денного ліміту для сповіщення в Telegram
+    if (parsed.data.type === "expense") {
+      await checkDailyBudgetThreshold().catch((alertErr) => {
+        console.error("[API transactions POST] Budget alert error:", alertErr);
+      });
     }
 
     return NextResponse.json({ success: true, transaction: data });

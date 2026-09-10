@@ -1,151 +1,171 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { sendTelegramMessage } from "@/lib/telegram";
-import { getUsdRate } from "@/lib/currency";
 import {
-  getCycleDateRange,
-  calculateCycleDaysRemaining,
-  DEFAULT_BUDGET_LIMIT,
-} from "@/lib/cycle-utils";
+  computeSafeDailyBudget,
+  getKyivDateString,
+  DailyBudgetInfo,
+} from "@/lib/classify-formatter";
 
-function getKyivDateString(date: Date | string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Kyiv",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(date));
+export function formatBudgetAlertMessage(params: {
+  alertType: "daily_warning" | "daily_exceeded";
+  totalSpentToday: number;
+  safeDailySpend: number;
+  daysRemaining: number;
+  cycleRemaining: number;
+  recurringTotal: number;
+}): string {
+  const percentSpent =
+    params.safeDailySpend > 0
+      ? Math.round((params.totalSpentToday / params.safeDailySpend) * 100)
+      : 100;
+
+  const title =
+    params.alertType === "daily_exceeded"
+      ? `⚠️ <b>Увага: денний ліміт перевищено!</b>`
+      : `⚠️ <b>Увага: наближення до денного ліміту!</b>`;
+
+  return [
+    title,
+    ``,
+    `💸 Витрачено за сьогодні: <b>${params.totalSpentToday.toFixed(2)} ₴</b> (${percentSpent}% від норми)`,
+    `🎯 Безпечний ліміт на день: <b>${params.safeDailySpend.toFixed(2)} ₴</b>`,
+    ``,
+    `📉 Вільний залишок на <b>${params.daysRemaining} дн.</b>: <b>${params.cycleRemaining.toFixed(2)} ₴</b>`,
+    `🔒 Зарезервовано на постійні витрати: <b>${params.recurringTotal.toLocaleString("uk-UA").replace(/\u00A0/g, " ")} ₴</b>`,
+  ].join("\n");
 }
 
-export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
-  const supabase = getSupabaseAdmin();
-  const now = new Date();
+export async function checkDailyBudgetThreshold(
+  customBudgetLimit?: number,
+  testNow: Date = new Date(),
+  precomputedDailyBudget?: DailyBudgetInfo | null,
+  supabaseInstance?: any
+): Promise<{
+  alerted: boolean;
+  alertType?: "daily_warning" | "daily_exceeded";
+  totalSpentToday?: number;
+  safeDailySpend?: number;
+  reason?: string;
+  error?: any;
+}> {
+  try {
+    const now = testNow;
+    const kyivTodayStr = getKyivDateString(now);
 
-  const kyivTodayStr = getKyivDateString(now);
+    const dailyInfo =
+      precomputedDailyBudget !== undefined
+        ? precomputedDailyBudget
+        : await computeSafeDailyBudget(
+            supabaseInstance || getSupabaseAdmin(),
+            now,
+            customBudgetLimit
+          );
 
-  // 1. Дедуплікація сповіщень за сьогодні
-  const { data: existingAlert } = await supabase
-    .from("budget_alerts")
-    .select("id")
-    .eq("alert_date", kyivTodayStr)
-    .eq("alert_type", "daily_85_percent")
-    .maybeSingle();
+    if (!dailyInfo) {
+      return { alerted: false, reason: "no_daily_info" };
+    }
 
-  if (existingAlert) {
-    console.log("[BudgetAlert] Already notified today:", kyivTodayStr);
-    return { alerted: false, reason: "already_notified_today" };
-  }
+    const safeDailySpend = dailyInfo.todayTarget;
+    const totalSpentToday = dailyInfo.todaySpent;
+    const threshold85 = safeDailySpend * 0.85;
 
-  // 2. Отримання поточного активного зарплатного циклу
-  const { data: activeCycle } = await supabase
-    .from("budget_cycles")
-    .select("id, name, start_date, end_date, budget_limit, is_active")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    // Визначаємо необхідний рівень сповіщення
+    let targetAlertType: "daily_warning" | "daily_exceeded" | null = null;
+    if (
+      totalSpentToday > 0 &&
+      (safeDailySpend <= 0 || totalSpentToday >= safeDailySpend)
+    ) {
+      targetAlertType = "daily_exceeded";
+    } else if (
+      safeDailySpend > 0 &&
+      totalSpentToday >= threshold85 &&
+      totalSpentToday > 0
+    ) {
+      targetAlertType = "daily_warning";
+    }
 
-  // 3. Визначення ліміту бюджету (пріоритет: активний цикл -> кастомний параметр -> дефолт 35 000)
-  const budgetLimit = activeCycle?.budget_limit
-    ? Number(activeCycle.budget_limit)
-    : customBudgetLimit || DEFAULT_BUDGET_LIMIT;
+    if (!targetAlertType) {
+      return {
+        alerted: false,
+        reason: "below_threshold",
+        totalSpentToday,
+        safeDailySpend,
+      };
+    }
 
-  // 4. Завантаження активних постійних витрат
-  const { data: recurringItems } = await supabase
-    .from("recurring_templates")
-    .select("amount, currency, is_active")
-    .eq("is_active", true);
+    const supabase = supabaseInstance || getSupabaseAdmin();
 
-  const usdRate = await getUsdRate();
-  const recurringTotal = (recurringItems || []).reduce((sum, r) => {
-    const amt = Number(r.amount) || 0;
-    return sum + (r.currency === "USD" ? amt * usdRate : amt);
-  }, 0);
+    // Перевірка дедуплікації в базі даних (уникаємо спаму в Telegram)
+    const { data: existingAlerts, error: alertFetchErr } = await supabase
+      .from("budget_alerts")
+      .select("alert_type")
+      .eq("alert_date", kyivTodayStr);
 
-  // 5. Розрахунок днів та початкової дати вибірки операцій через cycle-utils
-  const cycleRange = getCycleDateRange(activeCycle, now);
-  const cycleStartIso = cycleRange.startDate.toISOString();
-  const daysRemaining = calculateCycleDaysRemaining(activeCycle, now, now);
+    if (alertFetchErr) {
+      console.error("[BudgetAlert] Error fetching alerts:", alertFetchErr);
+    }
 
-  // 6. Отримання транзакцій від старту активного вікна
-  const { data: rawTransactions, error } = await supabase
-    .from("transactions")
-    .select("amount, created_at, type, exclude_from_budget")
-    .gte("created_at", cycleStartIso);
+    const recordedTypes = (existingAlerts || []).map((a: any) => a.alert_type);
 
-  if (error || !rawTransactions) {
-    console.error("[BudgetAlert] Error fetching transactions:", error);
-    return { alerted: false, error };
-  }
+    if (targetAlertType === "daily_exceeded") {
+      if (recordedTypes.includes("daily_exceeded")) {
+        return {
+          alerted: false,
+          reason: "already_exceeded_notified_today",
+          totalSpentToday,
+          safeDailySpend,
+        };
+      }
+    } else if (targetAlertType === "daily_warning") {
+      if (
+        recordedTypes.includes("daily_warning") ||
+        recordedTypes.includes("daily_85_percent") ||
+        recordedTypes.includes("daily_exceeded")
+      ) {
+        return {
+          alerted: false,
+          reason: "already_warning_or_exceeded_notified_today",
+          totalSpentToday,
+          safeDailySpend,
+        };
+      }
+    }
 
-  // Враховуємо лише реальні витрати, які не виключені з бюджету
-  const periodExpenses = rawTransactions.filter(
-    (t) => t.type !== "income" && !t.exclude_from_budget
-  );
-
-  const totalSpentPeriod = periodExpenses.reduce(
-    (sum, t) => sum + Number(t.amount || 0),
-    0
-  );
-
-  // Фільтрація витрат суто за поточну київську добу
-  const todayTransactions = periodExpenses.filter(
-    (t) => getKyivDateString(t.created_at) === kyivTodayStr
-  );
-
-  const totalSpentToday = todayTransactions.reduce(
-    (sum, t) => sum + Number(t.amount || 0),
-    0
-  );
-
-  // 7. Розрахунок лімітів
-  const variableBudget = Math.max(0, budgetLimit - recurringTotal);
-  const remaining = variableBudget - totalSpentPeriod;
-  const safeDailySpend =
-    daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
-
-  const threshold85 = safeDailySpend * 0.85;
-
-  // Діагностичний лог у Vercel
-  console.log("[BudgetAlert] Calculation:", {
-    date: kyivTodayStr,
-    activeCycleId: activeCycle?.id || null,
-    todayTransactionsCount: todayTransactions.length,
-    totalSpentToday,
-    threshold85,
-    safeDailySpend,
-    variableBudget,
-    remaining,
-    daysRemaining,
-  });
-
-  // 8. Порівняння з порогом 85%
-  if (totalSpentToday >= threshold85 && totalSpentToday > 0) {
-    const percentSpent =
-      safeDailySpend > 0
-        ? Math.round((totalSpentToday / safeDailySpend) * 100)
-        : 100;
-
-    const message = [
-      `⚠️ <b>Увага: денний ліміт перевищено!</b>`,
-      ``,
-      `💸 Витрачено за сьогодні: <b>${totalSpentToday.toFixed(2)} ₴</b> (${percentSpent}% від норми)`,
-      `🎯 Безпечний ліміт на день: <b>${safeDailySpend.toFixed(2)} ₴</b>`,
-      ``,
-      `📉 Вільний залишок на <b>${daysRemaining} дн.</b>: <b>${remaining.toFixed(2)} ₴</b>`,
-      `🔒 Зарезервовано на постійні витрати: <b>${recurringTotal.toLocaleString("uk-UA")} ₴</b>`,
-    ].join("\n");
+    const message = formatBudgetAlertMessage({
+      alertType: targetAlertType,
+      totalSpentToday,
+      safeDailySpend,
+      daysRemaining: dailyInfo.daysRemaining,
+      cycleRemaining: dailyInfo.cycleRemaining,
+      recurringTotal: dailyInfo.recurringTotal || 0,
+    });
 
     const sent = await sendTelegramMessage(message);
 
     if (sent) {
       await supabase.from("budget_alerts").insert({
         alert_date: kyivTodayStr,
-        alert_type: "daily_85_percent",
+        alert_type: targetAlertType,
       });
-      console.log("[BudgetAlert] Telegram notification successfully sent.");
-      return { alerted: true, totalSpentToday, safeDailySpend };
+      console.log(
+        `[BudgetAlert] Telegram notification (${targetAlertType}) successfully sent.`
+      );
+      return {
+        alerted: true,
+        alertType: targetAlertType,
+        totalSpentToday,
+        safeDailySpend,
+      };
     }
-  }
 
-  return { alerted: false, totalSpentToday, safeDailySpend };
+    return {
+      alerted: false,
+      reason: "telegram_send_failed",
+      totalSpentToday,
+      safeDailySpend,
+    };
+  } catch (err: any) {
+    console.error("[BudgetAlert] Unexpected error:", err);
+    return { alerted: false, error: err };
+  }
 }

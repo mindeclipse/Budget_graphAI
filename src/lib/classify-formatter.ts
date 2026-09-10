@@ -1,4 +1,5 @@
 import { getCycleDateRange, DEFAULT_BUDGET_LIMIT } from "@/lib/cycle-utils";
+import { getUsdRate } from "@/lib/currency";
 
 export interface DailyBudgetInfo {
   todayRemaining: number;
@@ -6,6 +7,7 @@ export interface DailyBudgetInfo {
   todaySpent: number;
   cycleRemaining: number;
   daysRemaining: number;
+  recurringTotal?: number;
 }
 
 /**
@@ -62,7 +64,8 @@ export function formatQuickSummary(
 
 export async function computeSafeDailyBudget(
   supabaseAdmin: any,
-  now: Date = new Date()
+  now: Date = new Date(),
+  customBudgetLimit?: number
 ): Promise<DailyBudgetInfo | null> {
   try {
     // 1. Отримуємо активний цикл або стандартний календарний місяць
@@ -76,7 +79,7 @@ export async function computeSafeDailyBudget(
 
     const budgetLimit = activeCycle?.budget_limit
       ? Number(activeCycle.budget_limit)
-      : DEFAULT_BUDGET_LIMIT;
+      : customBudgetLimit || DEFAULT_BUDGET_LIMIT;
 
     const range = getCycleDateRange(activeCycle, now);
     const cycleStart = range.startDate;
@@ -97,10 +100,11 @@ export async function computeSafeDailyBudget(
       .select("amount, currency, is_active")
       .eq("is_active", true);
 
+    const usdRate = await getUsdRate();
     const recurringTotal = (recurringItems || []).reduce(
       (sum: number, r: any) => {
         const amt = Number(r.amount) || 0;
-        return sum + (r.currency === "USD" ? amt * 42 : amt);
+        return sum + (r.currency === "USD" ? amt * usdRate : amt);
       },
       0
     );
@@ -160,6 +164,7 @@ export async function computeSafeDailyBudget(
       todaySpent: Math.round(spentToday * 100) / 100,
       cycleRemaining,
       daysRemaining,
+      recurringTotal: Math.round(recurringTotal),
     };
   } catch (err) {
     console.error("Помилка розрахунку safeDailyRemaining у classify:", err);

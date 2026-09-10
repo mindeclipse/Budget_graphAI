@@ -39,6 +39,7 @@ import {
   formatQuickSummary,
   computeSafeDailyBudget,
 } from "@/lib/classify-formatter";
+import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 import { processExpenseRoundup } from "@/lib/roundup-utils";
 
 export async function POST(req: NextRequest) {
@@ -264,6 +265,15 @@ export async function POST(req: NextRequest) {
       dailyBudget,
       roundupResult?.roundupAmount
     );
+
+    // 4.5. Перевірка наближення або перевищення денного ліміту для сповіщення в Telegram
+    if (type === "expense") {
+      await checkDailyBudgetThreshold(undefined, undefined, dailyBudget).catch(
+        (alertErr) => {
+          console.error("[Classify API] Daily budget alert error:", alertErr);
+        }
+      );
+    }
 
     // Повертаємо розширену відповідь для Apple Shortcuts
     return NextResponse.json({
