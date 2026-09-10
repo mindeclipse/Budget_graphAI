@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Landmark,
   Plus,
@@ -13,9 +13,10 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
+import { triggerHaptic } from "@/lib/haptics";
 
-// Кількість записів за замовчуванням (до розгортання)
-const INITIAL_VISIBLE = 8;
+// Кількість записів за замовчуванням (компактний перегляд, ~360px)
+const INITIAL_VISIBLE = 6;
 
 interface CapitalHistoryCardProps {
   transactions: Transaction[];
@@ -32,6 +33,7 @@ export function CapitalHistoryCard({
 }: CapitalHistoryCardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -49,7 +51,7 @@ export function CapitalHistoryCard({
     return transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   }, [transactions]);
 
-  // При активному пошуку — показуємо всі збіги без пагінації
+  // При активному пошуку — показуємо всі збіги
   const isSearchActive = searchQuery.trim().length > 0;
   const visibleItems =
     isSearchActive || isExpanded
@@ -58,6 +60,18 @@ export function CapitalHistoryCard({
   const hiddenCount = isSearchActive
     ? 0
     : Math.max(filtered.length - INITIAL_VISIBLE, 0);
+
+  const handleToggleExpand = () => {
+    triggerHaptic("selection");
+    if (isExpanded) {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      setIsExpanded(false);
+    } else {
+      setIsExpanded(true);
+    }
+  };
 
   return (
     <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
@@ -150,13 +164,15 @@ export function CapitalHistoryCard({
         </div>
       ) : (
         <>
-          {/* Скролюючий контейнер — активується тільки в розгорнутому режимі */}
+          {/* Скролюючий контейнер — при розгортанні плавно розширюється без стрибків */}
           <div
-            className={
-              isExpanded && !isSearchActive
-                ? "max-h-[420px] [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.700)_theme(colors.zinc.900)] overflow-y-auto overscroll-contain pr-1"
-                : undefined
-            }
+            ref={scrollContainerRef}
+            className={`pr-1.5 transition-[max-height] duration-300 ease-out ${
+              isExpanded ||
+              (isSearchActive && filtered.length > INITIAL_VISIBLE)
+                ? "max-h-[520px] [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.700)_transparent] overflow-y-auto overscroll-contain [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent"
+                : ""
+            }`}
           >
             <div className="space-y-2">
               {visibleItems.map((tx) => {
@@ -270,8 +286,9 @@ export function CapitalHistoryCard({
           {/* Кнопка розгортання / згортання (лише коли є прихований залишок і пошук неактивний) */}
           {!isSearchActive && hiddenCount > 0 && (
             <button
-              onClick={() => setIsExpanded((v) => !v)}
-              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 py-2 text-[11px] font-medium text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-900/60 hover:text-zinc-200 active:scale-[0.99]"
+              type="button"
+              onClick={handleToggleExpand}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 py-2.5 text-[11px] font-medium text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-900/60 hover:text-zinc-200 active:scale-[0.99]"
             >
               {isExpanded ? (
                 <>
