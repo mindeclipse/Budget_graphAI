@@ -182,22 +182,20 @@ export async function POST(req: Request) {
     });
 
     // Оновлення лічильника в БД (захист від клонування ключів)
-    void (async () => {
-      try {
-        const { error } = await supabase
-          .from("webauthn_credentials")
-          .update({ counter: newCounter })
-          .eq("id", dbCredential.id);
-        if (error) {
-          console.error(
-            "[WebAuthn Login POST] Counter update DB error:",
-            error
-          );
-        }
-      } catch (err: unknown) {
-        console.error("[WebAuthn Login POST] Counter update exception:", err);
+    try {
+      const { error: updateError } = await supabase
+        .from("webauthn_credentials")
+        .update({ counter: newCounter })
+        .eq("id", dbCredential.id);
+      if (updateError) {
+        console.error(
+          "[WebAuthn Login POST] Counter update DB error:",
+          updateError
+        );
       }
-    })();
+    } catch (err: unknown) {
+      console.error("[WebAuthn Login POST] Counter update exception:", err);
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

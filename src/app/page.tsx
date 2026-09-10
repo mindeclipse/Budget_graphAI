@@ -30,7 +30,6 @@ import { CostPerUseCard } from "@/components/dashboard/CostPerUseCard";
 import { CapitalHistoryCard } from "@/components/dashboard/CapitalHistoryCard";
 import { CapitalYieldMetrics } from "@/components/dashboard/CapitalYieldMetrics";
 import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
-import { exportFinancialDataToExcel } from "@/lib/export-excel";
 import { DetectedSubscription } from "@/lib/subscription-radar";
 
 import { BurnRateChart } from "@/components/BurnRateChart";
@@ -837,13 +836,18 @@ export default function Dashboard() {
     }
   };
 
-  // Експорт у Excel (.xlsx)
-  const handleExportExcel = () => {
-    exportFinancialDataToExcel({
-      transactions,
-      investments,
-      savingsGoals,
-    });
+  // Експорт у Excel (.xlsx) з лінивим завантаженням важкої бібліотеки SheetJS
+  const handleExportExcel = async () => {
+    try {
+      const { exportFinancialDataToExcel } = await import("@/lib/export-excel");
+      exportFinancialDataToExcel({
+        transactions,
+        investments,
+        savingsGoals,
+      });
+    } catch (err) {
+      console.error("Помилка експорту в Excel:", err);
+    }
   };
 
   // Відновлення бази даних з бекапу
