@@ -10,7 +10,7 @@ import {
   ChevronUp,
   Receipt,
   ShoppingCart,
-  Fuel,
+  Cigarette,
   Pill,
 } from "lucide-react";
 import { calculatePersonalCpi, PersonalCpiReport } from "@/lib/personal-cpi";
@@ -202,7 +202,7 @@ export function MoMComparison({
                 </span>
               </div>
               <p className="text-[10px] text-zinc-500">
-                Зміна реального середнього чека (супермаркети, АЗС, аптеки)
+                Зміна реального середнього чека (супермаркети, куріння, аптеки)
               </p>
             </div>
           </div>
@@ -292,8 +292,8 @@ export function MoMComparison({
                       {stat.categoryKey === "groceries" && (
                         <ShoppingCart size={12} className="text-amber-400" />
                       )}
-                      {stat.categoryKey === "fuel" && (
-                        <Fuel size={12} className="text-blue-400" />
+                      {stat.categoryKey === "smoking" && (
+                        <Cigarette size={12} className="text-orange-400" />
                       )}
                       {stat.categoryKey === "health" && (
                         <Pill size={12} className="text-emerald-400" />

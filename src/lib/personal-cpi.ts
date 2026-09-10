@@ -51,16 +51,16 @@ export const DEFAULT_STAPLE_CATEGORIES: CpiCategoryConfig[] = [
     },
   },
   {
-    key: "fuel",
-    label: "АЗС / Пальне",
-    icon: "fuel",
+    key: "smoking",
+    label: "Куріння",
+    icon: "cigarette",
     matches: (name: string) => {
       const lower = (name || "").toLowerCase().trim();
       return (
-        lower === "азс" ||
-        lower === "пальне" ||
-        lower === "авто" ||
-        lower.includes("заправ")
+        lower === "куріння" ||
+        lower.includes("тютюн") ||
+        lower.includes("сигарет") ||
+        lower.includes("курін")
       );
     },
   },

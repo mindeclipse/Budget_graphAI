@@ -18,14 +18,15 @@ describe("Personal CPI Analytics Engine", () => {
       expect(groceries?.matches("Кафе")).toBe(false);
     });
 
-    it("правильно визначає АЗС і пальне", () => {
-      const fuel = DEFAULT_STAPLE_CATEGORIES.find((c) => c.key === "fuel");
-      expect(fuel?.matches("АЗС")).toBe(true);
-      expect(fuel?.matches("азс")).toBe(true);
-      expect(fuel?.matches("Пальне")).toBe(true);
-      expect(fuel?.matches("Авто")).toBe(true);
-      expect(fuel?.matches("Заправка")).toBe(true);
-      expect(fuel?.matches("Одяг")).toBe(false);
+    it("правильно визначає категорію Куріння", () => {
+      const smoking = DEFAULT_STAPLE_CATEGORIES.find(
+        (c) => c.key === "smoking"
+      );
+      expect(smoking?.matches("Куріння")).toBe(true);
+      expect(smoking?.matches("куріння")).toBe(true);
+      expect(smoking?.matches("Тютюн")).toBe(true);
+      expect(smoking?.matches("Сигарети")).toBe(true);
+      expect(smoking?.matches("Одяг")).toBe(false);
     });
 
     it("правильно визначає аптеки і здоров'я", () => {
@@ -185,14 +186,14 @@ describe("Personal CPI Analytics Engine", () => {
           created_at: "2026-01-10",
           type: "expense",
         },
-        // АЗС: 1 чек на 1500
+        // Куріння: 1 чек на 150
         {
-          amount: 1500,
-          category_name: "АЗС",
+          amount: 150,
+          category_name: "Куріння",
           created_at: "2026-01-12",
           type: "expense",
         },
-        // Загальний попередній середній чек кошика = (500 + 1500) / 2 = 1000
+        // Загальний попередній середній чек кошика = (500 + 150) / 2 = 325
       ];
 
       const currentTransactions: CpiTransaction[] = [
@@ -203,15 +204,15 @@ describe("Personal CPI Analytics Engine", () => {
           created_at: "2026-08-10",
           type: "expense",
         },
-        // АЗС: 1 чек на 1600 (+6.7%)
+        // Куріння: 1 чек на 160 (+6.7%)
         {
-          amount: 1600,
-          category_name: "АЗС",
+          amount: 160,
+          category_name: "Куріння",
           created_at: "2026-08-12",
           type: "expense",
         },
-        // Загальний поточний середній чек кошика = (600 + 1600) / 2 = 1100
-        // Загальна інфляція = (1100 - 1000) / 1000 = +10.0%
+        // Загальний поточний середній чек кошика = (600 + 160) / 2 = 380
+        // Загальна інфляція = (380 - 325) / 325 = +16.9%
       ];
 
       const report = calculatePersonalCpi(
@@ -224,11 +225,12 @@ describe("Personal CPI Analytics Engine", () => {
           ?.inflationRate
       ).toBe(20.0);
       expect(
-        report.basketStats.find((s) => s.categoryKey === "fuel")?.inflationRate
+        report.basketStats.find((s) => s.categoryKey === "smoking")
+          ?.inflationRate
       ).toBe(6.7);
-      expect(report.overallInflationRate).toBe(10.0);
-      expect(report.totalCurrentBasketSpend).toBe(2200);
-      expect(report.totalPreviousBasketSpend).toBe(2000);
+      expect(report.overallInflationRate).toBe(16.9);
+      expect(report.totalCurrentBasketSpend).toBe(760);
+      expect(report.totalPreviousBasketSpend).toBe(650);
     });
 
     it("безпечно обробляє порожні списки транзакцій без ділення на нуль", () => {
