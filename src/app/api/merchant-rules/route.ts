@@ -20,6 +20,7 @@ function getSafeErrorMessage(error: any): string {
 const ruleSchema = z.object({
   pattern: z.string().min(1, "Паттерн не може бути порожнім").max(100),
   normalized_name: z.string().max(100).optional().default(""),
+  clean_merchant: z.string().max(100).optional().default(""),
   category_name: z.string().min(1, "Категорія обов'язкова").max(50),
 });
 
@@ -40,7 +41,17 @@ export async function GET() {
       throw error;
     }
 
-    return NextResponse.json({ rules: data || [] });
+    // Забезпечуємо наявність обох полів (clean_merchant та normalized_name)
+    const mappedRules = (data || []).map((r) => {
+      const title = r.clean_merchant || r.normalized_name || r.pattern;
+      return {
+        ...r,
+        clean_merchant: title,
+        normalized_name: title,
+      };
+    });
+
+    return NextResponse.json({ rules: mappedRules });
   } catch (err: any) {
     console.error("Merchant rules GET error:", err);
     return NextResponse.json(
@@ -66,20 +77,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { pattern, normalized_name, category_name } = parsed.data;
-    // Патерн зберігаємо як є (trim + lowercase) — НЕ очищаємо через cleanMerchantRaw,
-    // бо та функція призначена для чеків банку і видаляє цифри, міста тощо.
-    // Користувач вводить патерн навмисно — зберігаємо точно.
+    const { pattern, normalized_name, clean_merchant, category_name } =
+      parsed.data;
     const cleanPattern = pattern.trim().toLowerCase();
-    const finalNormalized = normalized_name?.trim() || cleanPattern;
+    const finalCleanMerchant = (
+      normalized_name ||
+      clean_merchant ||
+      cleanPattern
+    ).trim();
 
     const supabase = getSupabaseAdmin();
+    // В БД колонка називається clean_merchant
     const { data, error } = await supabase
       .from("merchant_rules")
       .upsert(
         {
           pattern: cleanPattern,
-          normalized_name: finalNormalized,
+          clean_merchant: finalCleanMerchant,
           category_name: category_name.trim(),
         },
         { onConflict: "pattern" }
@@ -92,9 +106,15 @@ export async function POST(req: NextRequest) {
       throw error;
     }
 
+    const returnedRule = {
+      ...data,
+      clean_merchant: data?.clean_merchant || finalCleanMerchant,
+      normalized_name: data?.clean_merchant || finalCleanMerchant,
+    };
+
     return NextResponse.json({
       success: true,
-      rule: data,
+      rule: returnedRule,
       message: "Правило мерчанта збережено",
     });
   } catch (err: any) {

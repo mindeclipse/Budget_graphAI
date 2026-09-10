@@ -235,7 +235,7 @@ export async function PATCH(req: NextRequest) {
       await supabase.from("merchant_rules").upsert(
         {
           pattern,
-          normalized_name: clean_title || pattern,
+          clean_merchant: clean_title || pattern,
           category_name,
         },
         { onConflict: "pattern" }

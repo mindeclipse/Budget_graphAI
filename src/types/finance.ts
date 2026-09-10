@@ -86,8 +86,10 @@ export interface CostPerUseItem {
 }
 
 export interface MerchantRule {
+  id?: number;
   pattern: string;
-  normalized_name: string;
+  normalized_name?: string;
+  clean_merchant?: string;
   category_name: string;
   created_at?: string;
 }

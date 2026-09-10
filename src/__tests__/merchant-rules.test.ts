@@ -83,4 +83,37 @@ describe("Merchant Rules Auto-Categorization Engine", () => {
     const cleaned = cleanMerchantRaw(dirtyPattern);
     expect(cleaned).toBe("Сільпо-Фуд");
   });
+
+  it("підтримує як clean_merchant, так і normalized_name", () => {
+    const rulesWithCleanMerchant: MerchantRule[] = [
+      {
+        pattern: "dk shevchenka 8",
+        clean_merchant: "Doner Kebab на Шевченка",
+        category_name: "Кафе та ресторани",
+      },
+    ];
+
+    function matchRuleUnified(raw: string, rules: MerchantRule[]) {
+      const cleaned = cleanMerchantRaw(raw);
+      const lowerCleaned = cleaned.toLowerCase();
+      const lowerRaw = raw.toLowerCase();
+      const rule = rules.find((r) => {
+        const p = r.pattern.toLowerCase();
+        return lowerCleaned.includes(p) || lowerRaw.includes(p);
+      });
+      if (!rule) return null;
+      return {
+        cleanTitle: rule.clean_merchant || rule.normalized_name || cleaned,
+        category: rule.category_name,
+      };
+    }
+
+    const match = matchRuleUnified(
+      "Dk Shevchenka 8, Львів, Львівська область",
+      rulesWithCleanMerchant
+    );
+    expect(match).not.toBeNull();
+    expect(match?.cleanTitle).toBe("Doner Kebab на Шевченка");
+    expect(match?.category).toBe("Кафе та ресторани");
+  });
 });

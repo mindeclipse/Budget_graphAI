@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     // --- ЕШЕЛОН 1: Пошук у таблиці правил merchant_rules ---
     const { data: rules } = await supabaseAdmin
       .from("merchant_rules")
-      .select("pattern, normalized_name, category_name");
+      .select("pattern, clean_merchant, category_name");
 
     if (rules && rules.length > 0) {
       const lowerCleaned = cleaned.toLowerCase();
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (matchedRule) {
-        cleanTitle = matchedRule.normalized_name || cleaned;
+        cleanTitle = matchedRule.clean_merchant || cleaned;
         categoryName = matchedRule.category_name;
         classificationSource = "rule_engine";
       }
@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin.from("merchant_rules").upsert(
           {
             pattern: cleaned,
-            normalized_name: cleanTitle,
+            clean_merchant: cleanTitle,
             category_name: categoryName,
           },
           { onConflict: "pattern" }

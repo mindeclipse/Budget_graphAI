@@ -120,7 +120,7 @@ export function MerchantRulesModal({
   const handleStartEdit = (rule: MerchantRule) => {
     triggerHaptic("selection");
     setPattern(rule.pattern);
-    setNormalizedName(rule.normalized_name || "");
+    setNormalizedName(rule.clean_merchant || rule.normalized_name || "");
     setCategoryName(rule.category_name || CATEGORIES[0]);
     setEditingPattern(rule.pattern);
     setIsFormOpen(true);
@@ -147,6 +147,7 @@ export function MerchantRulesModal({
       (r) =>
         r.pattern.toLowerCase().includes(s) ||
         r.normalized_name?.toLowerCase().includes(s) ||
+        r.clean_merchant?.toLowerCase().includes(s) ||
         r.category_name.toLowerCase().includes(s)
     );
   }, [rules, search]);
@@ -350,7 +351,9 @@ export function MerchantRulesModal({
                     </span>
                     <ArrowRight size={12} className="shrink-0 text-zinc-600" />
                     <span className="max-w-[140px] truncate text-xs font-semibold text-white">
-                      {rule.normalized_name || rule.pattern}
+                      {rule.clean_merchant ||
+                        rule.normalized_name ||
+                        rule.pattern}
                     </span>
                   </div>
                   <div className="mt-1">

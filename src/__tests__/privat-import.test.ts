@@ -324,4 +324,32 @@ describe("parsePrivatStatementRows", () => {
     ];
     expect(parsePrivatStatementRows(noHeader).transactions).toHaveLength(0);
   });
+
+  it("коректно парсить рядки з CSV із десятковою комою в рядку ('-8,00')", () => {
+    const csvRows = [
+      headers,
+      [
+        "08.09.2026 04:45:07",
+        "Переказ на свою картку",
+        "4627 **** **** 2001",
+        "Решта від округлення",
+        "-8,00",
+        "UAH",
+      ],
+      [
+        "07.09.2026 21:47:23",
+        "Супермаркети та продукти",
+        "4627 **** **** 2001",
+        "Близенько",
+        "-1.234,56",
+        "UAH",
+      ],
+    ];
+    const { transactions } = parsePrivatStatementRows(csvRows);
+    expect(transactions).toHaveLength(2);
+    expect(transactions[0].amount).toBe(8.0);
+    expect(transactions[0].type).toBe("expense");
+    expect(transactions[1].amount).toBe(1234.56);
+    expect(transactions[1].type).toBe("expense");
+  });
 });

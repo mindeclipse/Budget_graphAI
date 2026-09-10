@@ -67,20 +67,48 @@ export async function POST(req: Request) {
       buffer[1] === 0xcf &&
       buffer[2] === 0x11 &&
       buffer[3] === 0xe0; // Compound Document (xls)
-    const isCsv = lowerName.endsWith(".csv"); // CSV — текст, magic bytes не потрібні
+    const isCsv = lowerName.endsWith(".csv"); // CSV — текстовий формат
+    // Підтримка HTML-таблиць, які банки часто експортують з розширенням .xls
+    const isHtmlXls =
+      lowerName.endsWith(".xls") &&
+      buffer.slice(0, 100).toString("utf8").toLowerCase().includes("<");
 
-    if (!isXlsx && !isXls && !isCsv) {
+    if (!isXlsx && !isXls && !isCsv && !isHtmlXls) {
       return NextResponse.json(
         { error: "Вміст файлу не відповідає формату Excel або CSV" },
         { status: 400 }
       );
     }
 
-    const workbook = XLSX.read(buffer, {
-      type: "buffer",
-      cellDates: true, // SheetJS повертає Date-об'єкти для дат
-      cellNF: true, // зберігає числовий формат (для серійних дат)
-    });
+    let workbook: XLSX.WorkBook;
+    try {
+      if (isCsv) {
+        // Декодуємо CSV як рядок UTF-8, щоб запобігти спотворенню кирилиці SheetJS
+        // raw: true зберігає дробові коми ("-8,00"), не даючи SheetJS перетворити їх на тисячі ("-800")
+        const csvContent = buffer.toString("utf8");
+        workbook = XLSX.read(csvContent, {
+          type: "string",
+          codepage: 65001,
+          cellDates: true,
+          cellNF: true,
+          raw: true,
+        });
+      } else {
+        workbook = XLSX.read(buffer, {
+          type: "buffer",
+          cellDates: true, // SheetJS повертає Date-об'єкти для дат
+          cellNF: true, // зберігає числовий формат (для серійних дат)
+        });
+      }
+    } catch (parseErr: any) {
+      return NextResponse.json(
+        {
+          error:
+            "Не вдалося прочитати файл таблиці. Перевірте цілісність файлу.",
+        },
+        { status: 400 }
+      );
+    }
 
     // Захист від DoS: надмірна кількість аркушів
     if (workbook.SheetNames.length > 20) {
