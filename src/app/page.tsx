@@ -133,6 +133,8 @@ export default function Dashboard() {
   const {
     transactions: rawTransactions,
     invalidateTransactions,
+    investmentTransactions,
+    invalidateInvestmentTransactions,
     recurring,
     invalidateRecurring,
     radar: radarData,
@@ -494,26 +496,15 @@ export default function Dashboard() {
     });
   }, [filteredTransactions, deferredSearchQuery, activeTag]);
 
-  // Окрема вибірка транзакцій для вкладки "Капітал & Цілі"
+  // Вибірка транзакцій для вкладки "Капітал & Цілі" — використовує окремий
+  // запит investmentTransactions (ліміт 5000, без date-фільтру), щоб
+  // охопити всю повну історію Inzhur/ОВДП незалежно від кількості витрат.
   const capitalTransactions = useMemo(() => {
-    return rawTransactions
-      .filter(
-        (t: Transaction) =>
-          !t.exclude_from_budget &&
-          (t.type === "investment" ||
-            t.category_name?.toLowerCase().includes("інвест") ||
-            t.category_name?.toLowerCase().includes("заощадж") ||
-            t.tags?.some(
-              (tag: string) =>
-                tag.toLowerCase().includes("капітал") ||
-                tag.toLowerCase().includes("інвест")
-            ))
-      )
-      .sort(
-        (a: Transaction, b: Transaction) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-  }, [rawTransactions]);
+    return [...investmentTransactions].sort(
+      (a: Transaction, b: Transaction) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }, [investmentTransactions]);
 
   // 8. Стан модальних вікон
   const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
@@ -1170,6 +1161,7 @@ export default function Dashboard() {
           onClose={() => setIsInzhurImportOpen(false)}
           onSuccess={() => {
             invalidateTransactions();
+            invalidateInvestmentTransactions();
             loadWealthData();
           }}
         />

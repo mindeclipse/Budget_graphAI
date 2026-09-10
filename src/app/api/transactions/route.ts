@@ -34,6 +34,15 @@ export async function GET(req: NextRequest) {
     const limitParam = searchParams.get("limit");
     const offsetParam = searchParams.get("offset");
 
+    // Фільтрація за типом транзакції через allowlist (захист від ін'єкцій)
+    const rawTypeParam = searchParams.get("type");
+    const ALLOWED_TYPES = ["investment", "expense"] as const;
+    type AllowedType = (typeof ALLOWED_TYPES)[number];
+    const typeFilter: AllowedType | null =
+      rawTypeParam && ALLOWED_TYPES.includes(rawTypeParam as AllowedType)
+        ? (rawTypeParam as AllowedType)
+        : null;
+
     if (fromDate && isNaN(new Date(fromDate).getTime())) {
       return NextResponse.json(
         { error: "Invalid 'from' date format" },
@@ -49,9 +58,13 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseAdmin();
     const offset = offsetParam ? Math.max(Number(offsetParam) || 0, 0) : 0;
+
+    // Для запитів типу investment збільшуємо ліміт до 5000, щоб охопити всю
+    // історію незалежно від кількості щоденних витрат
+    const defaultLimit = typeFilter === "investment" ? 5000 : 1500;
     const requestedLimit = limitParam
       ? Math.min(Math.max(Number(limitParam) || 0, 1), 5000)
-      : 1500;
+      : defaultLimit;
 
     const isTrash = searchParams.get("trash") === "true";
 
@@ -68,6 +81,11 @@ export async function GET(req: NextRequest) {
       query = query.not("deleted_at", "is", null);
     } else {
       query = query.is("deleted_at", null);
+    }
+
+    // Фільтрація за типом транзакції (allowlist-валідовано вище)
+    if (typeFilter) {
+      query = query.eq("type", typeFilter);
     }
 
     // Фільтрація за періодом (використовує idx_transactions_created_at_desc або idx_transactions_budget_filter)

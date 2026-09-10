@@ -11,6 +11,7 @@ export interface DateRangeFilter {
 export const FINANCE_KEYS = {
   transactions: (range?: DateRangeFilter) =>
     range ? (["transactions", range] as const) : (["transactions"] as const),
+  investmentTransactions: ["transactions", "investment"] as const,
   recurring: ["recurring"] as const,
   radar: ["recurring", "radar"] as const,
   budget: (month: string) => ["budget", month] as const,
@@ -48,6 +49,25 @@ export function useFinanceQueries(
     staleTime: 5 * 60 * 1000, // 5 хвилин вважаємо дані свіжими
     gcTime: 30 * 60 * 1000, // 30 хвилин у пам'яті
     refetchOnWindowFocus: false, // запобігає зайвим запитам при поверненні в PWA
+  });
+
+  // Окремий запит виключно для investment-транзакцій (Inzhur, ОВДП тощо).
+  // Використовує endpoint ?type=investment з лімітом 5000, щоб охопити всю
+  // повну історію незалежно від кількості щоденних витрат.
+  const investmentTransactionsQuery = useQuery({
+    queryKey: FINANCE_KEYS.investmentTransactions,
+    queryFn: async () => {
+      const res = await fetch("/api/transactions?type=investment");
+      if (!res.ok) {
+        throw new Error("Не вдалося завантажити інвестиційні транзакції");
+      }
+      const data = await res.json();
+      return (data.transactions || []) as Transaction[];
+    },
+    enabled: Boolean(isAuthenticated),
+    staleTime: 2 * 60 * 1000, // 2 хвилини — швидке оновлення після імпорту
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Запит постійних платежів
@@ -122,6 +142,12 @@ export function useFinanceQueries(
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
   };
 
+  const invalidateInvestmentTransactions = () => {
+    queryClient.invalidateQueries({
+      queryKey: FINANCE_KEYS.investmentTransactions,
+    });
+  };
+
   const invalidateRecurring = () => {
     queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.recurring });
     queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.radar });
@@ -136,6 +162,8 @@ export function useFinanceQueries(
       (t: any) => !t.exclude_from_budget
     ),
     isLoadingTransactions: transactionsQuery.isLoading,
+    investmentTransactions: investmentTransactionsQuery.data || [],
+    isLoadingInvestmentTransactions: investmentTransactionsQuery.isLoading,
     recurring: recurringQuery.data || [],
     isLoadingRecurring: recurringQuery.isLoading,
     pacing: pacingQuery.data,
@@ -143,6 +171,7 @@ export function useFinanceQueries(
     radar: radarQuery.data,
     isLoadingRadar: radarQuery.isLoading,
     invalidateTransactions,
+    invalidateInvestmentTransactions,
     invalidateRecurring,
     invalidateRadar,
   };
