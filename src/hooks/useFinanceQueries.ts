@@ -115,7 +115,7 @@ export function useFinanceQueries(
       return (await res.json()) as SubscriptionRadarResult;
     },
     enabled: Boolean(isAuthenticated),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });

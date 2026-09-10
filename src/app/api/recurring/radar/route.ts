@@ -52,18 +52,37 @@ export async function GET(req: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Отримуємо транзакції за останні 180 днів для точного виявлення циклічності (виключаючи видалені)
+    // 1. Отримуємо транзакції за останні 180 днів з пагінацією (виключаючи видалені)
+    // Використовуємо сортування за спаданням і пагінацію, щоб не втратити свіжі транзакції через ліміт PostgREST (1000 рядків)
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 180);
 
-    const { data: rawTransactions, error: txError } = await supabaseAdmin
-      .from("transactions")
-      .select("*")
-      .is("deleted_at", null)
-      .gte("created_at", fromDate.toISOString())
-      .order("created_at", { ascending: true });
+    const CHUNK_SIZE = 1000;
+    const allTransactions: Transaction[] = [];
+    let offset = 0;
+    let hasMore = true;
 
-    if (txError) throw txError;
+    while (hasMore && allTransactions.length < 5000) {
+      const { data, error: txError } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .is("deleted_at", null)
+        .gte("created_at", fromDate.toISOString())
+        .order("created_at", { ascending: false })
+        .range(offset, offset + CHUNK_SIZE - 1);
+
+      if (txError) throw txError;
+      if (data && data.length > 0) {
+        allTransactions.push(...(data as Transaction[]));
+        if (data.length < CHUNK_SIZE) {
+          hasMore = false;
+        } else {
+          offset += CHUNK_SIZE;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
 
     // 2. Отримуємо всі наявні шаблони постійних витрат
     const { data: rawTemplates, error: tmplError } = await supabaseAdmin
@@ -73,7 +92,7 @@ export async function GET(req: NextRequest) {
 
     if (tmplError) throw tmplError;
 
-    const transactions = (rawTransactions || []) as Transaction[];
+    const transactions = allTransactions;
     const templates = (rawTemplates || []) as RecurringItem[];
 
     // 3. Визначаємо межі активного зарплатного циклу або календарного місяця
