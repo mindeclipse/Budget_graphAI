@@ -14,7 +14,7 @@ export interface ParsedBankTransaction {
   merchant_raw: string;
   category_name: string;
   source: "privatbank_statement" | "bank_statement";
-  type: "expense" | "income";
+  type: "expense" | "income" | "transfer";
   exclude_from_budget: false;
   created_at: string;
 }
@@ -27,7 +27,7 @@ export const bankTransactionSchema = z.object({
   merchant_raw: z.string().min(1).max(255),
   category_name: z.string().min(1).max(100),
   source: z.enum(["privatbank_statement", "bank_statement"]),
-  type: z.enum(["expense", "income"]),
+  type: z.enum(["expense", "income", "transfer"]),
   exclude_from_budget: z.literal(false),
   created_at: z.string().datetime(),
 });
@@ -202,7 +202,18 @@ export const parsePrivatAmount = parseBankAmount;
 // normalizeBankCategory
 // ─────────────────────────────────────────────────────────────
 
-export function normalizeBankCategory(raw: string): string {
+export function normalizeBankCategory(raw: string, rawDesc?: string): string {
+  const combined = `${raw || ""} ${rawDesc || ""}`.toLowerCase().trim();
+  if (
+    combined.includes("подушка") ||
+    combined.includes("подушк") ||
+    combined.includes("решта від округлення") ||
+    combined.includes("округлення залишку") ||
+    combined.includes("округлення витрат")
+  ) {
+    return "Внутрішні перекази / Подушка";
+  }
+
   const cat = String(raw || "")
     .toLowerCase()
     .trim();
@@ -374,7 +385,20 @@ export function parseBankStatementRows(rows: any[][]): BankParseResult {
 
     const currency =
       idx.currency !== -1 ? parseCurrency(row[idx.currency]) : "UAH";
-    const type: "expense" | "income" = isNegative ? "expense" : "income";
+    const lowerDesc = rawDesc.toLowerCase();
+    const lowerCat = rawCategory.toLowerCase();
+    const isRoundup =
+      lowerDesc.includes("подушка") ||
+      lowerDesc.includes("подушк") ||
+      lowerDesc.includes("округлення") ||
+      lowerCat.includes("подушка");
+
+    const categoryName = normalizeBankCategory(rawCategory, rawDesc);
+    const type: "expense" | "income" | "transfer" = isRoundup
+      ? "transfer"
+      : isNegative
+        ? "expense"
+        : "income";
 
     // ── external_id: детермінований та стабільний ─────────
     // Формат: pb_{ISO-дата-без-мс}_{сума}_{первые16символів-опису}
@@ -390,7 +414,7 @@ export function parseBankStatementRows(rows: any[][]): BankParseResult {
       amount,
       currency,
       merchant_raw: rawDesc.slice(0, 255),
-      category_name: normalizeBankCategory(rawCategory).slice(0, 100),
+      category_name: categoryName.slice(0, 100),
       source: "privatbank_statement" as const,
       type,
       exclude_from_budget: false as const,

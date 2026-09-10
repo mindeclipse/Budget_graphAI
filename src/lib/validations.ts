@@ -20,9 +20,13 @@ export const transactionCreateSchema = z.object({
       "csv",
       "inzhur_statement",
       "bank_receipt_pdf",
+      "privatbank_statement",
+      "apple_pay",
     ])
     .default("manual"),
-  type: z.enum(["expense", "income", "investment"]).default("expense"),
+  type: z
+    .enum(["expense", "income", "investment", "transfer"])
+    .default("expense"),
   created_at: z.string().datetime().optional(),
   parent_transaction_id: z.number().int().positive().optional().nullable(),
   original_amount: z.number().positive().optional().nullable(),

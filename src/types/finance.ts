@@ -6,7 +6,7 @@ export interface Transaction {
   merchant_raw: string;
   category_name: string;
   source: string;
-  type: "expense" | "income" | "investment";
+  type: "expense" | "income" | "investment" | "transfer";
   exclude_from_budget?: boolean;
   tags?: string[];
   parent_transaction_id?: number | null;

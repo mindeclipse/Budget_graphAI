@@ -4,12 +4,20 @@ export function formatQuickSummary(
   cleanTitle: string,
   amount: number,
   categoryName: string,
-  safeDailyRemaining: number | null
+  safeDailyRemaining: number | null,
+  roundupAmount?: number | null
 ): string {
   const amountFormatted = `${Number(amount)
     .toLocaleString("uk-UA")
     .replace(/\u00A0/g, " ")} ₴`;
   let summary = `${cleanTitle}: ${amountFormatted} (${categoryName})`;
+
+  if (roundupAmount && roundupAmount > 0) {
+    const roundupFormatted = `${Number(roundupAmount)
+      .toLocaleString("uk-UA")
+      .replace(/\u00A0/g, " ")} ₴`;
+    summary += ` • Подушка: +${roundupFormatted}`;
+  }
 
   if (safeDailyRemaining !== null) {
     if (safeDailyRemaining > 0) {
@@ -81,7 +89,7 @@ export async function computeSafeDailyBudget(
       .lte("created_at", cycleEnd.toISOString());
 
     const periodExpenses = (periodTx || []).filter(
-      (t: any) => t.type !== "income" && !t.exclude_from_budget
+      (t: any) => t.type === "expense" && !t.exclude_from_budget
     );
 
     const totalSpentPeriod = periodExpenses.reduce(

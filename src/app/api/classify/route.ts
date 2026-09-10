@@ -39,6 +39,7 @@ import {
   formatQuickSummary,
   computeSafeDailyBudget,
 } from "@/lib/classify-formatter";
+import { processExpenseRoundup } from "@/lib/roundup-utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -239,13 +240,29 @@ export async function POST(req: NextRequest) {
       throw new Error(`Помилка запису транзакції`);
     }
 
+    // 3.5. Автоокруглення витрат на Фінансову подушку ("Від витрат" до 10 ₴)
+    let roundupResult = null;
+    if (type === "expense" && currency === "UAH") {
+      try {
+        roundupResult = await processExpenseRoundup(supabaseAdmin, {
+          parentTxId: insertedTx.id,
+          amount,
+          currency,
+          source,
+        });
+      } catch (roundupErr) {
+        console.error("Auto-roundup failed gracefully:", roundupErr);
+      }
+    }
+
     // 4. Розрахунок безпечного щоденного залишку та тексту для сповіщення Apple Shortcuts
     const safeDailyRemaining = await computeSafeDailyBudget(supabaseAdmin);
     const quickSummary = formatQuickSummary(
       cleanTitle,
       amount,
       categoryName,
-      safeDailyRemaining
+      safeDailyRemaining,
+      roundupResult?.roundupAmount
     );
 
     // Повертаємо розширену відповідь для Apple Shortcuts
@@ -259,6 +276,15 @@ export async function POST(req: NextRequest) {
       source: classificationSource,
       safeDailyRemaining,
       quickSummary,
+      roundup: roundupResult
+        ? {
+            amount: roundupResult.roundupAmount,
+            currency: "UAH",
+            goalName: roundupResult.goalName,
+            transactionId: roundupResult.roundupTxId,
+            newGoalBalance: roundupResult.newGoalBalance,
+          }
+        : null,
     });
   } catch (error: any) {
     console.error("Classify & Ingest API error:", error);

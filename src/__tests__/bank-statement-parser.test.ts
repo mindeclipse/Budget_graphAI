@@ -349,7 +349,8 @@ describe("parsePrivatStatementRows", () => {
     const { transactions } = parsePrivatStatementRows(csvRows);
     expect(transactions).toHaveLength(2);
     expect(transactions[0].amount).toBe(8.0);
-    expect(transactions[0].type).toBe("expense");
+    expect(transactions[0].type).toBe("transfer");
+    expect(transactions[0].category_name).toBe("Внутрішні перекази / Подушка");
     expect(transactions[1].amount).toBe(1234.56);
     expect(transactions[1].type).toBe("expense");
   });
