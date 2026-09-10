@@ -60,11 +60,35 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Magic bytes — захист від підробленого розширення файлу
+    const isXlsx = buffer[0] === 0x50 && buffer[1] === 0x4b; // PK ZIP (xlsx)
+    const isXls =
+      buffer[0] === 0xd0 &&
+      buffer[1] === 0xcf &&
+      buffer[2] === 0x11 &&
+      buffer[3] === 0xe0; // Compound Document (xls)
+    const isCsv = lowerName.endsWith(".csv"); // CSV — текст, magic bytes не потрібні
+
+    if (!isXlsx && !isXls && !isCsv) {
+      return NextResponse.json(
+        { error: "Вміст файлу не відповідає формату Excel або CSV" },
+        { status: 400 }
+      );
+    }
+
     const workbook = XLSX.read(buffer, {
       type: "buffer",
       cellDates: true, // SheetJS повертає Date-об'єкти для дат
       cellNF: true, // зберігає числовий формат (для серійних дат)
     });
+
+    // Захист від DoS: надмірна кількість аркушів
+    if (workbook.SheetNames.length > 20) {
+      return NextResponse.json(
+        { error: "Файл містить забагато аркушів (максимум 20)" },
+        { status: 400 }
+      );
+    }
 
     // Шукаємо аркуш за ключовими словами виписки
     const SHEET_KEYWORDS = ["виписк", "операц", "statement", "history", "рух"];

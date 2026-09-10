@@ -51,6 +51,23 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Magic bytes — захист від підробленого розширення файлу
+    const lowerNameInzhur = file.name.toLowerCase();
+    const isXlsxInzhur = buffer[0] === 0x50 && buffer[1] === 0x4b; // PK ZIP (xlsx)
+    const isXlsInzhur =
+      buffer[0] === 0xd0 &&
+      buffer[1] === 0xcf &&
+      buffer[2] === 0x11 &&
+      buffer[3] === 0xe0; // Compound Document (xls)
+    const isCsvInzhur = lowerNameInzhur.endsWith(".csv");
+
+    if (!isXlsxInzhur && !isXlsInzhur && !isCsvInzhur) {
+      return NextResponse.json(
+        { error: "Вміст файлу не відповідає формату Excel або CSV" },
+        { status: 400 }
+      );
+    }
+
     let rows: any[][];
     try {
       const workbook = XLSX.read(buffer, {
@@ -58,6 +75,14 @@ export async function POST(req: Request) {
         cellDates: true,
         cellNF: true,
       });
+
+      // Захист від DoS: надмірна кількість аркушів
+      if (workbook.SheetNames.length > 20) {
+        return NextResponse.json(
+          { error: "Файл містить забагато аркушів (максимум 20)" },
+          { status: 400 }
+        );
+      }
 
       // Пошук цільового аркуша (пріоритет аркушам з випискою/транзакціями)
       const targetSheetName =
