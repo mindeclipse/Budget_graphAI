@@ -1,7 +1,7 @@
 import { BudgetCycle, Transaction } from "@/types/finance";
 
 export const DEFAULT_CYCLE_DURATION_DAYS = 30;
-export const DEFAULT_BUDGET_LIMIT = 30000;
+export const DEFAULT_BUDGET_LIMIT = 35000;
 
 export interface CycleDateRange {
   startDate: Date;
@@ -14,7 +14,7 @@ export interface CycleDateRange {
  * Отримує точні межі періоду для активного циклу або календарного місяця (якщо цикл відсутній).
  */
 export function getCycleDateRange(
-  cycle?: BudgetCycle | null,
+  cycle?: Partial<BudgetCycle> | null,
   fallbackDate: Date = new Date()
 ): CycleDateRange {
   if (cycle && cycle.start_date) {
@@ -50,7 +50,7 @@ export function getCycleDateRange(
  * Розраховує кількість днів, що залишилися до кінця активного циклу або поточного місяця.
  */
 export function calculateCycleDaysRemaining(
-  cycle?: BudgetCycle | null,
+  cycle?: Partial<BudgetCycle> | null,
   fallbackDate: Date = new Date(),
   now: Date = new Date()
 ): number {
@@ -96,7 +96,7 @@ export function filterTransactionsByDateRange<T extends { created_at: string }>(
  */
 export function filterBudgetTransactions(
   transactions: Transaction[],
-  activeCycle: BudgetCycle | null | undefined,
+  activeCycle: Partial<BudgetCycle> | null | undefined,
   isCurrentMonth: boolean,
   monthTransactions: Transaction[]
 ): Transaction[] {

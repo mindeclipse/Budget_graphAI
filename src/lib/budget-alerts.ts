@@ -1,8 +1,11 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { getUsdRate } from "@/lib/currency";
-
-const CYCLE_DURATION_DAYS = 30; // Стандартна тривалість зарплатного циклу
+import {
+  getCycleDateRange,
+  calculateCycleDaysRemaining,
+  DEFAULT_BUDGET_LIMIT,
+} from "@/lib/cycle-utils";
 
 function getKyivDateString(date: Date | string): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -45,7 +48,7 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
   // 3. Визначення ліміту бюджету (пріоритет: активний цикл -> кастомний параметр -> дефолт 35 000)
   const budgetLimit = activeCycle?.budget_limit
     ? Number(activeCycle.budget_limit)
-    : customBudgetLimit || 35000;
+    : customBudgetLimit || DEFAULT_BUDGET_LIMIT;
 
   // 4. Завантаження активних постійних витрат
   const { data: recurringItems } = await supabase
@@ -59,29 +62,10 @@ export async function checkDailyBudgetThreshold(customBudgetLimit?: number) {
     return sum + (r.currency === "USD" ? amt * usdRate : amt);
   }, 0);
 
-  // 5. Розрахунок днів та початкової дати вибірки операцій
-  let cycleStartIso: string;
-  let daysRemaining = 0;
-
-  if (activeCycle) {
-    // Якщо є активний зарплатний цикл — рахуємо дні циклу (30 днів)
-    const cycleStart = new Date(activeCycle.start_date);
-    const cycleEnd = activeCycle.end_date
-      ? new Date(activeCycle.end_date)
-      : new Date(
-          cycleStart.getTime() + CYCLE_DURATION_DAYS * 24 * 60 * 60 * 1000
-        );
-
-    cycleStartIso = cycleStart.toISOString();
-    const diffMs = cycleEnd.getTime() - now.getTime();
-    daysRemaining = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-  } else {
-    // Фоллбек на звичайний календарний місяць
-    const [year, month, day] = kyivTodayStr.split("-").map(Number);
-    const totalDaysInMonth = new Date(year, month, 0).getDate();
-    daysRemaining = Math.max(1, totalDaysInMonth - day + 1);
-    cycleStartIso = `${kyivMonthStr}-01T00:00:00Z`;
-  }
+  // 5. Розрахунок днів та початкової дати вибірки операцій через cycle-utils
+  const cycleRange = getCycleDateRange(activeCycle, now);
+  const cycleStartIso = cycleRange.startDate.toISOString();
+  const daysRemaining = calculateCycleDaysRemaining(activeCycle, now, now);
 
   // 6. Отримання транзакцій від старту активного вікна
   const { data: rawTransactions, error } = await supabase

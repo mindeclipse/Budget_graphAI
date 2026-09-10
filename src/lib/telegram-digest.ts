@@ -7,8 +7,11 @@ import {
 import { sendBackupToTelegram } from "@/lib/backup-service";
 import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
 import { getUsdRate } from "@/lib/currency";
-
-const CYCLE_DURATION_DAYS = 30;
+import {
+  getCycleDateRange,
+  calculateCycleDaysRemaining,
+  DEFAULT_BUDGET_LIMIT,
+} from "@/lib/cycle-utils";
 
 function getAppUrl(): string {
   return (
@@ -154,7 +157,7 @@ export async function generateWeeklyDigest(options?: {
   // 6. Стан активного циклу
   const { data: activeCycle } = await supabase
     .from("budget_cycles")
-    .select("id, name, start_date, end_date, budget_limit")
+    .select("id, name, start_date, end_date, budget_limit, is_active")
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -165,18 +168,13 @@ export async function generateWeeklyDigest(options?: {
   let safeDailySpend = 0;
 
   if (activeCycle) {
-    const cycleStart = new Date(activeCycle.start_date);
-    const cycleEnd = activeCycle.end_date
-      ? new Date(activeCycle.end_date)
-      : new Date(cycleStart.getTime() + CYCLE_DURATION_DAYS * msInDay);
-
-    const diffMs = cycleEnd.getTime() - now.getTime();
-    daysRemaining = Math.max(1, Math.ceil(diffMs / msInDay));
+    const cycleRange = getCycleDateRange(activeCycle, now);
+    daysRemaining = calculateCycleDaysRemaining(activeCycle, now, now);
 
     const { data: cycleTx } = await supabase
       .from("transactions")
       .select("amount, type, exclude_from_budget")
-      .gte("created_at", cycleStart.toISOString());
+      .gte("created_at", cycleRange.startDate.toISOString());
 
     const totalCycleSpent = (cycleTx || [])
       .filter((t) => t.type !== "income" && !t.exclude_from_budget)
@@ -193,7 +191,7 @@ export async function generateWeeklyDigest(options?: {
       return sum + (r.currency === "USD" ? amt * usdRate : amt);
     }, 0);
 
-    const limit = Number(activeCycle.budget_limit) || 35000;
+    const limit = Number(activeCycle.budget_limit) || DEFAULT_BUDGET_LIMIT;
     const variableBudget = Math.max(0, limit - recurringTotal);
     remainingBudget = variableBudget - totalCycleSpent;
     safeDailySpend = Math.max(0, Math.round(remainingBudget / daysRemaining));

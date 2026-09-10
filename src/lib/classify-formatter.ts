@@ -1,3 +1,5 @@
+import { getCycleDateRange, DEFAULT_BUDGET_LIMIT } from "@/lib/cycle-utils";
+
 export function formatQuickSummary(
   cleanTitle: string,
   amount: number,
@@ -37,14 +39,11 @@ export async function computeSafeDailyBudget(
 
     const budgetLimit = activeCycle?.budget_limit
       ? Number(activeCycle.budget_limit)
-      : 35000;
+      : DEFAULT_BUDGET_LIMIT;
 
-    const cycleStart = activeCycle?.start_date
-      ? new Date(activeCycle.start_date)
-      : new Date(now.getFullYear(), now.getMonth(), 1);
-    const cycleEnd = activeCycle?.end_date
-      ? new Date(activeCycle.end_date)
-      : new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const range = getCycleDateRange(activeCycle, now);
+    const cycleStart = range.startDate;
+    const cycleEnd = range.endDate;
 
     const msPerDay = 1000 * 60 * 60 * 24;
     const daysTotal = Math.max(

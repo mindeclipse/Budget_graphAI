@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Calendar, RotateCcw, ArrowRight, Loader2 } from "lucide-react";
+import { DEFAULT_BUDGET_LIMIT } from "@/lib/cycle-utils";
 
 interface NewCycleModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ export function NewCycleModal({
   isOpen,
   onClose,
   onCycleStarted,
-  defaultLimit = 35000,
+  defaultLimit = DEFAULT_BUDGET_LIMIT,
 }: NewCycleModalProps) {
   const [name, setName] = useState(
     `Зарплатний цикл ${new Date().toLocaleDateString("uk-UA", { month: "long" })}`

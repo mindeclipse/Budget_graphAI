@@ -12,7 +12,7 @@ import { BudgetCycle, Transaction } from "@/types/finance";
 describe("Cycle Utils Unit Tests", () => {
   it("експортує коректні стандартні константи", () => {
     expect(DEFAULT_CYCLE_DURATION_DAYS).toBe(30);
-    expect(DEFAULT_BUDGET_LIMIT).toBe(30000);
+    expect(DEFAULT_BUDGET_LIMIT).toBe(35000);
   });
 
   it("розраховує межі циклу, коли задано і start_date, і end_date", () => {
