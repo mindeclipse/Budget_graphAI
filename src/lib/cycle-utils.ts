@@ -1,7 +1,8 @@
 import { BudgetCycle, Transaction } from "@/types/finance";
 
 export const DEFAULT_CYCLE_DURATION_DAYS = 30;
-export const DEFAULT_BUDGET_LIMIT = 35000;
+export const FALLBACK_BUDGET_LIMIT = 35000;
+export const DEFAULT_BUDGET_LIMIT = FALLBACK_BUDGET_LIMIT;
 
 export interface CycleDateRange {
   startDate: Date;

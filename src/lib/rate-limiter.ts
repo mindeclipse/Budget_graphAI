@@ -189,3 +189,55 @@ export async function resetRateLimit(ip: string): Promise<void> {
     console.warn("[RateLimiter] Error resetting rate limit:", err?.message);
   }
 }
+
+export interface AIRateLimitResult {
+  allowed: boolean;
+  retryAfterSeconds?: number;
+  remaining?: number;
+}
+
+const aiRateLimitTracker = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
+
+function cleanupExpiredAiRateLimits(now: number): void {
+  if (aiRateLimitTracker.size > 1000) {
+    for (const [key, val] of aiRateLimitTracker.entries()) {
+      if (now > val.resetAt) {
+        aiRateLimitTracker.delete(key);
+      }
+    }
+  }
+}
+
+/**
+ * Швидкий in-memory rate-limiter для AI ендпоінтів (0ms DB Latency).
+ * Захищає квоту Google Gemini API від надмірних або зациклених запитів.
+ */
+export function checkAiRateLimit(
+  key: string,
+  maxRequests: number = 20,
+  windowMs: number = 60 * 1000
+): AIRateLimitResult {
+  const now = Date.now();
+  cleanupExpiredAiRateLimits(now);
+
+  const entry = aiRateLimitTracker.get(key);
+
+  if (!entry || now > entry.resetAt) {
+    aiRateLimitTracker.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, remaining: maxRequests - 1 };
+  }
+
+  if (entry.count >= maxRequests) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((entry.resetAt - now) / 1000)
+    );
+    return { allowed: false, retryAfterSeconds, remaining: 0 };
+  }
+
+  entry.count += 1;
+  return { allowed: true, remaining: Math.max(0, maxRequests - entry.count) };
+}

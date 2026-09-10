@@ -8,6 +8,9 @@ import {
   SupportedGeminiModel,
 } from "@/types/ai";
 
+import { checkAiRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/security";
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Zero-Trust перевірка сесії користувача
@@ -19,6 +22,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Доступ заборонено: відсутня активна сесія" },
         { status: 401 }
+      );
+    }
+
+    // 2. Захист квоти Gemini API від надмірних повідомлень (Rate Limiting: макс. 25 / хв)
+    const ip = getClientIp(req.headers);
+    const rateLimit = checkAiRateLimit(`ai_chat_${ip}`, 25, 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Забагато повідомлень. Будь ласка, зачекайте ${rateLimit.retryAfterSeconds} с.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+          },
+        }
       );
     }
 

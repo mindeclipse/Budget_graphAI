@@ -32,8 +32,8 @@ import { CapitalYieldMetrics } from "@/components/dashboard/CapitalYieldMetrics"
 import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { DetectedSubscription } from "@/lib/subscription-radar";
 
-import { BurnRateChart } from "@/components/BurnRateChart";
-import { MoMComparison } from "@/components/MoMComparison";
+import { BurnRateChart } from "@/components/dashboard/BurnRateChart";
+import { MoMComparison } from "@/components/dashboard/MoMComparison";
 import { QuickActionsListener } from "@/components/QuickActionsListener";
 
 // Dynamic Code Splitting для важких модальних вікон
@@ -113,6 +113,7 @@ import {
 import {
   getCycleDateRange,
   filterTransactionsByDateRange,
+  FALLBACK_BUDGET_LIMIT,
 } from "@/lib/cycle-utils";
 import {
   AIAnalysisResponse,
@@ -1190,7 +1191,9 @@ export default function Dashboard() {
         <NewCycleModal
           isOpen={isCycleModalOpen}
           onClose={() => setIsCycleModalOpen(false)}
-          defaultLimit={activeCycle?.budget_limit || effectiveLimit || 35000}
+          defaultLimit={
+            activeCycle?.budget_limit || effectiveLimit || FALLBACK_BUDGET_LIMIT
+          }
           onCycleStarted={loadCycles}
         />
       )}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateBurnRateData } from "@/components/BurnRateChart";
+import { calculateBurnRateData } from "@/components/dashboard/BurnRateChart";
 
 describe("Burn Rate Chart Cycle Calculations", () => {
   it("correctly calculates cycle days and aggregates transactions across month boundary", () => {

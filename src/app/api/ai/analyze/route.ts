@@ -69,6 +69,9 @@ const analysisSchema: Schema = {
   ],
 };
 
+import { checkAiRateLimit } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/security";
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Захист сесії (Zero Trust)
@@ -80,6 +83,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Доступ заборонено: відсутня активна сесія" },
         { status: 401 }
+      );
+    }
+
+    // 2. Захист квоти Gemini API від надмірних викликів (Rate Limiting: макс. 10 / хв)
+    const ip = getClientIp(req.headers);
+    const rateLimit = checkAiRateLimit(`ai_analyze_${ip}`, 10, 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `Забагато запитів фінансового аналізу. Зачекайте ${rateLimit.retryAfterSeconds} с.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds),
+          },
+        }
       );
     }
 
