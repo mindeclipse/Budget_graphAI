@@ -9,8 +9,13 @@ import {
   TrendingUp,
   FileSpreadsheet,
   Building2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
+
+// Кількість записів за замовчуванням (до розгортання)
+const INITIAL_VISIBLE = 8;
 
 interface CapitalHistoryCardProps {
   transactions: Transaction[];
@@ -26,6 +31,7 @@ export function CapitalHistoryCard({
   onImportInzhur,
 }: CapitalHistoryCardProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -42,6 +48,16 @@ export function CapitalHistoryCard({
   const totalCapitalMoved = useMemo(() => {
     return transactions.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
   }, [transactions]);
+
+  // При активному пошуку — показуємо всі збіги без пагінації
+  const isSearchActive = searchQuery.trim().length > 0;
+  const visibleItems =
+    isSearchActive || isExpanded
+      ? filtered
+      : filtered.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = isSearchActive
+    ? 0
+    : Math.max(filtered.length - INITIAL_VISIBLE, 0);
 
   return (
     <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
@@ -133,113 +149,152 @@ export function CapitalHistoryCard({
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((tx) => {
-            const isDeposit =
-              tx.category_name?.toLowerCase().includes("заощадж") ||
-              tx.merchant_raw?.toLowerCase().includes("скарбнич") ||
-              tx.tags?.includes("дебет") ||
-              tx.merchant_raw?.toLowerCase().includes("нарахування") ||
-              tx.merchant_raw?.toLowerCase().includes("поповнення");
+        <>
+          {/* Скролюючий контейнер — активується тільки в розгорнутому режимі */}
+          <div
+            className={
+              isExpanded && !isSearchActive
+                ? "max-h-[420px] [scrollbar-width:thin] [scrollbar-color:theme(colors.zinc.700)_theme(colors.zinc.900)] overflow-y-auto overscroll-contain pr-1"
+                : undefined
+            }
+          >
+            <div className="space-y-2">
+              {visibleItems.map((tx) => {
+                const isDeposit =
+                  tx.category_name?.toLowerCase().includes("заощадж") ||
+                  tx.merchant_raw?.toLowerCase().includes("скарбнич") ||
+                  tx.tags?.includes("дебет") ||
+                  tx.merchant_raw?.toLowerCase().includes("нарахування") ||
+                  tx.merchant_raw?.toLowerCase().includes("поповнення");
 
-            const isCredit =
-              tx.tags?.includes("кредит") ||
-              tx.merchant_raw?.toLowerCase().includes("купівля") ||
-              tx.merchant_raw?.toLowerCase().includes("сплата");
+                const isCredit =
+                  tx.tags?.includes("кредит") ||
+                  tx.merchant_raw?.toLowerCase().includes("купівля") ||
+                  tx.merchant_raw?.toLowerCase().includes("сплата");
 
-            const isReit =
-              tx.tags?.includes("reit") ||
-              tx.merchant_raw?.toLowerCase().includes("reit");
+                const isReit =
+                  tx.tags?.includes("reit") ||
+                  tx.merchant_raw?.toLowerCase().includes("reit");
 
-            const isBonds =
-              tx.tags?.includes("овдп") ||
-              tx.merchant_raw?.toLowerCase().includes("овдп");
+                const isBonds =
+                  tx.tags?.includes("овдп") ||
+                  tx.merchant_raw?.toLowerCase().includes("овдп");
 
-            const isInzhur = tx.source === "inzhur_statement";
+                const isInzhur = tx.source === "inzhur_statement";
 
-            const dateStr = new Date(tx.created_at).toLocaleDateString(
-              "uk-UA",
-              {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              }
-            );
+                const dateStr = new Date(tx.created_at).toLocaleDateString(
+                  "uk-UA",
+                  {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  }
+                );
 
-            return (
-              <div
-                key={tx.id}
-                onClick={() => onSelectTransaction(tx)}
-                className="group flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-2.5 transition-all hover:border-zinc-700 hover:bg-zinc-900/80"
-              >
-                <div className="flex min-w-0 items-center gap-3 pr-2">
+                return (
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-                      isReit
-                        ? "border-teal-500/20 bg-teal-500/10 text-teal-400"
-                        : isBonds
-                          ? "border-indigo-500/20 bg-indigo-500/10 text-indigo-400"
-                          : isDeposit
-                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                            : "border-violet-500/20 bg-violet-500/10 text-violet-400"
-                    }`}
+                    key={tx.id}
+                    onClick={() => onSelectTransaction(tx)}
+                    className="group flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-2.5 transition-all hover:border-zinc-700 hover:bg-zinc-900/80"
                   >
-                    {isReit ? (
-                      <Building2 size={15} />
-                    ) : isDeposit ? (
-                      <PiggyBank size={15} />
-                    ) : (
-                      <TrendingUp size={15} />
-                    )}
-                  </div>
+                    <div className="flex min-w-0 items-center gap-3 pr-2">
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                          isReit
+                            ? "border-teal-500/20 bg-teal-500/10 text-teal-400"
+                            : isBonds
+                              ? "border-indigo-500/20 bg-indigo-500/10 text-indigo-400"
+                              : isDeposit
+                                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                : "border-violet-500/20 bg-violet-500/10 text-violet-400"
+                        }`}
+                      >
+                        {isReit ? (
+                          <Building2 size={15} />
+                        ) : isDeposit ? (
+                          <PiggyBank size={15} />
+                        ) : (
+                          <TrendingUp size={15} />
+                        )}
+                      </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
-                        {tx.merchant_raw}
-                      </p>
-                      {isInzhur && (
-                        <span className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-1 py-0.5 text-[8px] font-bold text-emerald-400">
-                          Inzhur
-                        </span>
-                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
+                            {tx.merchant_raw}
+                          </p>
+                          {isInzhur && (
+                            <span className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-1 py-0.5 text-[8px] font-bold text-emerald-400">
+                              Inzhur
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                          <span>{dateStr}</span>
+                          <span>•</span>
+                          <span
+                            className={
+                              isReit
+                                ? "text-teal-400/90"
+                                : isBonds
+                                  ? "text-indigo-400/90"
+                                  : isDeposit
+                                    ? "text-emerald-400/90"
+                                    : "text-violet-400/90"
+                            }
+                          >
+                            {tx.category_name || "Капітал"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-                      <span>{dateStr}</span>
-                      <span>•</span>
+                    <div className="text-right">
                       <span
-                        className={
-                          isReit
-                            ? "text-teal-400/90"
-                            : isBonds
-                              ? "text-indigo-400/90"
-                              : isDeposit
-                                ? "text-emerald-400/90"
-                                : "text-violet-400/90"
-                        }
+                        className={`text-xs font-bold tabular-nums ${
+                          isCredit ? "text-zinc-200" : "text-emerald-400"
+                        }`}
                       >
-                        {tx.category_name || "Капітал"}
+                        {isCredit ? "−" : "+"}
+                        {Number(tx.amount).toLocaleString("uk-UA")}{" "}
+                        {tx.currency === "USD" ? "$" : "₴"}
                       </span>
                     </div>
                   </div>
-                </div>
+                );
+              })}
+            </div>
+          </div>
 
-                <div className="text-right">
-                  <span
-                    className={`text-xs font-bold tabular-nums ${
-                      isCredit ? "text-zinc-200" : "text-emerald-400"
-                    }`}
-                  >
-                    {isCredit ? "−" : "+"}
-                    {Number(tx.amount).toLocaleString("uk-UA")}{" "}
-                    {tx.currency === "USD" ? "$" : "₴"}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          {/* Кнопка розгортання / згортання (лише коли є прихований залишок і пошук неактивний) */}
+          {!isSearchActive && hiddenCount > 0 && (
+            <button
+              onClick={() => setIsExpanded((v) => !v)}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-zinc-800/80 bg-zinc-900/30 py-2 text-[11px] font-medium text-zinc-400 transition-all hover:border-zinc-700 hover:bg-zinc-900/60 hover:text-zinc-200 active:scale-[0.99]"
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp size={13} />
+                  Згорнути список
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={13} />
+                  Показати ще {hiddenCount} операцій
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Лічильник результатів пошуку */}
+          {isSearchActive && filtered.length > 0 && (
+            <p className="mt-2 text-center text-[10px] text-zinc-600">
+              Знайдено {filtered.length}{" "}
+              {filtered.length === 1 ? "операцію" : "операцій"}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
