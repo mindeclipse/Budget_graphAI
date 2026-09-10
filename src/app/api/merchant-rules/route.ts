@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { verifySessionToken } from "@/lib/session";
-import { cleanMerchantRaw } from "@/lib/normalize";
 import { z } from "zod";
 
 async function checkAuthSession(): Promise<boolean> {
@@ -68,7 +67,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { pattern, normalized_name, category_name } = parsed.data;
-    const cleanPattern = cleanMerchantRaw(pattern);
+    // Патерн зберігаємо як є (trim + lowercase) — НЕ очищаємо через cleanMerchantRaw,
+    // бо та функція призначена для чеків банку і видаляє цифри, міста тощо.
+    // Користувач вводить патерн навмисно — зберігаємо точно.
+    const cleanPattern = pattern.trim().toLowerCase();
     const finalNormalized = normalized_name?.trim() || cleanPattern;
 
     const supabase = getSupabaseAdmin();
