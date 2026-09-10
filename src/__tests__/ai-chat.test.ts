@@ -77,8 +77,11 @@ describe("AI Advisor & Proactive Alerts", () => {
     expect(GEMINI_FALLBACK_CHAIN).toContain("gemini-3.5-flash");
     expect(GEMINI_FALLBACK_CHAIN).toContain("gemini-3.5-flash-lite");
     expect(GEMINI_FALLBACK_CHAIN).toContain("gemini-3.7-flash");
-    expect(GEMINI_FALLBACK_CHAIN).toContain("gemini-2.5-flash");
+    expect(GEMINI_FALLBACK_CHAIN).not.toContain("gemini-2.5-flash");
 
-    expect(MODEL_FALLBACK_MAP["gemini-2.5-flash"]).toBe("gemini-3.5-flash");
+    expect(MODEL_FALLBACK_MAP["gemini-3.5-flash"]).toBe("gemini-3.7-flash");
+    expect(MODEL_FALLBACK_MAP["gemini-3.5-flash-lite"]).toBe(
+      "gemini-3.5-flash"
+    );
   });
 });
