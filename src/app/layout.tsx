@@ -33,7 +33,24 @@ export default function RootLayout({
       <body className="bg-zinc-950 text-zinc-100 antialiased">
         <ServiceWorkerRegister />
         <Providers>{children}</Providers>
-        <Toaster position="top-center" richColors closeButton />
+        <Toaster
+          position="top-center"
+          theme="dark"
+          richColors
+          closeButton
+          offset={{
+            top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+            left: "16px",
+            right: "16px",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+          }}
+          mobileOffset={{
+            top: "calc(env(safe-area-inset-top, 0px) + 16px)",
+            left: "16px",
+            right: "16px",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+          }}
+        />
       </body>
     </html>
   );
