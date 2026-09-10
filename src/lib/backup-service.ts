@@ -40,11 +40,14 @@ export async function fetchAllRowsFromTable<T = any>(
   ascending = true
 ): Promise<T[]> {
   const PAGE_SIZE = 1000;
+  const MAX_PAGES = 100; // Захисний ліміт (до 100 000 рядків) проти потенційних безкінечних циклів
   const allRows: T[] = [];
   let from = 0;
   let hasMore = true;
+  let pages = 0;
 
-  while (hasMore) {
+  while (hasMore && pages < MAX_PAGES) {
+    pages++;
     const { data, error } = await supabase
       .from(tableName)
       .select("*")
