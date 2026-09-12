@@ -29,12 +29,13 @@ describe("Personal CPI Analytics Engine", () => {
       expect(smoking?.matches("Одяг")).toBe(false);
     });
 
-    it("правильно визначає аптеки і здоров'я", () => {
-      const health = DEFAULT_STAPLE_CATEGORIES.find((c) => c.key === "health");
-      expect(health?.matches("Здоров'я та догляд")).toBe(true);
-      expect(health?.matches("Аптека")).toBe(true);
-      expect(health?.matches("Ліки")).toBe(true);
-      expect(health?.matches("Шопінг")).toBe(false);
+    it("правильно визначає кафе та ресторани", () => {
+      const dining = DEFAULT_STAPLE_CATEGORIES.find((c) => c.key === "dining");
+      expect(dining?.matches("Кафе та ресторани")).toBe(true);
+      expect(dining?.matches("кафе")).toBe(true);
+      expect(dining?.matches("Ресторан")).toBe(true);
+      expect(dining?.matches("Фастфуд")).toBe(true);
+      expect(dining?.matches("Шопінг")).toBe(false);
     });
   });
 
@@ -252,7 +253,7 @@ describe("Personal CPI Analytics Engine", () => {
           type: "expense",
         },
       ];
-      // У поточному періоді немає купівель в аптеках
+      // У поточному періоді немає купівель у кафе та ресторанах
       const currentTransactions: CpiTransaction[] = [
         {
           amount: 400,
@@ -262,7 +263,7 @@ describe("Personal CPI Analytics Engine", () => {
         },
         {
           amount: 300,
-          category_name: "Здоров'я та догляд",
+          category_name: "Кафе та ресторани",
           created_at: "2026-08-12",
           type: "expense",
         },
@@ -272,13 +273,13 @@ describe("Personal CPI Analytics Engine", () => {
         currentTransactions,
         prevTransactions
       );
-      const healthStat = report.basketStats.find(
-        (s) => s.categoryKey === "health"
+      const diningStat = report.basketStats.find(
+        (s) => s.categoryKey === "dining"
       );
 
-      expect(healthStat?.previousTxCount).toBe(0);
-      expect(healthStat?.currentTxCount).toBe(1);
-      expect(healthStat?.inflationRate).toBeNull();
+      expect(diningStat?.previousTxCount).toBe(0);
+      expect(diningStat?.currentTxCount).toBe(1);
+      expect(diningStat?.inflationRate).toBeNull();
     });
 
     it("підтримує налаштування режимів періоду (yoy, baseline, mom)", () => {

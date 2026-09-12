@@ -65,15 +65,18 @@ export const DEFAULT_STAPLE_CATEGORIES: CpiCategoryConfig[] = [
     },
   },
   {
-    key: "health",
-    label: "Аптеки та здоров'я",
-    icon: "pill",
+    key: "dining",
+    label: "Кафе та ресторани",
+    icon: "utensils",
     matches: (name: string) => {
       const lower = (name || "").toLowerCase().trim();
       return (
-        lower.includes("здоров") ||
-        lower.includes("аптек") ||
-        lower.includes("ліки")
+        lower === "кафе та ресторани" ||
+        lower.includes("кафе") ||
+        lower.includes("ресторан") ||
+        lower.includes("кав'ярн") ||
+        lower.includes("харчування") ||
+        lower.includes("фастфуд")
       );
     },
   },
@@ -89,7 +92,7 @@ export interface CalculateCpiOptions {
 
 /**
  * Розраховує Персональний індекс інфляції (Personal CPI) на основі реального середнього чека
- * у базових категоріях повсякденного попиту (продукти, куріння, аптеки).
+ * у базових категоріях повсякденного попиту (продукти, куріння, кафе та ресторани).
  */
 export function calculatePersonalCpi(
   currentTransactions: CpiTransaction[],
