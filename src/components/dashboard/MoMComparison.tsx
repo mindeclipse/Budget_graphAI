@@ -176,18 +176,18 @@ export function MoMComparison({
 
       {/* Блок Персонального індексу інфляції (Personal CPI) */}
       <div className="mb-4 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3.5 shadow-sm transition-all">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-2.5">
           {/* Ліва частина: іконка та назва */}
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400">
               <Receipt size={14} />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold text-zinc-200">
                   Персональний CPI
                 </span>
-                <span className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[9px] font-medium tracking-wide text-zinc-400">
+                <span className="shrink-0 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[9px] font-medium tracking-wide text-zinc-400">
                   {activeCpiReport.periodMode === "yoy"
                     ? "Рік до року (YoY)"
                     : activeCpiReport.periodMode === "baseline"
@@ -195,15 +195,14 @@ export function MoMComparison({
                       : "До мин. циклу"}
                 </span>
               </div>
-              <p className="text-[10px] text-zinc-500">
-                Зміна реального середнього чека (супермаркети, куріння, кафе та
-                ресторани)
+              <p className="truncate text-[10px] text-zinc-500">
+                Зміна реального середнього чека (супермаркети, куріння, кафе)
               </p>
             </div>
           </div>
 
           {/* Права частина: перемикач режимів, показник та кнопка розкриття */}
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {/* Перемикач: Цикл vs Рік/База */}
             <div className="flex rounded-lg border border-zinc-800 bg-zinc-900/90 p-0.5 text-[10px]">
               <button
@@ -353,7 +352,6 @@ export function MoMComparison({
               <span className="text-zinc-400">
                 {activeCpiReport.previousPeriodLabel}
               </span>
-              . Дрібні чеки (&lt;20 ₴) відфільтровано.
             </p>
           </div>
         )}

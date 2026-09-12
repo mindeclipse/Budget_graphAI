@@ -88,7 +88,7 @@ describe("Personal CPI Analytics Engine", () => {
       expect(report.overallInflationRate).toBe(20.0);
     });
 
-    it("відсікає мікро-транзакції (шум < 20 грн)", () => {
+    it("відсікає мікро-транзакції, якщо явно вказано minAmount", () => {
       const prevTransactions: CpiTransaction[] = [
         {
           amount: 10,
@@ -121,7 +121,8 @@ describe("Personal CPI Analytics Engine", () => {
 
       const report = calculatePersonalCpi(
         currentTransactions,
-        prevTransactions
+        prevTransactions,
+        { minAmount: 20 }
       );
       const groceryStat = report.basketStats.find(
         (s) => s.categoryKey === "groceries"
@@ -132,6 +133,44 @@ describe("Personal CPI Analytics Engine", () => {
       expect(groceryStat?.currentTxCount).toBe(1);
       expect(groceryStat?.previousTxCount).toBe(1);
       expect(groceryStat?.inflationRate).toBe(0.0);
+    });
+
+    it("за замовчуванням враховує всі реальні чеки (наприклад, булочка 18.28 грн)", () => {
+      const prevTransactions: CpiTransaction[] = [
+        {
+          amount: 200,
+          category_name: "Кафе та ресторани",
+          created_at: "2026-08-10",
+          type: "expense",
+        },
+      ];
+
+      const currentTransactions: CpiTransaction[] = [
+        {
+          amount: 18.28,
+          category_name: "Кафе та ресторани",
+          created_at: "2026-09-12",
+          type: "expense",
+        },
+        {
+          amount: 180,
+          category_name: "Кафе та ресторани",
+          created_at: "2026-09-08",
+          type: "expense",
+        },
+      ];
+
+      const report = calculatePersonalCpi(
+        currentTransactions,
+        prevTransactions
+      );
+      const diningStat = report.basketStats.find(
+        (s) => s.categoryKey === "dining"
+      );
+
+      expect(diningStat?.currentTxCount).toBe(2);
+      expect(diningStat?.currentAvgCheck).toBe(99); // (18.28 + 180) / 2 = 99.14 -> 99
+      expect(diningStat?.previousAvgCheck).toBe(200);
     });
 
     it("ігнорує доходи та інвестиції, враховує лише витрати (type === expense)", () => {
