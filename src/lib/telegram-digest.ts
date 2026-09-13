@@ -95,14 +95,14 @@ export async function generateWeeklyDigest(options?: {
     return { success: false, sent: false, reason: txError.message };
   }
 
-  const validTransactions = (rawTransactions || []).filter(
-    (t) => t.type !== "income" && !t.exclude_from_budget
+  const expenseTransactions = (rawTransactions || []).filter(
+    (t) => t.type === "expense" && !t.exclude_from_budget
   );
 
-  const currentWeekTx = validTransactions.filter(
+  const currentWeekTx = expenseTransactions.filter(
     (t) => new Date(t.created_at) >= currentWeekStart
   );
-  const prevWeekTx = validTransactions.filter(
+  const prevWeekTx = expenseTransactions.filter(
     (t) =>
       new Date(t.created_at) >= prevWeekStart &&
       new Date(t.created_at) < currentWeekStart
@@ -113,6 +113,38 @@ export async function generateWeeklyDigest(options?: {
     0
   );
   const prevWeekSpent = prevWeekTx.reduce(
+    (sum, t) => sum + Number(t.amount || 0),
+    0
+  );
+
+  // 3b. Інвестиції та заощадження за 7 днів (відокремлені від споживчих витрат)
+  const currentWeekInvestments = (rawTransactions || []).filter(
+    (t) =>
+      t.type === "investment" &&
+      !t.exclude_from_budget &&
+      new Date(t.created_at) >= currentWeekStart
+  );
+
+  // Сума придбання інвестиційних активів (ОВДП, REIT тощо), без технічних записів податків чи дивідендів
+  const totalInvestedThisWeek = currentWeekInvestments
+    .filter(
+      (t) =>
+        !t.merchant_raw?.toLowerCase().includes("дивіденд") &&
+        !t.merchant_raw?.toLowerCase().includes("подат")
+    )
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  // Заощадження (перекази у фінансову подушку/скарбничку, за винятком переказів брокеру)
+  const currentWeekSavings = (rawTransactions || []).filter(
+    (t) =>
+      t.type === "transfer" &&
+      !t.exclude_from_budget &&
+      new Date(t.created_at) >= currentWeekStart &&
+      !t.merchant_raw?.toLowerCase().includes("інжур") &&
+      !t.merchant_raw?.toLowerCase().includes("inzhur")
+  );
+
+  const totalSavedThisWeek = currentWeekSavings.reduce(
     (sum, t) => sum + Number(t.amount || 0),
     0
   );
@@ -177,7 +209,7 @@ export async function generateWeeklyDigest(options?: {
       .gte("created_at", cycleRange.startDate.toISOString());
 
     const totalCycleSpent = (cycleTx || [])
-      .filter((t) => t.type !== "income" && !t.exclude_from_budget)
+      .filter((t) => t.type === "expense" && !t.exclude_from_budget)
       .reduce((s, t) => s + Number(t.amount || 0), 0);
 
     const { data: recurringItems } = await supabase
@@ -203,12 +235,15 @@ export async function generateWeeklyDigest(options?: {
     const ai = getGeminiClient();
     const prompt = `
 Аналізуй щотижневі фінансові витрати користувача:
-- Витрачено за останні 7 днів: ${formatAmount(thisWeekSpent)} ₴
+- Споживчі витрати за останні 7 днів: ${formatAmount(thisWeekSpent)} ₴
 - Динаміка відносно минулого тижня: ${wowText} (було ${formatAmount(prevWeekSpent)} ₴)
-- Топ категорії: ${sortedCategories.map((c) => `${c.name}: ${formatAmount(c.amount)} ₴ (${c.percent}%)`).join(", ")}
-${largestTx ? `- Найбільша разова витрата: ${largestTx.merchant_raw} (${formatAmount(Number(largestTx.amount))} ₴)` : ""}
-- До кінця циклу залишилося: ${daysRemaining} дн., вільний залишок: ${formatAmount(remainingBudget)} ₴, рекомендовано на день: ${formatAmount(safeDailySpend)} ₴/день.
+- Топ категорії витрат: ${sortedCategories.map((c) => `${c.name}: ${formatAmount(c.amount)} ₴ (${c.percent}%)`).join(", ")}
+${largestTx ? `- Найбільша разова споживча витрата: ${largestTx.merchant_raw} (${formatAmount(Number(largestTx.amount))} ₴)` : ""}
+${totalInvestedThisWeek > 0 ? `- Інвестовано в активи за 7 днів: ${formatAmount(totalInvestedThisWeek)} ₴` : ""}
+${totalSavedThisWeek > 0 ? `- Заощаджено у подушку безпеки за 7 днів: +${formatAmount(totalSavedThisWeek)} ₴` : ""}
+- До кінця циклу залишилося: ${daysRemaining} дн., вільний операційний залишок: ${formatAmount(remainingBudget)} ₴, рекомендовано на день: ${formatAmount(safeDailySpend)} ₴/день.
 
+ВАЖЛИВО: Інвестиції в активи та заощадження — це формування капіталу і накопичень, а НЕ споживчі витрати. Вони не зменшують щоденний операційний бюджет.
 Надай висновок українською мовою у 2-3 коротких ділових реченнях: оціни темп і дай 1 конкретну практичну пораду на наступний тиждень. Без вступних привітань, одразу суть.
 `;
 
@@ -224,7 +259,7 @@ ${largestTx ? `- Найбільша разова витрата: ${largestTx.mer
     aiAdvice = result.text?.trim() || "";
   } catch (err) {
     console.warn("[WeeklyDigest] Gemini generation fallback:", err);
-    aiAdvice = `Темп витрат за 7 днів склав ${formatAmount(thisWeekSpent)} ₴. Зверніть увагу на категорію «${sortedCategories[0]?.name || "головні витрати"}», яка займає найбільшу частку бюджету.`;
+    aiAdvice = `Темп споживчих витрат за 7 днів склав ${formatAmount(thisWeekSpent)} ₴. Зверніть увагу на категорію «${sortedCategories[0]?.name || "головні витрати"}», яка займає найбільшу частку бюджету.`;
   }
 
   // 8. Форматування Telegram повідомлення
@@ -237,7 +272,7 @@ ${largestTx ? `- Найбільша разова витрата: ${largestTx.mer
     `📊 <b>Щотижневий AI-дайджест витрат</b>`,
     `🗓 <i>Період: ${dateFromStr} — ${dateToStr}</i>`,
     ``,
-    `💸 <b>Витрати за 7 днів:</b> <b>${formatAmount(thisWeekSpent)} ₴</b>`,
+    `💸 <b>Споживчі витрати за 7 днів:</b> <b>${formatAmount(thisWeekSpent)} ₴</b>`,
     `📈 <b>Динаміка:</b> ${wowText}`,
     ``,
     `🏷 <b>Топ статті витрат:</b>`,
@@ -258,6 +293,21 @@ ${largestTx ? `- Найбільша разова витрата: ${largestTx.mer
     lines.push(
       `⚡️ <b>Найбільша покупка:</b> ${escapeHtml(largestTx.merchant_raw)} (<b>${formatAmount(Number(largestTx.amount))} ₴</b>)`
     );
+  }
+
+  if (totalInvestedThisWeek > 0 || totalSavedThisWeek > 0) {
+    lines.push(``);
+    lines.push(`🏦 <b>Капітал та заощадження за 7 днів:</b>`);
+    if (totalInvestedThisWeek > 0) {
+      lines.push(
+        `• Інвестовано в активи: <b>${formatAmount(totalInvestedThisWeek)} ₴</b>`
+      );
+    }
+    if (totalSavedThisWeek > 0) {
+      lines.push(
+        `• Заощаджено у подушку: <b>+${formatAmount(totalSavedThisWeek)} ₴</b>`
+      );
+    }
   }
 
   if (activeCycle) {
@@ -317,6 +367,8 @@ ${largestTx ? `- Найбільша разова витрата: ${largestTx.mer
       weekKey,
       thisWeekSpent,
       prevWeekSpent,
+      totalInvestedThisWeek,
+      totalSavedThisWeek,
       sortedCategories,
       largestTx,
       remainingBudget,
@@ -403,10 +455,35 @@ export async function generateCycleSummary(
   }
 
   const expenseTx = (cycleTx || []).filter(
-    (t) => t.type !== "income" && !t.exclude_from_budget
+    (t) => t.type === "expense" && !t.exclude_from_budget
   );
 
   const totalSpent = expenseTx.reduce(
+    (sum, t) => sum + Number(t.amount || 0),
+    0
+  );
+
+  // Інвестиції та заощадження за цикл
+  const cycleInvestments = (cycleTx || []).filter(
+    (t) =>
+      t.type === "investment" &&
+      !t.exclude_from_budget &&
+      !t.merchant_raw?.toLowerCase().includes("дивіденд") &&
+      !t.merchant_raw?.toLowerCase().includes("подат")
+  );
+  const totalCycleInvested = cycleInvestments.reduce(
+    (sum, t) => sum + Number(t.amount || 0),
+    0
+  );
+
+  const cycleSavings = (cycleTx || []).filter(
+    (t) =>
+      t.type === "transfer" &&
+      !t.exclude_from_budget &&
+      !t.merchant_raw?.toLowerCase().includes("інжур") &&
+      !t.merchant_raw?.toLowerCase().includes("inzhur")
+  );
+  const totalCycleSaved = cycleSavings.reduce(
     (sum, t) => sum + Number(t.amount || 0),
     0
   );
@@ -452,11 +529,14 @@ export async function generateCycleSummary(
 - Назва циклу: ${cycle.name || "Зарплатний цикл"}
 - Тривалість: ${cycleDurationDays} днів
 - Плановий ліміт: ${formatAmount(budgetLimit)} ₴
-- Фактичні витрати: ${formatAmount(totalSpent)} ₴
+- Фактичні споживчі витрати: ${formatAmount(totalSpent)} ₴
 - Результат: ${isSaved ? `Збережено +${formatAmount(savedAmount)} ₴ (${savedPercent}%)` : `Перевитрата -${formatAmount(Math.abs(savedAmount))} ₴ (${savedPercent}%)`}
 - Топ статті витрат: ${topCategories.map((c) => `${c.name}: ${formatAmount(c.amount)} ₴ (${c.percent}%)`).join(", ")}
 ${topPurchases.length > 0 ? `- Найбільші окремі витрати: ${topPurchases.map((p) => `${p.merchant_raw} (${formatAmount(Number(p.amount))} ₴)`).join(", ")}` : ""}
+${totalCycleInvested > 0 ? `- Інвестовано в активи за цикл: ${formatAmount(totalCycleInvested)} ₴` : ""}
+${totalCycleSaved > 0 ? `- Відкладено у подушку безпеки: ${formatAmount(totalCycleSaved)} ₴` : ""}
 
+ВАЖЛИВО: Інвестиції та заощадження є формуванням капіталу і не зменшують плановий ліміт повсякденного споживчого бюджету.
 Сформулюй структурований висновок українською мовою:
 1. Оцінка успішності циклу (1 коротке речення).
 2. Головне спостереження щодо категорій або нетипових витрат (1 речення).
@@ -525,6 +605,21 @@ ${topPurchases.length > 0 ? `- Найбільші окремі витрати: $
     });
   }
 
+  if (totalCycleInvested > 0 || totalCycleSaved > 0) {
+    lines.push(``);
+    lines.push(`🏦 <b>Капітал та заощадження за цикл:</b>`);
+    if (totalCycleInvested > 0) {
+      lines.push(
+        `• Інвестовано в активи: <b>${formatAmount(totalCycleInvested)} ₴</b>`
+      );
+    }
+    if (totalCycleSaved > 0) {
+      lines.push(
+        `• Заощаджено у подушку: <b>+${formatAmount(totalCycleSaved)} ₴</b>`
+      );
+    }
+  }
+
   if (aiConclusion) {
     lines.push(``);
     lines.push(`🤖 <b>Аналітичний висновок Gemini:</b>`);
@@ -561,6 +656,8 @@ ${topPurchases.length > 0 ? `- Найбільші окремі витрати: $
       cycleId: cycle.id,
       budgetLimit,
       totalSpent,
+      totalCycleInvested,
+      totalCycleSaved,
       savedAmount,
       isSaved,
       topCategories,

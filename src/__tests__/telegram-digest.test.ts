@@ -74,4 +74,40 @@ describe("Telegram Digest & Alerts", () => {
       expect(isSpike(spikeTx, averageSpendPerTransaction)).toBe(true);
     });
   });
+
+  describe("Розділення споживчих витрат та інвестицій/заощаджень", () => {
+    it("не враховує інвестиції та внутрішні перекази у споживчий бюджет", () => {
+      const transactions = [
+        { id: 1, type: "expense", amount: 1500, exclude_from_budget: false },
+        { id: 2, type: "expense", amount: 800, exclude_from_budget: false },
+        {
+          id: 3,
+          type: "investment",
+          amount: 35000,
+          exclude_from_budget: false,
+        },
+        { id: 4, type: "transfer", amount: 500, exclude_from_budget: false },
+        { id: 5, type: "expense", amount: 200, exclude_from_budget: true },
+      ];
+
+      const expenseTx = transactions.filter(
+        (t) => t.type === "expense" && !t.exclude_from_budget
+      );
+      const totalExpense = expenseTx.reduce((s, t) => s + t.amount, 0);
+
+      const investmentTx = transactions.filter(
+        (t) => t.type === "investment" && !t.exclude_from_budget
+      );
+      const totalInvested = investmentTx.reduce((s, t) => s + t.amount, 0);
+
+      const transferTx = transactions.filter(
+        (t) => t.type === "transfer" && !t.exclude_from_budget
+      );
+      const totalTransferred = transferTx.reduce((s, t) => s + t.amount, 0);
+
+      expect(totalExpense).toBe(2300); // 1500 + 800
+      expect(totalInvested).toBe(35000);
+      expect(totalTransferred).toBe(500);
+    });
+  });
 });
