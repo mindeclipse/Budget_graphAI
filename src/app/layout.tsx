@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     title: "BudgetGraph AI — Розумний фінансовий трекер",
     description:
       "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
-    url: appUrl,
+    url: appUrl.endsWith("/") ? appUrl : `${appUrl}/`,
     siteName: "BudgetGraph AI",
     locale: "uk_UA",
     type: "website",
@@ -33,6 +33,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
+        type: "image/png",
         alt: "BudgetGraph AI — Розумний фінансовий трекер",
       },
     ],
