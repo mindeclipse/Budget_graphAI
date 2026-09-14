@@ -133,7 +133,7 @@ describe("Telegram Bot Utilities & Logic", () => {
         },
       });
 
-      expect(result.text).toContain("Транзакцію записано!");
+      expect(result.text).toContain("Витрату записано!");
       expect(result.text).toContain("АТБ-Маркет");
       expect(result.text).toMatch(/350[.,]50 ₴/);
       expect(result.text).toContain("Продукти");
@@ -151,7 +151,7 @@ describe("Telegram Bot Utilities & Logic", () => {
       ).toBe(false);
     });
 
-    it("додає кнопку розбиття чеку, якщо itemsCount > 1", () => {
+    it("додає кнопку розбиття чеку 'Split', якщо itemsCount > 1", () => {
       const result = formatTransactionConfirmation({
         transaction: {
           id: 102,
@@ -159,6 +159,7 @@ describe("Telegram Bot Utilities & Logic", () => {
           amount: 600,
           category_name: "Продукти",
           created_at: "2026-09-14T15:00:00.000Z",
+          type: "expense",
         },
         itemsCount: 3,
       });
@@ -166,7 +167,27 @@ describe("Telegram Bot Utilities & Logic", () => {
       const buttons = result.replyMarkup.inline_keyboard!.flat();
       const splitBtn = buttons.find((b) => b.callback_data === "tg_split:102");
       expect(splitBtn).toBeDefined();
-      expect(splitBtn?.text).toContain("Розбити на позиції (3)");
+      expect(splitBtn?.text).toBe("Split");
+    });
+
+    it("форматує надходження доходів з міткою 'Дохід зараховано' та плюсом до суми", () => {
+      const result = formatTransactionConfirmation({
+        transaction: {
+          id: 103,
+          merchant_raw: "Зарплата",
+          amount: 45000,
+          category_name: "Зарплата/ФОП",
+          created_at: "2026-09-14T15:00:00.000Z",
+          type: "income",
+        },
+      });
+
+      expect(result.text).toContain("Дохід зараховано!");
+      expect(result.text).toContain("Зарплата");
+      expect(result.text).toMatch(/\+45\s?000[.,]00 ₴/);
+      expect(result.text).toContain("Зарплата/ФОП");
+      // Для доходів не показуємо денний ліміт споживчих витрат
+      expect(result.text).not.toContain("На день залишилось");
     });
   });
 

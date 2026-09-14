@@ -506,32 +506,47 @@ export function formatTransactionConfirmation(params: {
     }
   )} ₴`;
 
+  const isIncome = transaction.type === "income";
+  const isInvestment = transaction.type === "investment";
+  const isExpense = !isIncome && !isInvestment;
+
+  let title = `✅ <b>Витрату записано!</b>`;
+  let sign = "";
+  if (isIncome) {
+    title = `💵 <b>Дохід зараховано!</b>`;
+    sign = "+";
+  } else if (isInvestment) {
+    title = `📈 <b>Інвестицію зафіксовано!</b>`;
+  }
+
   const lines = [
-    `✅ <b>Транзакцію записано!</b>`,
+    title,
     ``,
-    `💳 <b>${escapeHtml(transaction.merchant_raw)}</b>: <b>${amountFormatted}</b>`,
+    `💳 <b>${escapeHtml(transaction.merchant_raw)}</b>: <b>${sign}${amountFormatted}</b>`,
     `🏷 Категорія: ${emoji} <b>${escapeHtml(transaction.category_name)}</b>`,
     `📅 ${formatKyivDateTime(transaction.created_at)}`,
   ];
 
-  if (roundupResult?.roundupAmount) {
-    lines.push(
-      `🐷 Подушка: +<b>${Number(roundupResult.roundupAmount).toFixed(2)} ₴</b>`
-    );
-  }
-
-  if (dailyBudget) {
-    if (dailyBudget.todayRemaining > 0) {
+  if (isExpense) {
+    if (roundupResult?.roundupAmount) {
       lines.push(
-        `🎯 На день залишилось: <b>${dailyBudget.todayRemaining.toLocaleString("uk-UA").replace(/\u00A0/g, " ")} ₴</b>`
+        `🐷 Подушка: +<b>${Number(roundupResult.roundupAmount).toFixed(2)} ₴</b>`
       );
-    } else if (dailyBudget.todayRemaining === 0) {
-      lines.push(`⚠️ <b>Денний бюджет на сьогодні вичерпано!</b>`);
-    } else {
-      const over = Math.abs(dailyBudget.todayRemaining)
-        .toLocaleString("uk-UA")
-        .replace(/\u00A0/g, " ");
-      lines.push(`⚠️ <b>Переліміт за сьогодні: -${over} ₴</b>`);
+    }
+
+    if (dailyBudget) {
+      if (dailyBudget.todayRemaining > 0) {
+        lines.push(
+          `🎯 На день залишилось: <b>${dailyBudget.todayRemaining.toLocaleString("uk-UA").replace(/\u00A0/g, " ")} ₴</b>`
+        );
+      } else if (dailyBudget.todayRemaining === 0) {
+        lines.push(`⚠️ <b>Денний бюджет на сьогодні вичерпано!</b>`);
+      } else {
+        const over = Math.abs(dailyBudget.todayRemaining)
+          .toLocaleString("uk-UA")
+          .replace(/\u00A0/g, " ");
+        lines.push(`⚠️ <b>Переліміт за сьогодні: -${over} ₴</b>`);
+      }
     }
   }
 
@@ -551,7 +566,7 @@ export function formatTransactionConfirmation(params: {
   if (itemsCount && itemsCount > 1) {
     buttons.push([
       {
-        text: `✂️ Розбити на позиції (${itemsCount})`,
+        text: "Split",
         callback_data: `tg_split:${transaction.id}`,
       },
     ]);
