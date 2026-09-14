@@ -68,7 +68,7 @@ describe("Excel Export & JSON Backup Integrity", () => {
     const mockBackup = {
       version: "1.0",
       timestamp: "2026-09-09T18:00:00.000Z",
-      app: "BudgetGraph AI",
+      app: "BudgetGraph",
       data: {
         transactions: [{ id: 1, amount: 100, merchant_raw: "Кава" }],
         budget_cycles: [{ id: "c1", name: "Вересень" }],
@@ -93,7 +93,7 @@ describe("Excel Export & JSON Backup Integrity", () => {
       },
     };
 
-    expect(mockBackup.app).toBe("BudgetGraph AI");
+    expect(mockBackup.app).toBe("BudgetGraph");
     expect(mockBackup.version).toBe("1.0");
     expect(Array.isArray(mockBackup.data.transactions)).toBe(true);
     expect(Array.isArray(mockBackup.data.budget_cycles)).toBe(true);

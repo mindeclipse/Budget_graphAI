@@ -11,21 +11,21 @@ const appUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
-  title: "BudgetGraph AI — Розумний фінансовий трекер",
+  title: "BudgetGraph — Розумний фінансовий трекер",
   description:
     "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent", // Фон програми плавно затікає під острівець
-    title: "Budget",
+    title: "BudgetGraph",
   },
   openGraph: {
-    title: "BudgetGraph AI — Розумний фінансовий трекер",
+    title: "BudgetGraph — Розумний фінансовий трекер",
     description:
       "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
     url: appUrl.endsWith("/") ? appUrl : `${appUrl}/`,
-    siteName: "BudgetGraph AI",
+    siteName: "BudgetGraph",
     locale: "uk_UA",
     type: "website",
     images: [
@@ -34,13 +34,13 @@ export const metadata: Metadata = {
         width: 1200,
         height: 630,
         type: "image/png",
-        alt: "BudgetGraph AI — Розумний фінансовий трекер",
+        alt: "BudgetGraph — Розумний фінансовий трекер",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "BudgetGraph AI — Розумний фінансовий трекер",
+    title: "BudgetGraph — Розумний фінансовий трекер",
     description:
       "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
     images: ["/og-image.png"],

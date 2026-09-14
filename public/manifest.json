@@ -1,6 +1,6 @@
 {
-  "name": "BudgetGraph AI",
-  "short_name": "Budget",
+  "name": "BudgetGraph",
+  "short_name": "BudgetGraph",
   "description": "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
   "id": "/?source=pwa",
   "start_url": "/",

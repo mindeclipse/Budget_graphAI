@@ -1,4 +1,4 @@
-// Service Worker for BudgetGraph AI PWA
+// Service Worker for BudgetGraph PWA
 const CACHE_VERSION = "v1";
 const STATIC_CACHE = `budget-static-${CACHE_VERSION}`;
 const DATA_CACHE = `budget-data-${CACHE_VERSION}`;
@@ -85,7 +85,7 @@ self.addEventListener("fetch", (event) => {
           if (rootCache) return rootCache;
 
           return new Response(
-            `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"/><title>Офлайн | BudgetGraph AI</title><meta name="viewport" content="width=device-width, initial-scale=1"/></head><body style="background:#09090b;color:#f4f4f5;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:1rem;"><div><h1 style="font-size:1.5rem;margin-bottom:0.5rem;">Офлайн режим</h1><p style="color:#a1a1aa;font-size:0.875rem;">Немає підключення до мережі. Перевірте зв'язок та оновіть сторінку.</p></div></body></html>`,
+            `<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"/><title>Офлайн | BudgetGraph</title><meta name="viewport" content="width=device-width, initial-scale=1"/></head><body style="background:#09090b;color:#f4f4f5;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:1rem;"><div><h1 style="font-size:1.5rem;margin-bottom:0.5rem;">Офлайн режим</h1><p style="color:#a1a1aa;font-size:0.875rem;">Немає підключення до мережі. Перевірте зв'язок та оновіть сторінку.</p></div></body></html>`,
             { headers: { "Content-Type": "text/html; charset=utf-8" } }
           );
         })

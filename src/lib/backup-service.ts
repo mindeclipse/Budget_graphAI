@@ -108,7 +108,7 @@ export async function generateBackupData(): Promise<BackupPayload> {
   const backupPayload: BackupPayload = {
     version: "1.0",
     timestamp: new Date().toISOString(),
-    app: "BudgetGraph AI",
+    app: "BudgetGraph",
     data: {
       transactions,
       budget_cycles,

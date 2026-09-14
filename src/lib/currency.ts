@@ -50,7 +50,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 хвилин
 async function fetchMonobankRates(): Promise<CommercialRates | null> {
   try {
     const res = await fetch("https://api.monobank.ua/bank/currency", {
-      headers: { "User-Agent": "BudgetGraphAI/1.0" },
+      headers: { "User-Agent": "BudgetGraph/1.0" },
       next: { revalidate: 600 },
     });
 
