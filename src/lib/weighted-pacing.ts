@@ -19,7 +19,10 @@ export interface CalibratedHabits {
   weekendTotalSpend: number;
   weekdayDailyAvg: number;
   weekendDailyAvg: number;
-  weekendToWeekdayRatio: number; // alpha: відношення середньоденних витрат вихідного до буднього
+  weekendToWeekdayRatio: number; // базовий лінійний коефіцієнт
+  emaWeekdayDailyAvg: number; // експоненційно зважений середньоденний чек буднів
+  emaWeekendDailyAvg: number; // експоненційно зважений середньоденний чек вихідних
+  emaWeekendToWeekdayRatio: number; // адаптивний коефіцієнт alpha (EMA)
   isSufficientData: boolean;
 }
 
@@ -28,6 +31,16 @@ export interface UpcomingObligation {
   amount: number;
   day_of_month?: number;
   is_paid?: boolean;
+}
+
+export interface SurplusProjection {
+  projectedSurplusAmount: number;
+  savingsPotentialPercent: number;
+  recommendedSavingsAllocation: {
+    safetyCushionAmount: number; // частка у Фінансову подушку
+    cashSavingsAmount: number; // частка у Збереження Кеш
+  };
+  summaryText: string;
 }
 
 export interface WeightedPacingOptions {
@@ -67,6 +80,23 @@ export interface WeightedPacingResult {
     statusLabel: string;
     advice: string;
   };
+  surplusProjection: SurplusProjection;
+}
+
+export interface PurchaseSimulationResult {
+  purchaseAmount: number;
+  itemDescription?: string;
+  currentDiscretionary: number;
+  newDiscretionary: number;
+  currentSafeWeekday: number;
+  newSafeWeekday: number;
+  currentSafeWeekend: number;
+  newSafeWeekend: number;
+  weekdayDropPercent: number;
+  weekendDropPercent: number;
+  verdict: "safe" | "caution" | "danger";
+  verdictTitle: string;
+  adviceHtml: string;
 }
 
 /**
@@ -78,9 +108,11 @@ export function isWeekendOrLeisureDay(dayOfWeek: number): boolean {
 
 /**
  * Калібрує патерни витрат за транзакціями суворо від 15 серпня 2026 року
+ * із застосуванням експоненційного зважування (EMA Rolling Habit Learning, період напіврозпаду 14 днів)
  */
 export function calibrateHabitsFromBaseline(
-  transactions: Transaction[]
+  transactions: Transaction[],
+  referenceDate: Date = new Date()
 ): CalibratedHabits {
   // 1. Фільтрація: тільки валідні витрати від базової лінії
   const validTx = transactions.filter((t) => {
@@ -95,13 +127,17 @@ export function calibrateHabitsFromBaseline(
   });
 
   // 2. Групування за унікальними календарними днями Києва
-  const dailySpendMap = new Map<string, { spend: number; dayOfWeek: number }>();
+  const dailySpendMap = new Map<
+    string,
+    { spend: number; dayOfWeek: number; dateMs: number }
+  >();
   let totalCalibratedSpend = 0;
 
   for (const tx of validTx) {
     const rawDate = tx.created_at || (tx as any).date;
     const kyivDay = getKyivDateString(rawDate);
     const dayOfWeek = getKyivDayOfWeek(rawDate);
+    const dateMs = new Date(rawDate).getTime();
     const amt = Number(tx.amount || 0);
 
     totalCalibratedSpend += amt;
@@ -110,7 +146,7 @@ export function calibrateHabitsFromBaseline(
     if (existing) {
       existing.spend += amt;
     } else {
-      dailySpendMap.set(kyivDay, { spend: amt, dayOfWeek });
+      dailySpendMap.set(kyivDay, { spend: amt, dayOfWeek, dateMs });
     }
   }
 
@@ -119,13 +155,31 @@ export function calibrateHabitsFromBaseline(
   let weekdayTotalSpend = 0;
   let weekendTotalSpend = 0;
 
+  // Для EMA розрахунку: період напіврозпаду 14 днів (lambda = ln(2) / 14 ~ 0.0495)
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const refTime = referenceDate.getTime();
+  const HALF_LIFE_DAYS = 14;
+  const DECAY_LAMBDA = Math.log(2) / HALF_LIFE_DAYS;
+
+  let emaWeekdayWeightedSpend = 0;
+  let emaWeekdayWeightSum = 0;
+  let emaWeekendWeightedSpend = 0;
+  let emaWeekendWeightSum = 0;
+
   for (const [, dayData] of dailySpendMap.entries()) {
+    const deltaDays = Math.max(0, (refTime - dayData.dateMs) / msPerDay);
+    const weight = Math.exp(-DECAY_LAMBDA * deltaDays);
+
     if (isWeekendOrLeisureDay(dayData.dayOfWeek)) {
       weekendDaysCount++;
       weekendTotalSpend += dayData.spend;
+      emaWeekendWeightedSpend += dayData.spend * weight;
+      emaWeekendWeightSum += weight;
     } else {
       weekdayDaysCount++;
       weekdayTotalSpend += dayData.spend;
+      emaWeekdayWeightedSpend += dayData.spend * weight;
+      emaWeekdayWeightSum += weight;
     }
   }
 
@@ -134,15 +188,31 @@ export function calibrateHabitsFromBaseline(
   const weekendDailyAvg =
     weekendDaysCount > 0 ? Math.round(weekendTotalSpend / weekendDaysCount) : 0;
 
-  // Визначення коефіцієнта alpha
+  const emaWeekdayDailyAvg =
+    emaWeekdayWeightSum > 0
+      ? Math.round(emaWeekdayWeightedSpend / emaWeekdayWeightSum)
+      : weekdayDailyAvg;
+  const emaWeekendDailyAvg =
+    emaWeekendWeightSum > 0
+      ? Math.round(emaWeekendWeightedSpend / emaWeekendWeightSum)
+      : weekendDailyAvg;
+
+  // Визначення коефіцієнтів alpha
   const isSufficientData = weekdayDaysCount >= 2 && weekendDaysCount >= 2;
-  let weekendToWeekdayRatio = 1.35; // стандартний дефолтний коефіцієнт (вихідні на 35% дорожчі за будні)
+  let weekendToWeekdayRatio = 1.35;
+  let emaWeekendToWeekdayRatio = 1.35;
 
   if (isSufficientData && weekdayDailyAvg > 0) {
     const rawRatio = weekendDailyAvg / weekdayDailyAvg;
-    // Обмежуємо коефіцієнт безпечними межами [0.75, 2.5] для захисту від екстремальних сплесків
     weekendToWeekdayRatio = Number(
       Math.max(0.75, Math.min(2.5, rawRatio)).toFixed(2)
+    );
+  }
+
+  if (isSufficientData && emaWeekdayDailyAvg > 0) {
+    const rawEmaRatio = emaWeekendDailyAvg / emaWeekdayDailyAvg;
+    emaWeekendToWeekdayRatio = Number(
+      Math.max(0.75, Math.min(2.5, rawEmaRatio)).toFixed(2)
     );
   }
 
@@ -157,20 +227,22 @@ export function calibrateHabitsFromBaseline(
     weekdayDailyAvg,
     weekendDailyAvg,
     weekendToWeekdayRatio,
+    emaWeekdayDailyAvg,
+    emaWeekendDailyAvg,
+    emaWeekendToWeekdayRatio,
     isSufficientData,
   };
 }
 
 /**
- * Розраховує зважений календарний темп на залишок циклу
+ * Розраховує зважений календарний темп на залишок циклу та прогноз профіциту
  */
 export function calculateWeightedCalendarPacing(
   transactions: Transaction[],
   options: WeightedPacingOptions = {}
 ): WeightedPacingResult {
-  const habits = calibrateHabitsFromBaseline(transactions);
-
   const now = options.now instanceof Date ? options.now : new Date();
+  const habits = calibrateHabitsFromBaseline(transactions, now);
 
   // Визначаємо часові межі циклу
   const safeStart =
@@ -214,7 +286,6 @@ export function calculateWeightedCalendarPacing(
   const iterDate = new Date(Date.UTC(cYear, cMonth - 1, cDay));
   const finishDate = new Date(Date.UTC(eYear, eMonth - 1, eDay));
 
-  // Рахуємо дні вперед від поточного
   while (iterDate <= finishDate) {
     const dayOfWeek = iterDate.getUTCDay();
     if (isWeekendOrLeisureDay(dayOfWeek)) {
@@ -251,8 +322,8 @@ export function calculateWeightedCalendarPacing(
     remainingTotal - reservedObligationsTotal
   );
 
-  // Зважений щоденний ліміт
-  const alpha = habits.weekendToWeekdayRatio;
+  // Використовуємо адаптивний EMA коефіцієнт
+  const alpha = habits.emaWeekendToWeekdayRatio;
   const weightedDays = remainingWeekdays + alpha * remainingWeekends;
 
   let safeWeekdaySpend = 0;
@@ -289,6 +360,28 @@ export function calculateWeightedCalendarPacing(
     advice = `Рекомендовано дотримуватись ліміту ${safeWeekdaySpend} ₴ у будні, щоб зберегти резерв ${safeWeekendSpend} ₴ на вихідні.`;
   }
 
+  // Прогноз накопичень на кінець місяця (Surplus Projection)
+  // Якщо користувач дотримується темпу, планові витрати залишку циклу:
+  const plannedRemainingSpend =
+    remainingWeekdays * safeWeekdaySpend + remainingWeekends * safeWeekendSpend;
+  const projectedSurplusAmount = Math.max(
+    0,
+    discretionaryRemaining - plannedRemainingSpend
+  );
+  const savingsPotentialPercent =
+    totalLimit > 0
+      ? Math.round((projectedSurplusAmount / totalLimit) * 100)
+      : 0;
+
+  // Рекомендований розподіл надлишку у скарбнички (50% подушка, 50% кеш)
+  const safetyCushionAmount = Math.round(projectedSurplusAmount * 0.5);
+  const cashSavingsAmount = projectedSurplusAmount - safetyCushionAmount;
+
+  const surplusSummary =
+    projectedSurplusAmount > 0
+      ? `При дотриманні темпу очікуваний профіцит у кінці циклу: +${projectedSurplusAmount.toLocaleString("uk-UA")} ₴ (${savingsPotentialPercent}% бюджету).`
+      : "При повному використанні рекомендованого ліміту бюджет буде закрито в нуль без дефіциту.";
+
   return {
     baselineDate: NEW_HABITS_BASELINE,
     habits,
@@ -317,5 +410,102 @@ export function calculateWeightedCalendarPacing(
       statusLabel,
       advice,
     },
+    surplusProjection: {
+      projectedSurplusAmount,
+      savingsPotentialPercent,
+      recommendedSavingsAllocation: {
+        safetyCushionAmount,
+        cashSavingsAmount,
+      },
+      summaryText: surplusSummary,
+    },
+  };
+}
+
+/**
+ * Симулятор покупок «What-If Purchase Advisor»:
+ * Оцінює наслідки планованої покупки для темпу бюджету
+ */
+export function simulatePurchaseImpact(
+  purchaseAmount: number,
+  transactions: Transaction[],
+  options: WeightedPacingOptions = {},
+  itemDescription?: string
+): PurchaseSimulationResult {
+  const currentPacing = calculateWeightedCalendarPacing(transactions, options);
+  const currentDiscretionary = currentPacing.budget.discretionaryRemaining;
+  const currentSafeWeekday = currentPacing.pacing.safeWeekdaySpend;
+  const currentSafeWeekend = currentPacing.pacing.safeWeekendSpend;
+
+  const newDiscretionary = Math.max(0, currentDiscretionary - purchaseAmount);
+
+  // Розраховуємо новий темп після цієї покупки
+  const remainingWeekdays = currentPacing.cycle.remainingWeekdays;
+  const remainingWeekends = currentPacing.cycle.remainingWeekends;
+  const alpha = currentPacing.pacing.weekendMultiplierUsed;
+  const weightedDays = remainingWeekdays + alpha * remainingWeekends;
+
+  let newSafeWeekday = 0;
+  let newSafeWeekend = 0;
+
+  if (weightedDays > 0 && newDiscretionary > 0) {
+    newSafeWeekday = Math.round(newDiscretionary / weightedDays);
+    newSafeWeekend = Math.round(newSafeWeekday * alpha);
+  }
+
+  const weekdayDropPercent =
+    currentSafeWeekday > 0
+      ? Math.round(
+          ((currentSafeWeekday - newSafeWeekday) / currentSafeWeekday) * 100
+        )
+      : 100;
+  const weekendDropPercent =
+    currentSafeWeekend > 0
+      ? Math.round(
+          ((currentSafeWeekend - newSafeWeekend) / currentSafeWeekend) * 100
+        )
+      : 100;
+
+  let verdict: "safe" | "caution" | "danger" = "safe";
+  let verdictTitle = "✅ Безпечна покупка";
+  let adviceHtml = "";
+
+  const itemNameStr = itemDescription
+    ? `покупки «<b>${itemDescription}</b>» (${purchaseAmount.toLocaleString("uk-UA")} ₴)`
+    : `покупки на суму <b>${purchaseAmount.toLocaleString("uk-UA")} ₴</b>`;
+
+  if (purchaseAmount > currentDiscretionary) {
+    verdict = "danger";
+    verdictTitle = "🚨 Перевищення бюджету";
+    const deficit = purchaseAmount - currentDiscretionary;
+    adviceHtml = `У разі здійснення ${itemNameStr} вільний бюджет буде перевищено на <b>${deficit.toLocaleString("uk-UA")} ₴</b>. До кінця місяця денний ліміт стане <b>0 ₴</b>. Рекомендовано перенести покупку або використати накопичення зі скарбнички.`;
+  } else if (newSafeWeekday < 250 || weekdayDropPercent > 35) {
+    verdict = "danger";
+    verdictTitle = "⚠️ Критичне навантаження на темп";
+    adviceHtml = `Після ${itemNameStr} денний ліміт у будні впаде з <b>${currentSafeWeekday} ₴</b> до <b>${newSafeWeekday} ₴/день</b> (-${weekdayDropPercent}%), а вікенд-буфер зменшиться до <b>${newSafeWeekend} ₴/день</b>. Бюджет увійде в зону підвищеного ризику.`;
+  } else if (newSafeWeekday < 500 || weekdayDropPercent > 15) {
+    verdict = "caution";
+    verdictTitle = "⚡️ Потрібна дисципліна";
+    adviceHtml = `Після ${itemNameStr} денний ліміт знизиться на <b>${weekdayDropPercent}%</b>: до <b>${newSafeWeekday} ₴/будень</b> та <b>${newSafeWeekend} ₴/вихідний</b>. Покупка допустима, якщо утриматись від інших непередбачених витрат.`;
+  } else {
+    verdict = "safe";
+    verdictTitle = "✅ Безпечна покупка";
+    adviceHtml = `Після ${itemNameStr} залишається комфортний запас: <b>${newSafeWeekday} ₴/будень</b> та <b>${newSafeWeekend} ₴/вихідний</b> (зниження лише на ${weekdayDropPercent}%). Витрата не порушить плановий ритм.`;
+  }
+
+  return {
+    purchaseAmount,
+    itemDescription,
+    currentDiscretionary,
+    newDiscretionary,
+    currentSafeWeekday,
+    newSafeWeekday,
+    currentSafeWeekend,
+    newSafeWeekend,
+    weekdayDropPercent,
+    weekendDropPercent,
+    verdict,
+    verdictTitle,
+    adviceHtml,
   };
 }

@@ -15,6 +15,14 @@ import {
 import { processExpenseRoundup } from "@/lib/roundup-utils";
 import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 import { SupportedGeminiModel } from "@/types/ai";
+import {
+  calculateWeightedCalendarPacing,
+  simulatePurchaseImpact,
+  isWeekendOrLeisureDay,
+  WeightedPacingResult,
+  PurchaseSimulationResult,
+} from "@/lib/weighted-pacing";
+import { getKyivDayOfWeek } from "@/lib/behavioral-metrics";
 
 export interface ParsedTelegramExpense {
   amount: number;
@@ -833,5 +841,332 @@ export async function handleTelegramCallbackQuery(
     return true;
   }
 
+  // 6. Оновлення темпу: tg_refresh_pace
+  if (data === "tg_refresh_pace") {
+    const paceText = await handleTelegramPaceCommand(supabaseAdmin);
+    const appUrl =
+      process.env.APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://budget-pwa.vercel.app";
+
+    await editTelegramMessageText(chatId, messageId, paceText, {
+      inline_keyboard: [
+        [
+          { text: "🔄 Оновити темп", callback_data: "tg_refresh_pace" },
+          { text: "📊 Відкрити BudgetGraph", url: appUrl },
+        ],
+      ],
+    });
+    await answerTelegramCallbackQuery(queryId, "Темп оновлено!");
+    return true;
+  }
+
   return false;
+}
+
+/**
+ * Перевіряє, чи є текст запитом про стан/темп бюджету
+ */
+export function isPaceInquiry(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (/^\/(pace|today|budget)/i.test(t)) return true;
+  if (/^(темп|який темп\??|який мій темп\??|який темп бюджету\??)/i.test(t))
+    return true;
+  if (/^(скільки (можу|можна) витратити( сьогодні)?\??)/i.test(t)) return true;
+  if (/^(скільки на день\??|безпечно на день\??|ліміт на день\??)/i.test(t))
+    return true;
+  if (
+    /^(чи є гроші\??|який залишок\??|скільки залишилось( грошей)?\??)/i.test(t)
+  )
+    return true;
+  if (/^(ліміт на вихідні\??|скільки на вихідні\??)/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Парсить запит «What-If»: чи можу я дозволити покупку на певну суму
+ */
+export function parseWhatIfPurchaseQuery(
+  text: string
+): { amount: number; item?: string } | null {
+  const t = text.trim().toLowerCase();
+
+  const hasWhatIfMarker =
+    /^(чи\s+)?(можу|хочу|планую|чи\s+норм|чи\s+варто|чи\s+можна)\s+(купити|дозволити|взяти|витратити|замовити)/i.test(
+      t
+    ) ||
+    /^(чи\s+можу\s+я|чи\s+можу\s+собі\s+дозволити)/i.test(t) ||
+    /^(можу\s+дозволити|можу\s+собі\s+дозволити)/i.test(t) ||
+    /(чи\s+норм\??|чи\s+ок\??|чи\s+вистачить\??)$/i.test(t);
+
+  if (!hasWhatIfMarker) return null;
+
+  // 1. Патерн: "хочу купити [річ] за [сума]" / "чи можу купити [річ] за [сума] грн"
+  const match1 = t.match(
+    /(?:купити|дозволити|взяти|замовити)\s+(.+?)\s+(?:за|на)\s+(\d+(?:[.,]\d+)?)\s*(?:грн|₴)?/i
+  );
+  if (match1) {
+    const item = match1[1].replace(/^(собі|ще|зараз)\s+/i, "").trim();
+    const amount = parseFloat(match1[2].replace(",", "."));
+    if (!isNaN(amount) && amount > 0) {
+      return { amount, item };
+    }
+  }
+
+  // 2. Патерн: "чи можу витратити [сума] на [річ]"
+  const match2 = t.match(
+    /(?:витратити)\s+(\d+(?:[.,]\d+)?)\s*(?:грн|₴)?(?:\s+(?:на|для)\s+(.+))?/i
+  );
+  if (match2) {
+    const amount = parseFloat(match2[1].replace(",", "."));
+    const item = match2[2]?.trim();
+    if (!isNaN(amount) && amount > 0) {
+      return { amount, item: item || "покупка" };
+    }
+  }
+
+  // 3. Патерн: "хочу купити [річ] [сума]"
+  const match3 = t.match(
+    /(?:купити|дозволити|взяти|замовити)\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:грн|₴)?(?:\s*,\s*чи\s+норм|\s*\?)?$/i
+  );
+  if (match3) {
+    const item = match3[1].trim();
+    const amount = parseFloat(match3[2].replace(",", "."));
+    if (!isNaN(amount) && amount > 0) {
+      return { amount, item };
+    }
+  }
+
+  // 4. Патерн: "планую покупку [сума]"
+  const match4 = t.match(
+    /(?:покупк[ау]|витрат[ау])\s+(?:на\s+)?(\d+(?:[.,]\d+)?)\s*(?:грн|₴)?/i
+  );
+  if (match4) {
+    const amount = parseFloat(match4[1].replace(",", "."));
+    if (!isNaN(amount) && amount > 0) {
+      return { amount, item: "планова покупка" };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Форматує відповідь на запит про зважений календарний темп
+ */
+export function formatPaceResponse(
+  pacing: WeightedPacingResult,
+  now: Date = new Date()
+): string {
+  const dayOfWeek = getKyivDayOfWeek(now);
+  const isWeekend = isWeekendOrLeisureDay(dayOfWeek);
+  const dayNames = [
+    "Неділя",
+    "Понеділок",
+    "Вівторок",
+    "Середа",
+    "Четвер",
+    "П'ятниця",
+    "Субота",
+  ];
+  const dayName = dayNames[dayOfWeek] || "Сьогодні";
+
+  const todayAllowance = isWeekend
+    ? pacing.pacing.safeWeekendSpend
+    : pacing.pacing.safeWeekdaySpend;
+
+  const lines = [
+    `🗓 <b>Сьогодні ${dayName} (${isWeekend ? "вихідний/дозвілля" : "робочий день"})</b>`,
+    ``,
+    `💰 <b>Безпечно на день:</b> <code>${todayAllowance.toLocaleString("uk-UA")} ₴</code>`,
+    `💼 <b>Будні (Пн–Чт):</b> ${pacing.pacing.safeWeekdaySpend.toLocaleString("uk-UA")} ₴/день`,
+    `🍻 <b>Вікенд-буфер (Пт–Нд):</b> ~${pacing.pacing.safeWeekendSpend.toLocaleString("uk-UA")} ₴/день`,
+    ``,
+    `🔒 <b>Зарезервовано під підписки:</b> ${pacing.budget.reservedObligationsTotal.toLocaleString("uk-UA")} ₴`,
+    `📊 <b>Вільний залишок:</b> ${pacing.budget.discretionaryRemaining.toLocaleString("uk-UA")} ₴ (залишилось ${pacing.cycle.daysRemaining} дн.)`,
+  ];
+
+  if (pacing.surplusProjection.projectedSurplusAmount > 0) {
+    lines.push(
+      ``,
+      `🎯 <b>Очікуваний профіцит у скарбнички:</b> +${pacing.surplusProjection.projectedSurplusAmount.toLocaleString("uk-UA")} ₴`
+    );
+  }
+
+  lines.push(``, `💡 <i>${escapeHtml(pacing.pacing.advice)}</i>`);
+
+  return lines.join("\n");
+}
+
+/**
+ * Форматує результат симуляції покупки What-If
+ */
+export function formatWhatIfResponse(sim: PurchaseSimulationResult): string {
+  const lines = [
+    `${sim.verdictTitle}`,
+    ``,
+    sim.adviceHtml,
+    ``,
+    `📉 <b>Вплив на щоденний ліміт:</b>`,
+    `• Будні: ${sim.currentSafeWeekday} ₴ ➔ <b>${sim.newSafeWeekday} ₴/день</b> (-${sim.weekdayDropPercent}%)`,
+    `• Вихідні: ${sim.currentSafeWeekend} ₴ ➔ <b>${sim.newSafeWeekend} ₴/день</b> (-${sim.weekendDropPercent}%)`,
+    `• Вільний залишок після покупки: <b>${sim.newDiscretionary.toLocaleString("uk-UA")} ₴</b>`,
+  ];
+
+  return lines.join("\n");
+}
+
+/**
+ * Обробник команди або запиту про темп бюджету
+ */
+export async function handleTelegramPaceCommand(
+  supabaseAdmin: any,
+  now: Date = new Date()
+): Promise<string> {
+  const currentMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  ).toISOString();
+  const currentMonthEnd = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  ).toISOString();
+
+  const { data: cycleConfig } = await supabaseAdmin
+    .from("budget_cycles")
+    .select("id, monthly_limit, start_date, end_date")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const startDate = cycleConfig?.start_date
+    ? new Date(cycleConfig.start_date)
+    : new Date(currentMonthStart);
+  const endDate = cycleConfig?.end_date
+    ? new Date(cycleConfig.end_date)
+    : new Date(currentMonthEnd);
+
+  const { data: txs } = await supabaseAdmin
+    .from("transactions")
+    .select(
+      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
+    )
+    .is("deleted_at", null)
+    .gte("created_at", startDate.toISOString())
+    .lte("created_at", endDate.toISOString());
+
+  const validTransactions = (txs || []) as any[];
+
+  const { data: recurring } = await supabaseAdmin
+    .from("recurring_templates")
+    .select("id, name, amount, day_of_month, is_active")
+    .eq("is_active", true);
+
+  const upcomingObligations = (recurring || []).map((r: any) => ({
+    title: r.name,
+    amount: Number(r.amount || 0),
+    day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
+  }));
+
+  const currentExpenseTotal = validTransactions
+    .filter((t) => !t.exclude_from_budget && t.type !== "income")
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  const pacing = calculateWeightedCalendarPacing(validTransactions, {
+    now,
+    startDate,
+    endDate,
+    totalBudgetLimit: Number(cycleConfig?.monthly_limit || 30000),
+    currentExpenseTotal,
+    upcomingObligations,
+  });
+
+  return formatPaceResponse(pacing, now);
+}
+
+/**
+ * Обробник симуляції What-If для Telegram
+ */
+export async function handleTelegramWhatIfCommand(
+  amount: number,
+  itemDescription: string | undefined,
+  supabaseAdmin: any,
+  now: Date = new Date()
+): Promise<string> {
+  const currentMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  ).toISOString();
+  const currentMonthEnd = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  ).toISOString();
+
+  const { data: cycleConfig } = await supabaseAdmin
+    .from("budget_cycles")
+    .select("id, monthly_limit, start_date, end_date")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const startDate = cycleConfig?.start_date
+    ? new Date(cycleConfig.start_date)
+    : new Date(currentMonthStart);
+  const endDate = cycleConfig?.end_date
+    ? new Date(cycleConfig.end_date)
+    : new Date(currentMonthEnd);
+
+  const { data: txs } = await supabaseAdmin
+    .from("transactions")
+    .select(
+      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
+    )
+    .is("deleted_at", null)
+    .gte("created_at", startDate.toISOString())
+    .lte("created_at", endDate.toISOString());
+
+  const validTransactions = (txs || []) as any[];
+
+  const { data: recurring } = await supabaseAdmin
+    .from("recurring_templates")
+    .select("id, name, amount, day_of_month, is_active")
+    .eq("is_active", true);
+
+  const upcomingObligations = (recurring || []).map((r: any) => ({
+    title: r.name,
+    amount: Number(r.amount || 0),
+    day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
+  }));
+
+  const currentExpenseTotal = validTransactions
+    .filter((t) => !t.exclude_from_budget && t.type !== "income")
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  const simulation = simulatePurchaseImpact(
+    amount,
+    validTransactions,
+    {
+      now,
+      startDate,
+      endDate,
+      totalBudgetLimit: Number(cycleConfig?.monthly_limit || 30000),
+      currentExpenseTotal,
+      upcomingObligations,
+    },
+    itemDescription
+  );
+
+  return formatWhatIfResponse(simulation);
 }

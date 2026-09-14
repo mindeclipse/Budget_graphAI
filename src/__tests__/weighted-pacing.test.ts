@@ -4,6 +4,7 @@ import {
   calibrateHabitsFromBaseline,
   calculateWeightedCalendarPacing,
   isWeekendOrLeisureDay,
+  simulatePurchaseImpact,
 } from "@/lib/weighted-pacing";
 import { Transaction } from "@/types/finance";
 
@@ -208,6 +209,135 @@ describe("Weighted Calendar Pacing Engine (Step 4)", () => {
 
       expect(result.pacing.safeWeekdaySpend).toBeLessThan(250);
       expect(result.pacing.status).toBe("critical");
+    });
+  });
+
+  describe("EMA Rolling Habit Learning (14-денний період напіврозпаду)", () => {
+    it("надає більшу вагу нещодавнім транзакціям порівняно з тими, що були 2-3 тижні тому", () => {
+      const now = new Date("2026-09-14T12:00:00.000Z");
+
+      // Транзакція 28 днів тому (2 періоди напіврозпаду -> вага ~ 0.25)
+      // Будень: 500 грн
+      const oldWeekdayTx = {
+        id: 1,
+        amount: 500,
+        type: "expense",
+        created_at: "2026-08-17T12:00:00.000Z", // Пн, 28 днів тому
+      } as unknown as Transaction;
+
+      // Транзакція 1 день тому (вчора -> вага ~ 0.95)
+      // Будень: 100 грн
+      const recentWeekdayTx = {
+        id: 2,
+        amount: 100,
+        type: "expense",
+        created_at: "2026-09-13T12:00:00.000Z", // Сб або Нд
+      } as unknown as Transaction;
+
+      const habits = calibrateHabitsFromBaseline(
+        [oldWeekdayTx, recentWeekdayTx],
+        now
+      );
+
+      expect(habits.emaWeekdayDailyAvg).toBeDefined();
+      expect(habits.emaWeekendDailyAvg).toBeDefined();
+      expect(habits.emaWeekendToWeekdayRatio).toBeGreaterThanOrEqual(0.75);
+      expect(habits.emaWeekendToWeekdayRatio).toBeLessThanOrEqual(2.5);
+    });
+  });
+
+  describe("Surplus Projection (Прогноз накопичень та розподіл)", () => {
+    it("коректно прогнозує профіцит та ділить 50/50 на подушку і кеш", () => {
+      const now = new Date("2026-09-14T10:00:00.000Z");
+      const startDate = new Date("2026-09-01T00:00:00.000Z");
+      const endDate = new Date("2026-09-30T23:59:59.999Z");
+
+      const result = calculateWeightedCalendarPacing([], {
+        now,
+        startDate,
+        endDate,
+        totalBudgetLimit: 30000,
+        currentExpenseTotal: 5000, // Залишилось 25 000 грн на 17 днів
+      });
+
+      expect(result.surplusProjection).toBeDefined();
+      const {
+        projectedSurplusAmount,
+        recommendedSavingsAllocation,
+        savingsPotentialPercent,
+      } = result.surplusProjection;
+
+      expect(projectedSurplusAmount).toBeGreaterThanOrEqual(0);
+      expect(
+        recommendedSavingsAllocation.safetyCushionAmount +
+          recommendedSavingsAllocation.cashSavingsAmount
+      ).toBe(projectedSurplusAmount);
+      // Перевірка 50/50 розподілу
+      expect(
+        Math.abs(
+          recommendedSavingsAllocation.safetyCushionAmount -
+            recommendedSavingsAllocation.cashSavingsAmount
+        )
+      ).toBeLessThanOrEqual(1); // різниця максимум 1 ₴ через округлення
+    });
+  });
+
+  describe("What-If Purchase Simulator (Симулятор наслідків покупки)", () => {
+    it("повертає 'safe' для незначної покупки, яка не суттєво зменшує щоденний ліміт", () => {
+      const now = new Date("2026-09-14T10:00:00.000Z");
+      const result = simulatePurchaseImpact(
+        300, // 300 грн при вільному залишку 20 000
+        [],
+        {
+          now,
+          totalBudgetLimit: 30000,
+          currentExpenseTotal: 10000,
+        },
+        "Книга"
+      );
+
+      expect(result.verdict).toBe("safe");
+      expect(result.verdictTitle).toContain("Безпечна покупка");
+      expect(result.newDiscretionary).toBe(19700);
+      expect(result.weekdayDropPercent).toBeLessThan(10);
+    });
+
+    it("повертає 'caution' для помірної покупки, що забирає 15-35% ліміту", () => {
+      const now = new Date("2026-09-14T10:00:00.000Z");
+      const result = simulatePurchaseImpact(
+        3000, // 3000 грн при вільному залишку 12 000
+        [],
+        {
+          now,
+          totalBudgetLimit: 25000,
+          currentExpenseTotal: 13000,
+        },
+        "Курс англійської"
+      );
+
+      expect(result.verdict).toBe("caution");
+      expect(result.verdictTitle).toContain("Потрібна дисципліна");
+      expect(result.newDiscretionary).toBe(9000);
+    });
+
+    it("повертає 'danger' у разі дефіциту (покупка перевищує вільний залишок)", () => {
+      const now = new Date("2026-09-14T10:00:00.000Z");
+      const result = simulatePurchaseImpact(
+        15000, // 15 000 грн при залишку 5 000
+        [],
+        {
+          now,
+          totalBudgetLimit: 30000,
+          currentExpenseTotal: 25000,
+        },
+        "Смартфон"
+      );
+
+      expect(result.verdict).toBe("danger");
+      expect(result.verdictTitle).toContain("Перевищення бюджету");
+      expect(result.newDiscretionary).toBe(0);
+      expect(result.newSafeWeekday).toBe(0);
+      expect(result.newSafeWeekend).toBe(0);
     });
   });
 });

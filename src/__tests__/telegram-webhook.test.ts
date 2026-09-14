@@ -10,6 +10,10 @@ import {
   parseMultimodalReceipt,
   CATEGORY_EMOJIS,
   validateTelegramWebhookSecret,
+  isPaceInquiry,
+  parseWhatIfPurchaseQuery,
+  formatPaceResponse,
+  formatWhatIfResponse,
 } from "@/lib/telegram-bot";
 import { CATEGORIES } from "@/constants/categories";
 
@@ -332,6 +336,73 @@ describe("Telegram Bot Utilities & Logic", () => {
         "Транзакцію скасовано"
       );
     });
+
+    it("обробляє tg_refresh_pace і надсилає оновлений темп", async () => {
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "budget_cycles") {
+            return {
+              select: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: "cycle-1",
+                  monthly_limit: 30000,
+                  start_date: "2026-09-01T00:00:00Z",
+                  end_date: "2026-09-30T23:59:59Z",
+                },
+              }),
+            };
+          }
+          if (table === "transactions") {
+            return {
+              select: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              gte: vi.fn().mockReturnThis(),
+              lte: vi.fn().mockResolvedValue({
+                data: [],
+              }),
+            };
+          }
+          if (table === "recurring_templates") {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockResolvedValue({
+                data: [],
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnThis(),
+          };
+        }),
+      };
+
+      const { editTelegramMessageText, answerTelegramCallbackQuery } =
+        await import("@/lib/telegram");
+
+      const success = await handleTelegramCallbackQuery(
+        {
+          id: "query_pace_1",
+          data: "tg_refresh_pace",
+          message: { chat: { id: 999 }, message_id: 888 },
+        },
+        mockSupabase
+      );
+
+      expect(success).toBe(true);
+      expect(editTelegramMessageText).toHaveBeenCalledWith(
+        999,
+        888,
+        expect.stringContaining("Безпечно на день"),
+        expect.any(Object)
+      );
+      expect(answerTelegramCallbackQuery).toHaveBeenCalledWith(
+        "query_pace_1",
+        "Темп оновлено!"
+      );
+    });
   });
 
   describe("parseNaturalLanguageExpense with Gemini Fallback", () => {
@@ -467,6 +538,84 @@ describe("Telegram Bot Utilities & Logic", () => {
       ).toBe(true);
       expect(validateTelegramWebhookSecret("wrong-secret", secret)).toBe(false);
       expect(validateTelegramWebhookSecret(null, secret)).toBe(false);
+    });
+  });
+
+  describe("isPaceInquiry", () => {
+    it("розпізнає команди /pace, /today, /budget", () => {
+      expect(isPaceInquiry("/pace")).toBe(true);
+      expect(isPaceInquiry("/today")).toBe(true);
+      expect(isPaceInquiry("/budget")).toBe(true);
+    });
+
+    it("розпізнає запити природною мовою про темп і ліміти", () => {
+      expect(isPaceInquiry("темп")).toBe(true);
+      expect(isPaceInquiry("який темп?")).toBe(true);
+      expect(isPaceInquiry("який мій темп")).toBe(true);
+      expect(isPaceInquiry("скільки можу витратити сьогодні?")).toBe(true);
+      expect(isPaceInquiry("скільки на день?")).toBe(true);
+      expect(isPaceInquiry("ліміт на вихідні?")).toBe(true);
+      expect(isPaceInquiry("який залишок?")).toBe(true);
+    });
+
+    it("не реагує на звичайні витрати або інші команди", () => {
+      expect(isPaceInquiry("таксі 240")).toBe(false);
+      expect(isPaceInquiry("Сільпо 1200 продукти")).toBe(false);
+      expect(isPaceInquiry("/start")).toBe(false);
+    });
+  });
+
+  describe("parseWhatIfPurchaseQuery", () => {
+    it("розпізнає патерн 'чи можу купити [річ] за [сума]'", () => {
+      const q = parseWhatIfPurchaseQuery("чи можу я купити кросівки за 3200?");
+      expect(q).not.toBeNull();
+      expect(q?.amount).toBe(3200);
+      expect(q?.item).toBe("кросівки");
+    });
+
+    it("розпізнає патерн 'можу витратити [сума]?'", () => {
+      const q = parseWhatIfPurchaseQuery("чи можу витратити 1500 грн?");
+      expect(q).not.toBeNull();
+      expect(q?.amount).toBe(1500);
+      expect(q?.item).toBe("покупка");
+    });
+
+    it("розпізнає патерн 'хочу купити [річ] [сума]'", () => {
+      const q = parseWhatIfPurchaseQuery("хочу купити навушники 4500 грн");
+      expect(q).not.toBeNull();
+      expect(q?.amount).toBe(4500);
+      expect(q?.item).toBe("навушники");
+    });
+
+    it("не спрацьовує на звичайні записи витрат", () => {
+      expect(parseWhatIfPurchaseQuery("таксі 240")).toBeNull();
+      expect(parseWhatIfPurchaseQuery("кава 85")).toBeNull();
+      expect(parseWhatIfPurchaseQuery("Сільпо 500")).toBeNull();
+    });
+  });
+
+  describe("formatWhatIfResponse", () => {
+    it("форматує результат симуляції у читабельний вигляд із відсотками та порадою", () => {
+      const sim = {
+        purchaseAmount: 3000,
+        itemDescription: "навушники",
+        currentDiscretionary: 15000,
+        newDiscretionary: 12000,
+        currentSafeWeekday: 800,
+        newSafeWeekday: 640,
+        currentSafeWeekend: 1200,
+        newSafeWeekend: 960,
+        weekdayDropPercent: 20,
+        weekendDropPercent: 20,
+        verdict: "caution" as const,
+        verdictTitle: "⚡️ Потрібна дисципліна",
+        adviceHtml: "Після покупки ліміт знизиться на 20%.",
+      };
+
+      const text = formatWhatIfResponse(sim);
+      expect(text).toContain("⚡️ Потрібна дисципліна");
+      expect(text).toContain("Будні: 800 ₴ ➔ <b>640 ₴/день</b> (-20%)");
+      expect(text).toMatch(/12[\s\u00A0]000 ₴/);
     });
   });
 });

@@ -13,6 +13,10 @@ import {
   recordTelegramTransaction,
   formatTransactionConfirmation,
   handleTelegramCallbackQuery,
+  isPaceInquiry,
+  parseWhatIfPurchaseQuery,
+  handleTelegramPaceCommand,
+  handleTelegramWhatIfCommand,
 } from "@/lib/telegram-bot";
 
 export const dynamic = "force-dynamic";
@@ -90,14 +94,18 @@ export async function POST(req: NextRequest) {
       const welcomeText = [
         `👋 <b>Вітаю у BudgetGraph Bot!</b>`,
         ``,
-        `Я допоможу вам швидко фіксувати витрати та доходи:`,
+        `Я допоможу вам зручно фіксувати фінанси та тримати здоровий ритм витрат:`,
         ``,
-        `💬 <b>Текстові повідомлення:</b>`,
+        `💬 <b>Запис витрат і доходів:</b>`,
         `• <code>таксі 240</code>`,
         `• <code>вчора аптека 480 вітаміни</code>`,
         `• <code>Сільпо 1250 продукти</code>`,
         `• <code>кава 85</code>`,
         `• <code>зарплата 45000</code>`,
+        ``,
+        `🎯 <b>Темп бюджету та симулятор покупок (What-If):</b>`,
+        `• <code>/pace</code> або <i>«який темп?»</i> — актуальний ліміт на день (будні vs вихідні) та прогноз профіциту`,
+        `• <i>«чи можу купити навушники 3500 грн?»</i> — аналіз наслідків покупки для залишку`,
         ``,
         `🧾 <b>Електронні чеки та PDF:</b>`,
         `• Надішліть скріншот чека (Сільпо, Monobank, Checkbox тощо).`,
@@ -242,6 +250,49 @@ export async function POST(req: NextRequest) {
 
     // Г. Обробка тексту природною мовою
     if (text) {
+      // 1. Запит про стан та зважений темп бюджету (/pace, "який темп?", "скільки на день?")
+      if (isPaceInquiry(text)) {
+        const paceReply = await handleTelegramPaceCommand(supabaseAdmin);
+        const appUrl =
+          process.env.APP_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "https://budget-pwa.vercel.app";
+
+        await sendTelegramMessage(paceReply, {
+          inline_keyboard: [
+            [
+              { text: "🔄 Оновити темп", callback_data: "tg_refresh_pace" },
+              { text: "📊 Відкрити BudgetGraph", url: appUrl },
+            ],
+          ],
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // 2. Симулятор покупок What-If ("чи можу купити ... за ...?", "хочу купити куртку 3500")
+      const whatIf = parseWhatIfPurchaseQuery(text);
+      if (whatIf) {
+        const whatIfReply = await handleTelegramWhatIfCommand(
+          whatIf.amount,
+          whatIf.item,
+          supabaseAdmin
+        );
+        const appUrl =
+          process.env.APP_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "https://budget-pwa.vercel.app";
+
+        await sendTelegramMessage(whatIfReply, {
+          inline_keyboard: [
+            [
+              { text: "📊 Переглянути бюджет", url: appUrl },
+              { text: "🎯 Мій темп", callback_data: "tg_refresh_pace" },
+            ],
+          ],
+        });
+        return NextResponse.json({ ok: true });
+      }
+
       const parsed = await parseNaturalLanguageExpense(text);
 
       if (!parsed) {
