@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { calculateBudgetPacing } from "@/lib/analytics-engine";
 import { verifySessionToken } from "@/lib/session";
+import { Transaction } from "@/types/finance";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
     const { data: transactions, error: txError } = await supabase
       .from("transactions")
       .select(
-        "id, amount, created_at, category_name, type, exclude_from_budget, deleted_at"
+        "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
       )
       .is("deleted_at", null)
       .gte("created_at", fromDate)
@@ -74,8 +75,10 @@ export async function GET(req: NextRequest) {
     const categoryLimits = cycleConfig?.category_limits || [];
     const totalBudgetLimit = cycleConfig?.monthly_limit || undefined;
 
+    const validTransactions = (transactions || []) as unknown as Transaction[];
+
     const pacing = calculateBudgetPacing(
-      (transactions || []).filter((t: any) => !t.exclude_from_budget),
+      validTransactions.filter((t) => !t.exclude_from_budget),
       startDate,
       endDate,
       categoryLimits,
