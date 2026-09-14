@@ -18,6 +18,7 @@
 
 const DEFAULT_BASE_URL = "https://budget-pwa.vercel.app";
 const DEFAULT_API_KEY = ""; // Вставте свій APP_API_SECRET за потреби
+const FORCE_DARK_MODE = true; // Завжди увімкнена темна тема (OLED Dark)
 
 // Парсинг параметрів віджета (URL,API_KEY)
 let baseUrl = DEFAULT_BASE_URL;
@@ -109,14 +110,14 @@ async function createWidget() {
   widget.url = baseUrl;
 
   // Дизайн фону (OLED Dark з глибоким відтінком)
-  const isDark = Device.isUsingDarkAppearance();
-  const bgColor = isDark ? new Color("#0c0f19") : new Color("#f8fafc");
+  const isDark = FORCE_DARK_MODE ? true : Device.isUsingDarkAppearance();
+  const bgColor = isDark ? new Color("#080b12") : new Color("#f8fafc");
   widget.backgroundColor = bgColor;
   widget.setPadding(14, 14, 14, 14);
 
   const textPrimary = isDark ? new Color("#f8fafc") : new Color("#0f172a");
   const textSecondary = isDark ? new Color("#94a3b8") : new Color("#64748b");
-  const cardBg = isDark ? new Color("#161e31") : new Color("#ffffff");
+  const cardBg = isDark ? new Color("#131a29") : new Color("#ffffff");
 
   if (!data) {
     const errorText = widget.addText("⚠️ Налаштуйте віджет");
