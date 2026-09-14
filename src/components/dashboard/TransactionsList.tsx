@@ -13,7 +13,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import { Transaction } from "@/types/finance";
-import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/constants/categories";
+import { SwipeableTransactionCard } from "@/components/dashboard/SwipeableTransactionCard";
 
 interface TransactionsListProps {
   totalMonthTransactionsCount: number;
@@ -25,6 +25,8 @@ interface TransactionsListProps {
   onTagChange: (tag: string | null) => void;
   onOpenCreateExpense: () => void;
   onSelectTransaction: (tx: Transaction) => void;
+  onDeleteTransaction?: (txId: number) => void;
+  onOpenSplitTransaction?: (tx: Transaction) => void;
   onOpenTrash?: () => void;
   onOpenMerchantRules?: () => void;
   onOpenTagProject?: (tag: string) => void;
@@ -40,6 +42,8 @@ export function TransactionsList({
   onTagChange,
   onOpenCreateExpense,
   onSelectTransaction,
+  onDeleteTransaction,
+  onOpenSplitTransaction,
   onOpenTrash,
   onOpenMerchantRules,
   onOpenTagProject,
@@ -217,77 +221,18 @@ export function TransactionsList({
           </button>
         </div>
       ) : (
-        <div className="max-h-[420px] [scrollbar-width:thin] space-y-2 overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent">
-          {visibleTransactions.map((t: Transaction) => {
-            const IconComponent = CATEGORY_ICONS[t.category_name] || HelpCircle;
-            const iconColor = CATEGORY_COLORS[t.category_name] || "#71717A";
-            const isSyncing = t.id < 0;
-
-            return (
-              <div
-                key={t.id}
-                onClick={() => {
-                  if (isSyncing) return;
-                  onSelectTransaction(t);
-                }}
-                className={`group flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3 transition-all duration-150 ${
-                  isSyncing
-                    ? "pointer-events-none opacity-50 select-none"
-                    : "cursor-pointer hover:translate-x-0.5 hover:border-zinc-700/80 hover:bg-zinc-900/80 active:scale-[0.99]"
-                }`}
-              >
-                <div className="flex min-w-0 items-center space-x-3 pr-2">
-                  <div
-                    className="shrink-0 rounded-lg p-2 transition-transform duration-150 group-hover:scale-110"
-                    style={{
-                      backgroundColor: `${iconColor}15`,
-                      color: iconColor,
-                    }}
-                  >
-                    <IconComponent size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-zinc-100 transition-colors group-hover:text-white">
-                      {t.merchant_raw}
-                    </p>
-                    <p className="truncate text-xs text-zinc-500">
-                      {t.category_name} •{" "}
-                      {new Date(t.created_at).toLocaleDateString([], {
-                        day: "numeric",
-                        month: "short",
-                      })}{" "}
-                      {new Date(t.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                    {t.tags && t.tags.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {t.tags.map((tag: string) => (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenTagProject?.(tag);
-                            }}
-                            title={`Аналітика проєкту #${tag} за всі періоди`}
-                            className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-sky-500/20 hover:text-sky-300"
-                          >
-                            #{tag}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <span className="ml-2 font-mono text-sm font-bold tracking-tight whitespace-nowrap text-white tabular-nums">
-                  -{Number(t.amount).toFixed(2)} ₴
-                </span>
-              </div>
-            );
-          })}
+        <div className="max-h-[420px] [scrollbar-width:thin] space-y-1.5 overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent">
+          {visibleTransactions.map((t: Transaction) => (
+            <SwipeableTransactionCard
+              key={t.id}
+              transaction={t}
+              isSyncing={t.id < 0}
+              onSelect={onSelectTransaction}
+              onDelete={onDeleteTransaction}
+              onSplit={onOpenSplitTransaction}
+              onOpenTagProject={onOpenTagProject}
+            />
+          ))}
 
           {hasMore && (
             <div ref={loadMoreRef} className="pt-2 text-center">

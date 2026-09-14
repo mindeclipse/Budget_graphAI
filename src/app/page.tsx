@@ -1077,6 +1077,8 @@ export default function Dashboard() {
               onTagChange={setActiveTag}
               onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
               onSelectTransaction={setSelectedTx}
+              onDeleteTransaction={handleDeleteTransaction}
+              onOpenSplitTransaction={(tx) => setSplitTx(tx)}
               onOpenTrash={() => setIsTrashOpen(true)}
               onOpenMerchantRules={() => setIsMerchantRulesOpen(true)}
               onOpenTagProject={setSelectedProjectTag}
