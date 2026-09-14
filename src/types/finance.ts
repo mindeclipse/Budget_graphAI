@@ -115,3 +115,25 @@ export interface MerchantRule {
   category_name: string;
   created_at?: string;
 }
+
+export interface WidgetSummaryResponse {
+  success: boolean;
+  cycleName: string;
+  safeDailySpend: number;
+  todaySpent: number;
+  todayRemaining: number;
+  remainingBudget: number;
+  daysRemaining: number;
+  cycleProgressPercent: number;
+  spendPaceStatus: "on_track" | "warning" | "exceeded";
+  topCategories: Array<{
+    name: string;
+    amount: number;
+  }>;
+  lastTransaction: {
+    merchant: string;
+    amount: number;
+    time: string;
+  } | null;
+  updatedAt: string;
+}

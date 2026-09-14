@@ -71,6 +71,18 @@ export async function proxy(req: NextRequest) {
     // Якщо Bearer відсутній, продовжуємо перевірку сесії користувача нижче
   }
 
+  // Г. Віджет для iPhone (/api/widget/summary)
+  if (pathname.startsWith("/api/widget/summary")) {
+    if (
+      appSecretKey &&
+      authHeader &&
+      timingSafeEqual(authHeader, `Bearer ${appSecretKey}`)
+    ) {
+      return NextResponse.next();
+    }
+    // Якщо Bearer відсутній, продовжуємо перевірку сесії користувача нижче
+  }
+
   // 4. Захист від CSRF для всіх сесійних змінюючих запитів браузера (POST, PATCH, DELETE, PUT)
   if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method)) {
     const origin = req.headers.get("origin");
