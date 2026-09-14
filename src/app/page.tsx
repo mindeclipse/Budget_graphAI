@@ -35,6 +35,7 @@ import { DetectedSubscription } from "@/lib/subscription-radar";
 import { BurnRateChart } from "@/components/dashboard/BurnRateChart";
 import { MoMComparison } from "@/components/dashboard/MoMComparison";
 import { QuickActionsListener } from "@/components/QuickActionsListener";
+import { MobileBottomBar } from "@/components/dashboard/MobileBottomBar";
 import { triggerHaptic } from "@/lib/haptics";
 import { toast } from "sonner";
 
@@ -905,7 +906,7 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(1.5rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 lg:px-12">
+    <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:px-12">
       <Suspense fallback={null}>
         <QuickActionsListener
           onAddExpense={() => setIsCreateExpenseOpen(true)}
@@ -1296,6 +1297,14 @@ export default function Dashboard() {
           onClose={() => setIsMerchantRulesOpen(false)}
         />
       )}
+
+      {/* Ергономічна мобільна панель дій під великий палець (суворо md:hidden) */}
+      <MobileBottomBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onAddExpense={() => setIsCreateExpenseOpen(true)}
+        onOpenAi={() => setIsAiDrawerOpen(true)}
+      />
     </main>
   );
 }
