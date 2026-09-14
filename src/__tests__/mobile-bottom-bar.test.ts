@@ -18,7 +18,7 @@ describe("MobileBottomBar Ergonomics & Haptic Feedback Logic", () => {
     });
 
     it("містить коректну підтримку safe-area-inset-bottom для iPhone безрамкових екранів", () => {
-      const safeAreaStyle = "pb-[max(env(safe-area-inset-bottom),10px)]";
+      const safeAreaStyle = "bottom-[max(env(safe-area-inset-bottom),12px)]";
       expect(safeAreaStyle).toContain("safe-area-inset-bottom");
     });
   });

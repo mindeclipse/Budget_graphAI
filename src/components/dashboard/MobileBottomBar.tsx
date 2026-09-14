@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  LayoutDashboard,
+  BarChart3,
   Receipt,
   Plus,
   Landmark,
@@ -42,27 +42,22 @@ export function MobileBottomBar({
   return (
     <nav
       aria-label="Мобільна навігація"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/80 bg-zinc-950/90 px-3 pt-1.5 pb-[max(env(safe-area-inset-bottom),10px)] shadow-2xl backdrop-blur-xl transition-all md:hidden"
+      className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-40 mx-auto max-w-md rounded-2xl border border-zinc-800/90 bg-zinc-950/90 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-all md:hidden"
     >
-      <div className="mx-auto flex max-w-md items-center justify-between">
-        {/* 1. Вкладка: Огляд / Бюджет */}
+      <div className="flex items-center justify-between gap-1">
+        {/* 1. Вкладка: Аналітика & Бюджет */}
         <button
           type="button"
           onClick={() => handleTabClick("overview")}
-          className={`flex flex-1 touch-manipulation flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+          className={`flex flex-1 touch-manipulation flex-col items-center justify-center rounded-xl py-1.5 px-1 transition-all active:scale-95 ${
             activeTab === "overview"
-              ? "text-sky-400"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "border border-zinc-700/60 bg-zinc-800 text-white shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
-          <div className="relative">
-            <LayoutDashboard size={20} />
-            {activeTab === "overview" && (
-              <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-sky-400" />
-            )}
-          </div>
+          <BarChart3 size={18} strokeWidth={2} />
           <span className="mt-1 text-[10px] font-medium tracking-tight">
-            Огляд
+            Аналітика
           </span>
         </button>
 
@@ -70,54 +65,39 @@ export function MobileBottomBar({
         <button
           type="button"
           onClick={() => handleTabClick("history")}
-          className={`flex flex-1 touch-manipulation flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+          className={`flex flex-1 touch-manipulation flex-col items-center justify-center rounded-xl py-1.5 px-1 transition-all active:scale-95 ${
             activeTab === "history"
-              ? "text-sky-400"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "border border-zinc-700/60 bg-zinc-800 text-white shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
-          <div className="relative">
-            <Receipt size={20} />
-            {activeTab === "history" && (
-              <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-sky-400" />
-            )}
-          </div>
+          <Receipt size={18} strokeWidth={2} />
           <span className="mt-1 text-[10px] font-medium tracking-tight">
             Історія
           </span>
         </button>
 
         {/* 3. Центральна дія: Додати витрату (+) */}
-        <div className="flex flex-1 flex-col items-center justify-center">
-          <button
-            type="button"
-            onClick={handleAddClick}
-            aria-label="Швидко додати витрату"
-            className="-mt-5 flex h-12 w-12 touch-manipulation items-center justify-center rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 text-white shadow-lg ring-4 shadow-sky-500/30 ring-zinc-950 transition-transform hover:brightness-110 active:scale-90"
-          >
-            <Plus size={22} strokeWidth={2.5} />
-          </button>
-          <span className="mt-1 text-[10px] font-medium tracking-tight text-zinc-400">
-            Додати
-          </span>
-        </div>
+        <button
+          type="button"
+          onClick={handleAddClick}
+          aria-label="Швидко додати витрату"
+          className="flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-xl bg-sky-600 text-white shadow-md shadow-sky-950/50 transition-all hover:bg-sky-500 active:scale-90"
+        >
+          <Plus size={20} strokeWidth={2.5} />
+        </button>
 
         {/* 4. Вкладка: Капітал */}
         <button
           type="button"
           onClick={() => handleTabClick("wealth")}
-          className={`flex flex-1 touch-manipulation flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+          className={`flex flex-1 touch-manipulation flex-col items-center justify-center rounded-xl py-1.5 px-1 transition-all active:scale-95 ${
             activeTab === "wealth"
-              ? "text-sky-400"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "border border-zinc-700/60 bg-zinc-800 text-white shadow-sm"
+              : "text-zinc-400 hover:text-zinc-200"
           }`}
         >
-          <div className="relative">
-            <Landmark size={20} />
-            {activeTab === "wealth" && (
-              <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-sky-400" />
-            )}
-          </div>
+          <Landmark size={18} strokeWidth={2} />
           <span className="mt-1 text-[10px] font-medium tracking-tight">
             Капітал
           </span>
@@ -128,12 +108,10 @@ export function MobileBottomBar({
           type="button"
           onClick={handleAiClick}
           aria-label="AI Фінансовий Коуч"
-          className="flex flex-1 touch-manipulation flex-col items-center justify-center py-1 text-zinc-500 transition-all hover:text-amber-300 active:scale-95"
+          className="flex flex-1 touch-manipulation flex-col items-center justify-center rounded-xl py-1.5 px-1 text-zinc-400 transition-all hover:text-zinc-200 active:scale-95"
         >
-          <div className="relative">
-            <Sparkles size={20} className="text-amber-400" />
-          </div>
-          <span className="mt-1 text-[10px] font-medium tracking-tight text-zinc-400">
+          <Sparkles size={18} strokeWidth={2} className="text-zinc-300" />
+          <span className="mt-1 text-[10px] font-medium tracking-tight">
             AI Коуч
           </span>
         </button>

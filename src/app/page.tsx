@@ -949,8 +949,8 @@ export default function Dashboard() {
         onSaveBudget={handleSaveBudgetLimit}
       />
 
-      {/* Навігація між вкладками: Аналітика & Бюджет -> Історія операцій -> Капітал & Цілі */}
-      <div className="mb-6 flex rounded-2xl border border-zinc-800 bg-zinc-900/80 p-1 backdrop-blur-md">
+      {/* Навігація між вкладками: Аналітика & Бюджет -> Історія операцій -> Капітал & Цілі (Тільки десктоп md:flex, на мобільному використовується MobileBottomBar) */}
+      <div className="mb-6 hidden md:flex rounded-2xl border border-zinc-800 bg-zinc-900/80 p-1 backdrop-blur-md">
         <button
           type="button"
           onClick={() => setActiveTab("overview")}
