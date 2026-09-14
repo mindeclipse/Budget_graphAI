@@ -301,7 +301,7 @@ export function TransactionActionSheet({
           merchant_raw: transaction.merchant_raw,
           save_as_rule: saveAsRule,
           tags: updatedTags,
-          exclude_from_budget: isEmergency,
+          exclude_from_budget: false,
           metadata: newMetadata,
         });
       } else {
@@ -315,7 +315,7 @@ export function TransactionActionSheet({
             merchant_raw: transaction.merchant_raw,
             save_as_rule: saveAsRule,
             tags: updatedTags,
-            exclude_from_budget: isEmergency,
+            exclude_from_budget: false,
             metadata: newMetadata,
           }),
         });
@@ -469,11 +469,12 @@ export function TransactionActionSheet({
                 </div>
                 <div className="text-xs">
                   <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
-                    🛡️ Форс-мажор (покрити з подушки)
+                    🛡️ Форс-мажор (екстрена витрата)
                   </div>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
-                    Витрата на лікування чи непередбачені обставини покривається
-                    з Фінансової подушки і не занижує щоденний темп.
+                    Позначає витрату для ШІ як вимушену екстрену потребу (ліки,
+                    поломка тощо), щоб вона не вважалася споживчим
+                    марнотратством.
                   </p>
                 </div>
               </div>

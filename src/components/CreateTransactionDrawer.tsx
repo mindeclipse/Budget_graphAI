@@ -83,7 +83,7 @@ export function CreateTransactionDrawer({
       type: isInvestment ? "investment" : "expense",
       currency: "UAH",
       source: "manual",
-      exclude_from_budget: isInvestment || isEmergency,
+      exclude_from_budget: isInvestment,
       tags: tags.length > 0 ? tags : undefined,
       metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       created_at: new Date().toISOString(),
@@ -199,11 +199,11 @@ export function CreateTransactionDrawer({
                 </div>
                 <div className="text-xs">
                   <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
-                    🛡️ Форс-мажор (покрити з подушки)
+                    🛡️ Форс-мажор (екстрена витрата)
                   </div>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
-                    Витрата на ліки, хворобу чи форс-мажор не занизить щоденний
-                    темп.
+                    Позначає витрату для ШІ як вимушену екстрену потребу, щоб
+                    вона не вважалася споживчим марнотратством.
                   </p>
                 </div>
               </div>

@@ -76,40 +76,20 @@ export function useBudgetMetrics({
     });
   }, [selectedDate]);
 
-  // 1. Усі календарні транзакції обраного місяця (включно з форс-мажорами, доходами тощо)
-  const allMonthTransactions = useMemo(() => {
+  // 1. Усі календарні витрати обраного місяця (для журналу та MoM-порівняння)
+  const monthTransactions = useMemo(() => {
     return transactions.filter((t) => {
       const d = new Date(t.created_at);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      return key === selectedMonthKey;
+      return (
+        key === selectedMonthKey &&
+        !t.exclude_from_budget &&
+        t.type === "expense"
+      );
     });
   }, [transactions, selectedMonthKey]);
 
-  // 1.1. Лише календарні витрати обраного місяця без форс-мажорів (для MoM-порівняння)
-  const monthTransactions = useMemo(() => {
-    return allMonthTransactions.filter(
-      (t) => !t.exclude_from_budget && t.type === "expense"
-    );
-  }, [allMonthTransactions]);
-
-  // 2. Усі транзакції поточного циклу / періоду (для журналу транзакцій, пошуку та фільтрації тегів)
-  const periodTransactions = useMemo(() => {
-    if (!isCurrentMonth || !activeCycle || !activeCycle.start_date) {
-      return allMonthTransactions;
-    }
-
-    const cycleStart = new Date(activeCycle.start_date).getTime();
-    const cycleEnd = activeCycle.end_date
-      ? new Date(activeCycle.end_date).getTime()
-      : Infinity;
-
-    return transactions.filter((t) => {
-      const txTime = new Date(t.created_at).getTime();
-      return txTime >= cycleStart && txTime <= cycleEnd;
-    });
-  }, [transactions, allMonthTransactions, isCurrentMonth, activeCycle]);
-
-  // 3. Транзакції, що входять у розрахунок ліміту активного циклу
+  // 2. Транзакції, що входять у розрахунок ліміту активного циклу
   const budgetTransactions = useMemo(() => {
     return filterBudgetTransactions(
       transactions,
@@ -233,8 +213,7 @@ export function useBudgetMetrics({
     monthLabel,
     monthTransactions,
     budgetTransactions,
-    periodTransactions,
-    filteredTransactions: periodTransactions,
+    filteredTransactions: budgetTransactions,
     prevMonthKey,
     previousMonthTransactions,
     recurringTotal,

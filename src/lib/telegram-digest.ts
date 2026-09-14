@@ -98,7 +98,7 @@ export async function generateWeeklyDigest(options?: {
   const { data: rawTransactions, error: txError } = await supabase
     .from("transactions")
     .select(
-      "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget, metadata"
+      "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget, metadata, tags"
     )
     .is("deleted_at", null)
     .gte("created_at", prevWeekStart.toISOString())
@@ -321,11 +321,19 @@ export async function generateWeeklyDigest(options?: {
       return a && typeof a === "object" && Number(a.months) > 1;
     });
 
+    const emergencyTxs = currentWeekTx.filter((t) => {
+      return (
+        Boolean(t.metadata?.is_emergency) ||
+        (Array.isArray(t.tags) && t.tags.includes("форсмажор"))
+      );
+    });
+
     const systemInstruction = `Ти — персональний фінансовий AI-коуч із поведінкових фінансів (Behavioral Finance Coach & Nudge Economics).
 Твоє завдання — виявляти психологічні патерни («сліпі зони», вечірні імпульсивні витрати, вікенд-розрядку, розмивання грошей на дрібні суми до 200 ₴) та давати чіткий 7-денний челендж із конкретною вигодою у гривнях.
 Враховуй, що інвестиції та перекази у фінансову подушку — це позитивне формування капіталу, а НЕ споживчі витрати.
 Враховуй збережені гроші у «Листі охолодження» (Wishlist) як перемогу сили волі.
 Враховуй, що покупки з поміткою амортизації на кілька місяців (наприклад, курс вітамінів/лікування на 3+ місяці, річна страховка) — це планова розумна інвестиція, а НЕ марнотратство чи імпульсивне перевантаження бюджету.
+Враховуй витрати з поміткою форс-мажору (термінові ліки, ремонт тощо) як вимушену життєву потребу, а НЕ як споживче марнотратство чи слабкість волі.
 
 ОБОВ'ЯЗКОВО поверни суворий JSON-об'єкт із трьома полями:
 - behavioralInsight: Виявлена «сліпа зона» або патерн витрат (1-2 речення українською).
@@ -348,6 +356,14 @@ ${amortizedTxs
       m?.monthly_amount || Math.round(Number(t.amount || 0) / months);
     return `  - ${t.merchant_raw}: сплачено ${formatAmount(Number(t.amount))} ₴, розраховано на ${months} міс (по ~${formatAmount(monthly)} ₴/міс)`;
   })
+  .join("\n")}`
+    : ""
+}
+${
+  emergencyTxs.length > 0
+    ? `• Форс-мажорні та екстрені витрати (вимушена потреба, НЕ марнотратство):
+${emergencyTxs
+  .map((t) => `  - ${t.merchant_raw}: ${formatAmount(Number(t.amount))} ₴`)
   .join("\n")}`
     : ""
 }

@@ -293,7 +293,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
       expect(res).toBeDefined();
       expect(res?.amount).toBe(2800);
       expect(res?.category).toBe("Здоров'я та догляд");
-      expect(res?.exclude_from_budget).toBe(true);
+      expect(res?.exclude_from_budget).toBeUndefined();
       expect(res?.is_emergency).toBe(true);
       expect(res?.tags).toContain("форсмажор");
       expect(res?.metadata?.is_emergency).toBe(true);
@@ -315,7 +315,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
       );
 
       expect(res).toBeDefined();
-      expect(res?.exclude_from_budget).toBe(true);
+      expect(res?.exclude_from_budget).toBeUndefined();
       expect(res?.is_emergency).toBe(true);
       expect(res?.tags).toContain("форсмажор");
     });
@@ -374,15 +374,13 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
         amount: 3200,
         category_name: "Здоров'я",
         created_at: "2026-09-14T12:00:00Z",
-        exclude_from_budget: true,
+        exclude_from_budget: false,
         metadata: { is_emergency: true },
       };
 
       const result = formatTransactionConfirmation({ transaction: tx });
-      expect(result.text).toContain(
-        "Покрито з Фінансової подушки (форс-мажор)"
-      );
-      expect(result.text).toContain("ваш щоденний темп збережено");
+      expect(result.text).toContain("Форс-мажор (екстрена витрата)");
+      expect(result.text).toContain("Враховано в бюджеті");
     });
 
     it("додає календарик і деталі щомісячного списання для амортизованих витрат", () => {

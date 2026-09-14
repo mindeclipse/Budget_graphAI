@@ -47,9 +47,8 @@ export function SwipeableTransactionCard({
     transaction.metadata.receipt_items.length > 1;
 
   const isEmergency =
-    Boolean(transaction.exclude_from_budget) &&
-    (Boolean(transaction.metadata?.is_emergency) ||
-      Boolean(transaction.tags?.includes("форсмажор")));
+    Boolean(transaction.metadata?.is_emergency) ||
+    Boolean(transaction.tags?.includes("форсмажор"));
 
   const amort = transaction.metadata?.amortization;
   const isAmortized =
@@ -279,7 +278,7 @@ export function SwipeableTransactionCard({
             <div className="mt-1 flex flex-wrap items-center gap-1">
               {isEmergency && (
                 <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-                  🛡️ З подушки
+                  🛡️ Форс-мажор
                 </span>
               )}
               {isAmortized && (
@@ -313,21 +312,12 @@ export function SwipeableTransactionCard({
         <div className="ml-2 flex flex-col items-end">
           <span
             className={`font-mono text-sm font-bold tracking-tight whitespace-nowrap tabular-nums ${
-              isEmergency
-                ? "text-zinc-400 line-through opacity-80"
-                : isIncome
-                  ? "text-emerald-400"
-                  : "text-white"
+              isIncome ? "text-emerald-400" : "text-white"
             }`}
           >
             {isIncome ? "+" : "-"}
             {Number(transaction.amount).toFixed(2)} ₴
           </span>
-          {isEmergency && (
-            <span className="text-[10px] font-medium text-amber-400">
-              з подушки
-            </span>
-          )}
           {isAmortized && (
             <span className="font-mono text-[10px] text-indigo-400 tabular-nums">
               {amortMonthly.toFixed(2)} ₴/міс

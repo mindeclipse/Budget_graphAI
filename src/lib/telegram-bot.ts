@@ -293,7 +293,7 @@ ${CATEGORIES.map((c) => `  - "${c}"`).join("\n")}
         : "expense",
       date: txDate,
       note: parsed.note ? String(parsed.note).trim() : undefined,
-      exclude_from_budget: isEmergency ? true : undefined,
+      exclude_from_budget: undefined,
       is_emergency: isEmergency ? true : undefined,
       amortization_months: amortizationMonths || undefined,
       tags: tags.length > 0 ? tags : undefined,
@@ -612,7 +612,6 @@ export function formatTransactionConfirmation(params: {
   const isExpense = !isIncome && !isInvestment;
 
   const isEmergency =
-    Boolean(transaction.exclude_from_budget) ||
     Boolean(transaction.metadata?.is_emergency) ||
     (Array.isArray(transaction.tags) && transaction.tags.includes("форсмажор"));
 
@@ -638,8 +637,8 @@ export function formatTransactionConfirmation(params: {
   if (isEmergency) {
     lines.push(
       ``,
-      `🛡️ <b>Покрито з Фінансової подушки (форс-мажор)</b>`,
-      `💡 <i>Операцію виключено з операційного бюджету — ваш щоденний темп збережено!</i>`
+      `🛡️ <b>Форс-мажор (екстрена витрата)</b>`,
+      `💡 <i>Враховано в бюджеті. ШІ та аналітика зафіксують це як вимушену потребу, а не споживче марнотратство.</i>`
     );
   } else if (amort && typeof amort === "object" && Number(amort.months) > 1) {
     const totalMonths = Number(amort.months);
