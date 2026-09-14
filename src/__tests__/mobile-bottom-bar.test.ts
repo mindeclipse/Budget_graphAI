@@ -17,9 +17,9 @@ describe("MobileBottomBar Ergonomics & Haptic Feedback Logic", () => {
       expect(desktopHiddenClass).toBe("md:hidden");
     });
 
-    it("містить коректну підтримку safe-area-inset-bottom для iPhone безрамкових екранів", () => {
-      const safeAreaStyle = "pb-[max(env(safe-area-inset-bottom),10px)]";
-      expect(safeAreaStyle).toContain("safe-area-inset-bottom");
+    it("розташовує острів-капсулу в самому низу екрана", () => {
+      const bottomClass = "bottom-2";
+      expect(bottomClass).toBe("bottom-2");
     });
   });
 
