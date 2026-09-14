@@ -98,7 +98,7 @@ export async function generateWeeklyDigest(options?: {
   const { data: rawTransactions, error: txError } = await supabase
     .from("transactions")
     .select(
-      "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget"
+      "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget, metadata"
     )
     .is("deleted_at", null)
     .gte("created_at", prevWeekStart.toISOString())
@@ -316,10 +316,16 @@ export async function generateWeeklyDigest(options?: {
 
   try {
     const ai = getGeminiClient();
+    const amortizedTxs = currentWeekTx.filter((t) => {
+      const a = t.metadata?.amortization;
+      return a && typeof a === "object" && Number(a.months) > 1;
+    });
+
     const systemInstruction = `Ти — персональний фінансовий AI-коуч із поведінкових фінансів (Behavioral Finance Coach & Nudge Economics).
 Твоє завдання — виявляти психологічні патерни («сліпі зони», вечірні імпульсивні витрати, вікенд-розрядку, розмивання грошей на дрібні суми до 200 ₴) та давати чіткий 7-денний челендж із конкретною вигодою у гривнях.
 Враховуй, що інвестиції та перекази у фінансову подушку — це позитивне формування капіталу, а НЕ споживчі витрати.
 Враховуй збережені гроші у «Листі охолодження» (Wishlist) як перемогу сили волі.
+Враховуй, що покупки з поміткою амортизації на кілька місяців (наприклад, курс вітамінів/лікування на 3+ місяці, річна страховка) — це планова розумна інвестиція, а НЕ марнотратство чи імпульсивне перевантаження бюджету.
 
 ОБОВ'ЯЗКОВО поверни суворий JSON-об'єкт із трьома полями:
 - behavioralInsight: Виявлена «сліпа зона» або патерн витрат (1-2 речення українською).
@@ -331,6 +337,20 @@ export async function generateWeeklyDigest(options?: {
 • Споживчі витрати за 7 днів: ${formatAmount(thisWeekSpent)} ₴ (Динаміка: ${wowText})
 • Топ категорії витрат: ${sortedCategories.map((c) => `${c.name}: ${formatAmount(c.amount)} ₴ (${c.percent}%)`).join(", ")}
 ${largestTx ? `• Найбільша окрема витрата: ${largestTx.merchant_raw} (${formatAmount(Number(largestTx.amount))} ₴)` : ""}
+${
+  amortizedTxs.length > 0
+    ? `• Стратегічні покупки з амортизацією на кілька місяців (планова інвестиція, НЕ марнотратство):
+${amortizedTxs
+  .map((t) => {
+    const m = t.metadata?.amortization;
+    const months = m?.months || 1;
+    const monthly =
+      m?.monthly_amount || Math.round(Number(t.amount || 0) / months);
+    return `  - ${t.merchant_raw}: сплачено ${formatAmount(Number(t.amount))} ₴, розраховано на ${months} міс (по ~${formatAmount(monthly)} ₴/міс)`;
+  })
+  .join("\n")}`
+    : ""
+}
 • Часовий профіль витрат (Київ):
   - Ранок (06:00–12:00): ${formatAmount(behavioralMetrics.timeProfile.morning.amount)} ₴ (${behavioralMetrics.timeProfile.morning.percent}%, ${behavioralMetrics.timeProfile.morning.count} транз.)
   - День (12:00–18:00): ${formatAmount(behavioralMetrics.timeProfile.day.amount)} ₴ (${behavioralMetrics.timeProfile.day.percent}%, ${behavioralMetrics.timeProfile.day.count} транз.)

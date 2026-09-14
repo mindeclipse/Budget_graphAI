@@ -509,8 +509,9 @@ export function TransactionActionSheet({
               </div>
               <p className="text-[11px] leading-relaxed text-zinc-400">
                 Для курсів лікування (вітаміни на 3+ міс), страховки або великих
-                покупок: у цей цикл зараховується лише 1 частка, а решта
-                автоматично розподіляється на наступні місяці.
+                покупок: вся сума списується з картки одразу, а ШІ та аналітика
+                сприймають це як планову інвестицію на кілька місяців, а не
+                разове марнотратство.
               </p>
               <div className="grid grid-cols-5 gap-1.5 pt-1">
                 {[1, 2, 3, 6, 12].map((m) => {
@@ -536,15 +537,14 @@ export function TransactionActionSheet({
               </div>
               {amortizationMonths > 1 && (
                 <div className="rounded-lg border border-indigo-800/30 bg-indigo-950/40 px-2.5 py-1.5 text-[11px] text-indigo-300">
-                  💡 У цьому циклі витрата складе{" "}
-                  <b>
-                    {Math.round(
-                      Number(transaction.amount) / amortizationMonths
-                    ).toLocaleString("uk-UA")}{" "}
-                    ₴
-                  </b>{" "}
-                  замість {Number(transaction.amount).toLocaleString("uk-UA")}{" "}
-                  ₴.
+                  💡 З балансу списується вся сума (
+                  <b>{Number(transaction.amount).toLocaleString("uk-UA")} ₴</b>)
+                  — гроші не повертаються віртуально. ШІ та аналітика зафіксують
+                  це як планову інвестицію на {amortizationMonths} міс (по ~
+                  {Math.round(
+                    Number(transaction.amount) / amortizationMonths
+                  ).toLocaleString("uk-UA")}{" "}
+                  ₴/міс), щоб не вважати її разовим марнотратством.
                 </div>
               )}
             </div>

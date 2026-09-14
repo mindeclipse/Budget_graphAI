@@ -648,8 +648,8 @@ export function formatTransactionConfirmation(params: {
       Math.round(Number(transaction.amount || 0) / totalMonths);
     lines.push(
       ``,
-      `🗓 <b>Амортизація на ${totalMonths} міс</b> (по <b>${monthlyAmt.toLocaleString("uk-UA")} ₴/міс</b>)`,
-      `💡 <i>У цей місяць враховано лише ${monthlyAmt.toLocaleString("uk-UA")} ₴, решта автоматично списуватиметься у наступні ${totalMonths - 1} міс.</i>`
+      `🗓 <b>Амортизація на ${totalMonths} міс</b> (по <b>~${monthlyAmt.toLocaleString("uk-UA")} ₴/міс</b>)`,
+      `💡 <i>З балансу списано всю суму. ШІ та аналітика зафіксують це як планову інвестицію на ${totalMonths} міс, а не разове марнотратство.</i>`
     );
   }
 

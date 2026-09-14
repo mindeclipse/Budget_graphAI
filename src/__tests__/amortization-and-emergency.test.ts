@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   getEffectiveTransactionExpense,
+  getAmortizedMonthlyExpense,
   calculateActivePastAmortizations,
   loadPastAmortizationObligations,
 } from "@/lib/weighted-pacing";
@@ -86,7 +87,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
       expect(getEffectiveTransactionExpense(tx)).toBe(0);
     });
 
-    it("повертає лише щомісячну частку (A / N) для амортизованих витрат", () => {
+    it("повертає повну суму (100% Cash Flow) для амортизованих витрат, щоб гроші не поверталися віртуально на баланс", () => {
       const tx: Transaction = {
         id: 5,
         amount: 3000,
@@ -105,11 +106,13 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
         },
         created_at: "2026-09-05T10:00:00Z",
       };
-      // У поточному місяці списується лише 1000 ₴ замість 3000 ₴
-      expect(getEffectiveTransactionExpense(tx)).toBe(1000);
+      // Реальний кеш-флоу: з балансу списується вся сума 3000 ₴ одразу
+      expect(getEffectiveTransactionExpense(tx)).toBe(3000);
+      // Для ШІ та аналітики нормалізована частка становить 1000 ₴
+      expect(getAmortizedMonthlyExpense(tx)).toBe(1000);
     });
 
-    it("розраховує щомісячну частку автоматично, якщо monthly_amount не задано", () => {
+    it("розраховує щомісячну частку автоматично для ШІ та аналітики, якщо monthly_amount не задано", () => {
       const tx: Transaction = {
         id: 6,
         amount: 6000,
@@ -125,7 +128,8 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
         },
         created_at: "2026-09-01T10:00:00Z",
       };
-      expect(getEffectiveTransactionExpense(tx)).toBe(1000);
+      expect(getEffectiveTransactionExpense(tx)).toBe(6000);
+      expect(getAmortizedMonthlyExpense(tx)).toBe(1000);
     });
   });
 
@@ -400,7 +404,10 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
       const result = formatTransactionConfirmation({ transaction: tx });
       expect(result.text).toContain("Амортизація на 3 міс");
       expect(result.text.replace(/\u00A0/g, " ")).toContain("1 200 ₴/міс");
-      expect(result.text).toContain("решта автоматично списуватиметься");
+      expect(result.text).toContain("З балансу списано всю суму");
+      expect(result.text).toContain(
+        "ШІ та аналітика зафіксують це як планову інвестицію"
+      );
     });
   });
 });

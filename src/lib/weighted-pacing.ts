@@ -105,6 +105,21 @@ export function getEffectiveTransactionExpense(tx: Transaction): number {
   const amt = Number(tx.amount || 0);
   if (isNaN(amt) || amt <= 0) return 0;
 
+  // Реальний рух коштів (Cash Flow): вся сума списується з балансу в повному обсязі.
+  // Гроші фізично пішли з картки і не повертаються віртуально в баланс.
+  return amt;
+}
+
+/**
+ * Розраховує нормалізовану щомісячну частку для аналітики та ШІ (без спотворення кеш-балансу)
+ */
+export function getAmortizedMonthlyExpense(tx: Transaction): number {
+  if (tx.exclude_from_budget || tx.type === "income" || tx.deleted_at) {
+    return 0;
+  }
+  const amt = Number(tx.amount || 0);
+  if (isNaN(amt) || amt <= 0) return 0;
+
   const amortization = tx.metadata?.amortization;
   if (amortization && typeof amortization === "object") {
     const months = Number(amortization.months);
@@ -163,48 +178,14 @@ export function calculateActivePastAmortizations(
 }
 
 /**
- * Безпечно завантажує активні амортизовані витрати з попередніх періодів із Supabase
+ * За правилом чистого кеш-флоу (Cash Flow): гроші списано на 100% у місяці покупки,
+ * тому в наступних місяцях фіктивні зобов'язання не стягуються, щоб уникнути подвійного списання грошей.
  */
 export async function loadPastAmortizationObligations(
-  supabaseAdmin: any,
-  startDate: Date,
-  now: Date = new Date()
+  _supabaseAdmin: any,
+  _startDate: Date,
+  _now: Date = new Date()
 ): Promise<UpcomingObligation[]> {
-  try {
-    const twelveMonthsAgo = new Date(
-      startDate.getTime() - 365 * 24 * 60 * 60 * 1000
-    ).toISOString();
-
-    const query = supabaseAdmin
-      .from("transactions")
-      ?.select(
-        "id, amount, merchant_raw, created_at, metadata, exclude_from_budget, deleted_at"
-      );
-
-    if (!query || typeof query.is !== "function") return [];
-    const isFiltered = query.is("deleted_at", null);
-    if (!isFiltered || typeof isFiltered.eq !== "function") return [];
-    const eqFiltered = isFiltered.eq("exclude_from_budget", false);
-    if (!eqFiltered || typeof eqFiltered.not !== "function") return [];
-    const notFiltered = eqFiltered.not("metadata->amortization", "is", null);
-    if (!notFiltered || typeof notFiltered.gte !== "function") return [];
-    const gteFiltered = notFiltered.gte("created_at", twelveMonthsAgo);
-    if (!gteFiltered || typeof gteFiltered.lt !== "function") return [];
-
-    const { data: pastAmortizedTxs } = await gteFiltered.lt(
-      "created_at",
-      startDate.toISOString()
-    );
-
-    if (pastAmortizedTxs && pastAmortizedTxs.length > 0) {
-      return calculateActivePastAmortizations(
-        pastAmortizedTxs as unknown as Transaction[],
-        now
-      );
-    }
-  } catch (err) {
-    console.warn("[Amortization Loader] Non-fatal query error:", err);
-  }
   return [];
 }
 

@@ -262,6 +262,14 @@ export function CreateTransactionDrawer({
                     );
                   })}
                 </div>
+                {amortizationMonths > 1 && (
+                  <div className="rounded-lg border border-indigo-800/30 bg-indigo-950/40 px-2.5 py-1.5 text-[11px] text-indigo-300">
+                    💡 З балансу списується вся сума — гроші не повертаються
+                    віртуально. ШІ та аналітика зафіксують це як планову
+                    інвестицію на {amortizationMonths} міс, а не разове
+                    марнотратство.
+                  </div>
+                )}
               </div>
             )}
 
