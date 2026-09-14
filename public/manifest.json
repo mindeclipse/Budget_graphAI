@@ -1,10 +1,14 @@
 {
   "name": "BudgetGraph AI",
   "short_name": "Budget",
+  "description": "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
+  "id": "/?source=pwa",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
+  "categories": ["finance", "productivity"],
   "icons": [
     {
       "src": "/apple-touch-icon.png",
@@ -22,7 +26,13 @@
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icons/icon-192.svg",
