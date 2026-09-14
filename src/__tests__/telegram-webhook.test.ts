@@ -167,7 +167,7 @@ describe("Telegram Bot Utilities & Logic", () => {
       const buttons = result.replyMarkup.inline_keyboard!.flat();
       const splitBtn = buttons.find((b) => b.callback_data === "tg_split:102");
       expect(splitBtn).toBeDefined();
-      expect(splitBtn?.text).toBe("Split");
+      expect(splitBtn?.text).toBe("✂️ Split (3)");
     });
 
     it("форматує надходження доходів з міткою 'Дохід зараховано' та плюсом до суми", () => {

@@ -566,7 +566,7 @@ export function formatTransactionConfirmation(params: {
   if (itemsCount && itemsCount > 1) {
     buttons.push([
       {
-        text: "Split",
+        text: `✂️ Split (${itemsCount})`,
         callback_data: `tg_split:${transaction.id}`,
       },
     ]);
