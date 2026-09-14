@@ -246,8 +246,8 @@ describe("Weighted Calendar Pacing Engine (Step 4)", () => {
     });
   });
 
-  describe("Surplus Projection (Прогноз накопичень та розподіл)", () => {
-    it("коректно прогнозує профіцит та ділить 50/50 на подушку і кеш", () => {
+  describe("Surplus Projection (Прогноз профіциту та накопичень)", () => {
+    it("коректно прогнозує вільний залишок на кінець циклу та потенціал збереження", () => {
       const now = new Date("2026-09-14T10:00:00.000Z");
       const startDate = new Date("2026-09-01T00:00:00.000Z");
       const endDate = new Date("2026-09-30T23:59:59.999Z");
@@ -261,24 +261,13 @@ describe("Weighted Calendar Pacing Engine (Step 4)", () => {
       });
 
       expect(result.surplusProjection).toBeDefined();
-      const {
-        projectedSurplusAmount,
-        recommendedSavingsAllocation,
-        savingsPotentialPercent,
-      } = result.surplusProjection;
+      const { projectedSurplusAmount, savingsPotentialPercent, summaryText } =
+        result.surplusProjection;
 
       expect(projectedSurplusAmount).toBeGreaterThanOrEqual(0);
-      expect(
-        recommendedSavingsAllocation.safetyCushionAmount +
-          recommendedSavingsAllocation.cashSavingsAmount
-      ).toBe(projectedSurplusAmount);
-      // Перевірка 50/50 розподілу
-      expect(
-        Math.abs(
-          recommendedSavingsAllocation.safetyCushionAmount -
-            recommendedSavingsAllocation.cashSavingsAmount
-        )
-      ).toBeLessThanOrEqual(1); // різниця максимум 1 ₴ через округлення
+      expect(savingsPotentialPercent).toBeGreaterThanOrEqual(0);
+      expect(savingsPotentialPercent).toBeLessThanOrEqual(100);
+      expect(summaryText).toContain("профіцит");
     });
   });
 

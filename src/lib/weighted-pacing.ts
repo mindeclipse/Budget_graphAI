@@ -36,10 +36,6 @@ export interface UpcomingObligation {
 export interface SurplusProjection {
   projectedSurplusAmount: number;
   savingsPotentialPercent: number;
-  recommendedSavingsAllocation: {
-    safetyCushionAmount: number; // частка у Фінансову подушку
-    cashSavingsAmount: number; // частка у Збереження Кеш
-  };
   summaryText: string;
 }
 
@@ -360,26 +356,33 @@ export function calculateWeightedCalendarPacing(
     advice = `Рекомендовано дотримуватись ліміту ${safeWeekdaySpend} ₴ у будні, щоб зберегти резерв ${safeWeekendSpend} ₴ на вихідні.`;
   }
 
-  // Прогноз накопичень на кінець місяця (Surplus Projection)
-  // Якщо користувач дотримується темпу, планові витрати залишку циклу:
-  const plannedRemainingSpend =
-    remainingWeekdays * safeWeekdaySpend + remainingWeekends * safeWeekendSpend;
-  const projectedSurplusAmount = Math.max(
-    0,
-    discretionaryRemaining - plannedRemainingSpend
-  );
+  // Розрахунок очікуваного профіциту на кінець циклу (Surplus Projection):
+  // Порівнює вільний залишок із прогнозованими витратами за поточним темпом
+  let projectedRemainingSpend = 0;
+
+  if (habits.isSufficientData && habits.emaWeekdayDailyAvg > 0) {
+    projectedRemainingSpend =
+      remainingWeekdays * habits.emaWeekdayDailyAvg +
+      remainingWeekends * habits.emaWeekendDailyAvg;
+  } else if (daysPassed > 0 && currentExpense > 0) {
+    const avgDailySoFar = currentExpense / daysPassed;
+    projectedRemainingSpend = avgDailySoFar * daysRemaining;
+  }
+
+  const projectedSurplusAmount =
+    projectedRemainingSpend > 0 &&
+    discretionaryRemaining > projectedRemainingSpend
+      ? Math.round(discretionaryRemaining - projectedRemainingSpend)
+      : 0;
+
   const savingsPotentialPercent =
     totalLimit > 0
       ? Math.round((projectedSurplusAmount / totalLimit) * 100)
       : 0;
 
-  // Рекомендований розподіл надлишку у скарбнички (50% подушка, 50% кеш)
-  const safetyCushionAmount = Math.round(projectedSurplusAmount * 0.5);
-  const cashSavingsAmount = projectedSurplusAmount - safetyCushionAmount;
-
   const surplusSummary =
     projectedSurplusAmount > 0
-      ? `При дотриманні темпу очікуваний профіцит у кінці циклу: +${projectedSurplusAmount.toLocaleString("uk-UA")} ₴ (${savingsPotentialPercent}% бюджету).`
+      ? `При збереженні поточного темпу очікуваний профіцит у кінці циклу: +${projectedSurplusAmount.toLocaleString("uk-UA")} ₴ (${savingsPotentialPercent}% бюджету).`
       : "При повному використанні рекомендованого ліміту бюджет буде закрито в нуль без дефіциту.";
 
   return {
@@ -413,10 +416,6 @@ export function calculateWeightedCalendarPacing(
     surplusProjection: {
       projectedSurplusAmount,
       savingsPotentialPercent,
-      recommendedSavingsAllocation: {
-        safetyCushionAmount,
-        cashSavingsAmount,
-      },
       summaryText: surplusSummary,
     },
   };

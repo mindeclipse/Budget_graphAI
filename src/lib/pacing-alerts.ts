@@ -163,9 +163,7 @@ export async function generateFridayRadarAlert(options?: {
   if (pacing.surplusProjection.projectedSurplusAmount > 0) {
     lines.push(
       ``,
-      `🎯 <b>Очікуваний профіцит у кінці місяця:</b> +${formatAmount(pacing.surplusProjection.projectedSurplusAmount)} ₴`,
-      `• 🛡️ Фінансова подушка: +${formatAmount(pacing.surplusProjection.recommendedSavingsAllocation.safetyCushionAmount)} ₴`,
-      `• 💵 Збереження Кеш: +${formatAmount(pacing.surplusProjection.recommendedSavingsAllocation.cashSavingsAmount)} ₴`
+      `🎯 <b>Очікуваний профіцит на кінець циклу:</b> +${formatAmount(pacing.surplusProjection.projectedSurplusAmount)} ₴ (${pacing.surplusProjection.savingsPotentialPercent}% бюджету)`
     );
   }
 
@@ -348,9 +346,7 @@ export async function generateMondayResetAlert(options?: {
   if (pacing.surplusProjection.projectedSurplusAmount > 0) {
     lines.push(
       ``,
-      `🎯 <b>Прогноз профіциту у скарбнички:</b> +${formatAmount(pacing.surplusProjection.projectedSurplusAmount)} ₴`,
-      `• 🛡️ Фінансова подушка: +${formatAmount(pacing.surplusProjection.recommendedSavingsAllocation.safetyCushionAmount)} ₴`,
-      `• 💵 Збереження Кеш: +${formatAmount(pacing.surplusProjection.recommendedSavingsAllocation.cashSavingsAmount)} ₴`
+      `🎯 <b>Прогноз профіциту на кінець циклу:</b> +${formatAmount(pacing.surplusProjection.projectedSurplusAmount)} ₴ (${pacing.surplusProjection.savingsPotentialPercent}% бюджету)`
     );
   }
 

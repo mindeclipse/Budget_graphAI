@@ -989,7 +989,7 @@ export function formatPaceResponse(
   if (pacing.surplusProjection.projectedSurplusAmount > 0) {
     lines.push(
       ``,
-      `🎯 <b>Очікуваний профіцит у скарбнички:</b> +${pacing.surplusProjection.projectedSurplusAmount.toLocaleString("uk-UA")} ₴`
+      `🎯 <b>Очікуваний профіцит на кінець циклу:</b> +${pacing.surplusProjection.projectedSurplusAmount.toLocaleString("uk-UA")} ₴ (${pacing.surplusProjection.savingsPotentialPercent}% бюджету)`
     );
   }
 
