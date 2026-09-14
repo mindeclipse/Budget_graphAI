@@ -226,8 +226,16 @@ export function normalizeBankCategory(raw: string, rawDesc?: string): string {
     cat.includes("пальне")
   )
     return "Транспорт";
+  if (
+    cat.includes("доставк") ||
+    cat.includes("пошт") ||
+    combined.includes("нова пошта") ||
+    combined.includes("укрпошта") ||
+    combined.includes("meest")
+  )
+    return "Доставка";
   if (cat.includes("здоров") || cat.includes("аптек") || cat.includes("догляд"))
-    return "Здоров'я";
+    return "Здоров'я та догляд";
   if (
     cat.includes("підписк") ||
     cat.includes("комунал") ||

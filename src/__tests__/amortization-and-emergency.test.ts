@@ -275,7 +275,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
         text: JSON.stringify({
           amount: 2800,
           merchant: "Аптека Доброго Дня",
-          category: "Здоров'я",
+          category: "Здоров'я та догляд",
           type: "expense",
           note: "ліки від грипу",
           is_emergency: true,
@@ -288,7 +288,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
 
       expect(res).toBeDefined();
       expect(res?.amount).toBe(2800);
-      expect(res?.category).toBe("Здоров'я");
+      expect(res?.category).toBe("Здоров'я та догляд");
       expect(res?.exclude_from_budget).toBe(true);
       expect(res?.is_emergency).toBe(true);
       expect(res?.tags).toContain("форсмажор");
@@ -300,7 +300,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
         text: JSON.stringify({
           amount: 1500,
           merchant: "Клініка",
-          category: "Здоров'я",
+          category: "Здоров'я та догляд",
           type: "expense",
           note: "крапельниця",
         }),
@@ -321,7 +321,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
         text: JSON.stringify({
           amount: 4500,
           merchant: "Вітаміни",
-          category: "Здоров'я",
+          category: "Здоров'я та догляд",
           type: "expense",
           amortization_months: 3,
         }),
@@ -346,7 +346,7 @@ describe("Intelligent Accounting: Amortization & Emergency Shock Expenses", () =
         text: JSON.stringify({
           amount: 12000,
           merchant: "Медична страховка",
-          category: "Здоров'я",
+          category: "Здоров'я та догляд",
           type: "expense",
         }),
       });

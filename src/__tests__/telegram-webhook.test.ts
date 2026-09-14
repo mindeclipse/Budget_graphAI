@@ -434,7 +434,7 @@ describe("Telegram Bot Utilities & Logic", () => {
         text: JSON.stringify({
           amount: 480,
           merchant: "Аптека Подорожник",
-          category: "Здоров'я",
+          category: "Здоров'я та догляд",
           type: "expense",
           note: "вітаміни",
         }),
@@ -446,7 +446,7 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(result).toBeDefined();
       expect(result?.amount).toBe(480);
       expect(result?.merchant).toBe("Аптека Подорожник");
-      expect(result?.category).toBe("Здоров'я");
+      expect(result?.category).toBe("Здоров'я та догляд");
       expect(result?.note).toBe("вітаміни");
       expect(mockGenerateContent).toHaveBeenCalledTimes(2);
     });

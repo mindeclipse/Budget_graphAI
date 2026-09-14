@@ -59,14 +59,15 @@ export interface ParsedTelegramReceipt {
   hasMultipleCategories?: boolean;
 }
 
-export const CATEGORY_EMOJIS: Record<CategoryType, string> = {
+export const CATEGORY_EMOJIS: Record<string, string> = {
   Продукти: "🛒",
   "Кафе та ресторани": "🍽",
   Куріння: "🚬",
   Транспорт: "🚕",
   Авто: "⛽️",
   "Одяг та взуття": "👕",
-  "Здоров'я": "💊",
+  "Здоров'я та догляд": "💊",
+  Доставка: "📦",
   "Оренда та комуналка": "🏠",
   "Підписки та сервіси": "📱",
   "Освіта та книги": "📚",
@@ -74,7 +75,10 @@ export const CATEGORY_EMOJIS: Record<CategoryType, string> = {
   Покупки: "🛍",
   Інвестиції: "📈",
   "Зарплата/ФОП": "💼",
-  Інше: "📦",
+  Інше: "🌀",
+
+  // Сумісність
+  "Здоров'я": "💊",
 };
 
 /**
@@ -129,6 +133,12 @@ export function cleanJsonOutput(raw: string): string {
 export function normalizeCategory(categoryInput?: string): CategoryType {
   if (!categoryInput) return "Інше";
   const trimmed = categoryInput.trim();
+  if (
+    trimmed.toLowerCase() === "здоров'я" ||
+    trimmed.toLowerCase() === "здоров’я"
+  ) {
+    return "Здоров'я та догляд";
+  }
   const found = CATEGORIES.find(
     (c) => c.toLowerCase() === trimmed.toLowerCase()
   );
@@ -253,7 +263,7 @@ ${CATEGORIES.map((c) => `  - "${c}"`).join("\n")}
         /хвороб|ліки|аптек|лікар/i.test(text) ||
         /хвороб|ліки|аптек|лікар/i.test(parsed.merchant || ""))
     ) {
-      category = "Здоров'я";
+      category = "Здоров'я та догляд";
     }
 
     const txDate = parsed.date || isoNow;

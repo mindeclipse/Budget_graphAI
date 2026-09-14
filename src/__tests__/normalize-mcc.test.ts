@@ -39,7 +39,12 @@ describe("Merchant Normalization & MCC Mapping", () => {
     });
 
     it("коректно мапить аптеки та здоров'я (5912)", () => {
-      expect(getCategoryByMcc(5912)).toBe("Здоров'я");
+      expect(getCategoryByMcc(5912)).toBe("Здоров'я та догляд");
+    });
+
+    it("коректно мапить доставку та поштові послуги (4215, 9402)", () => {
+      expect(getCategoryByMcc(4215)).toBe("Доставка");
+      expect(getCategoryByMcc(9402)).toBe("Доставка");
     });
 
     it("коректно мапить розваги та хобі (7832, 7997)", () => {

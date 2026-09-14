@@ -62,9 +62,14 @@ describe("Classify API & QuickSummary Formatting", () => {
   });
 
   it("коректно форматує дробові суми копійок", () => {
-    const summary = formatQuickSummary("Аптека АНЦ", 185.5, "Здоров'я", 540);
+    const summary = formatQuickSummary(
+      "Аптека АНЦ",
+      185.5,
+      "Здоров'я та догляд",
+      540
+    );
     expect(summary).toContain("Аптека АНЦ");
-    expect(summary).toContain("Здоров'я");
+    expect(summary).toContain("Здоров'я та догляд");
     expect(summary).toContain("На день: 540 ₴");
   });
 
