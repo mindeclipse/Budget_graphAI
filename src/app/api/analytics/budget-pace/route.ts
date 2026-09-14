@@ -6,6 +6,7 @@ import {
   calculateWeightedCalendarPacing,
   getEffectiveTransactionExpense,
   loadPastAmortizationObligations,
+  type UpcomingObligation,
 } from "@/lib/weighted-pacing";
 import { verifySessionToken } from "@/lib/session";
 import { Transaction } from "@/types/finance";
@@ -96,7 +97,9 @@ export async function GET(req: NextRequest) {
       .select("id, name, amount, day_of_month, is_active")
       .eq("is_active", true);
 
-    const upcomingObligations = (recurringItems || []).map((r: any) => ({
+    const upcomingObligations: UpcomingObligation[] = (
+      recurringItems || []
+    ).map((r: any) => ({
       title: r.name,
       amount: Number(r.amount || 0),
       day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
