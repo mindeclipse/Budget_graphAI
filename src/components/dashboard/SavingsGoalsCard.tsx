@@ -409,14 +409,14 @@ export function SavingsGoalsCard({
                 key={goal.id}
                 className="group relative rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-3.5 transition-colors hover:border-zinc-700/80"
               >
-                <div className="mb-2 flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <h4 className="text-xs font-bold text-white">
                         {goal.name}
                       </h4>
                       {!hasTarget && (
-                        <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
+                        <span className="shrink-0 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400">
                           Скарбничка
                         </span>
                       )}
@@ -430,10 +430,10 @@ export function SavingsGoalsCard({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       onClick={() => setDepositGoalId(goal.id)}
-                      className="rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-400 transition-colors hover:bg-emerald-500/20 active:scale-95"
+                      className="shrink-0 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-emerald-400 transition-colors hover:bg-emerald-500/20 active:scale-95"
                     >
                       + Поповнити
                     </button>

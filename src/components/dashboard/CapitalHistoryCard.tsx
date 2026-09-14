@@ -213,7 +213,7 @@ export function CapitalHistoryCard({
                     onClick={() => onSelectTransaction(tx)}
                     className="group flex cursor-pointer items-center justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-2.5 transition-all hover:border-zinc-700 hover:bg-zinc-900/80"
                   >
-                    <div className="flex min-w-0 items-center gap-3 pr-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 pr-2">
                       <div
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
                           isReit
@@ -234,7 +234,7 @@ export function CapitalHistoryCard({
                         )}
                       </div>
 
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <p className="truncate text-xs font-semibold text-zinc-200 group-hover:text-white">
                             {tx.merchant_raw}
@@ -266,14 +266,14 @@ export function CapitalHistoryCard({
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="shrink-0 text-right whitespace-nowrap">
                       <span
-                        className={`text-xs font-bold tabular-nums ${
+                        className={`text-xs font-bold whitespace-nowrap tabular-nums ${
                           isCredit ? "text-zinc-200" : "text-emerald-400"
                         }`}
                       >
                         {isCredit ? "−" : "+"}
-                        {Number(tx.amount).toLocaleString("uk-UA")}{" "}
+                        {Number(tx.amount).toLocaleString("uk-UA")}&nbsp;
                         {tx.currency === "USD" ? "$" : "₴"}
                       </span>
                     </div>
