@@ -1,6 +1,14 @@
-// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { triggerHaptic } from "@/lib/haptics";
+
+// Lightweight browser mock
+const mockNavigator: any = {};
+(global as any).window = { navigator: mockNavigator };
+Object.defineProperty(global, "navigator", {
+  value: mockNavigator,
+  configurable: true,
+  writable: true,
+});
 
 describe("Haptics Service (Tactile Feedback)", () => {
   beforeEach(() => {

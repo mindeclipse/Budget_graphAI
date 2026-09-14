@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Check, ArrowDownLeft } from "lucide-react";
+import {
+  X,
+  Check,
+  ArrowDownLeft,
+  ShieldAlert,
+  CalendarDays,
+} from "lucide-react";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
 import { CATEGORIES } from "@/constants/categories";
 import { triggerHaptic } from "@/lib/haptics";
@@ -19,6 +25,8 @@ export function CreateTransactionDrawer({
   const [amount, setAmount] = useState("");
   const [merchant, setMerchant] = useState("");
   const [category, setCategory] = useState("Продукти");
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [amortizationMonths, setAmortizationMonths] = useState(1);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -27,6 +35,8 @@ export function CreateTransactionDrawer({
     if (isOpen) {
       window.addEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "hidden";
+      setIsEmergency(false);
+      setAmortizationMonths(1);
     }
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
@@ -49,8 +59,21 @@ export function CreateTransactionDrawer({
     }
 
     const cleanMerchant = merchant.trim().slice(0, 255) || "Ручна витрата";
-
     const isInvestment = category === "Інвестиції";
+
+    const metadata: Record<string, any> = {};
+    const tags: string[] = [];
+
+    if (isEmergency) {
+      metadata.is_emergency = true;
+      tags.push("форсмажор");
+    } else if (amortizationMonths > 1) {
+      metadata.amortization = {
+        months: amortizationMonths,
+        monthly_amount: Math.round(parsedAmount / amortizationMonths),
+        start_date: new Date().toISOString(),
+      };
+    }
 
     triggerHaptic("success");
     createTransaction({
@@ -60,12 +83,16 @@ export function CreateTransactionDrawer({
       type: isInvestment ? "investment" : "expense",
       currency: "UAH",
       source: "manual",
-      exclude_from_budget: isInvestment,
+      exclude_from_budget: isInvestment || isEmergency,
+      tags: tags.length > 0 ? tags : undefined,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       created_at: new Date().toISOString(),
     });
 
     setAmount("");
     setMerchant("");
+    setIsEmergency(false);
+    setAmortizationMonths(1);
     onClose();
   };
 
@@ -156,6 +183,87 @@ export function CreateTransactionDrawer({
               ))}
             </select>
           </div>
+
+          {/* Покриття з Фінансової подушки (форс-мажор) */}
+          {category !== "Інвестиції" && (
+            <label className="flex cursor-pointer items-start justify-between gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3 transition-colors">
+              <div className="flex items-start gap-2.5">
+                <div
+                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                    isEmergency
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "bg-zinc-800 text-zinc-400"
+                  }`}
+                >
+                  <ShieldAlert size={16} />
+                </div>
+                <div className="text-xs">
+                  <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
+                    🛡️ Форс-мажор (покрити з подушки)
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
+                    Витрата на ліки, хворобу чи форс-мажор не занизить щоденний
+                    темп.
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isEmergency}
+                onChange={(e) => {
+                  triggerHaptic("selection");
+                  setIsEmergency(e.target.checked);
+                }}
+                className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-0 focus:ring-offset-0"
+              />
+            </label>
+          )}
+
+          {/* Розподіл витрати на кілька місяців (амортизація) */}
+          {!isEmergency &&
+            category !== "Інвестиції" &&
+            parseFloat(amount.replace(",", ".") || "0") >= 100 && (
+              <div className="space-y-2 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                    <CalendarDays size={14} className="text-indigo-400" />
+                    🗓️ Розподіл (амортизація)
+                  </div>
+                  {amortizationMonths > 1 && (
+                    <span className="font-mono text-[11px] font-bold text-indigo-400">
+                      по ~
+                      {Math.round(
+                        parseFloat(amount.replace(",", ".")) /
+                          amortizationMonths
+                      ).toLocaleString("uk-UA")}{" "}
+                      ₴/міс
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+                  {[1, 2, 3, 6, 12].map((m) => {
+                    const isSelected = amortizationMonths === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic("selection");
+                          setAmortizationMonths(m);
+                        }}
+                        className={`rounded-xl py-1 text-center text-xs font-semibold transition-all active:scale-95 ${
+                          isSelected
+                            ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400"
+                            : "border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                        }`}
+                      >
+                        {m === 1 ? "1 міс" : `${m} міс`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
           {/* Кнопка збереження */}
           <div className="pt-2">

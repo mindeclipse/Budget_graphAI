@@ -15,6 +15,8 @@ import {
   FileCheck,
   ExternalLink,
   Paperclip,
+  ShieldAlert,
+  CalendarDays,
 } from "lucide-react";
 import { Transaction, TransactionReceiptMetadata } from "@/types/finance";
 import { triggerHaptic } from "@/lib/haptics";
@@ -39,6 +41,16 @@ interface TransactionActionSheetProps {
   onOpenSplit?: (tx: Transaction) => void;
   onOpenTagProject?: (tag: string) => void;
   onReceiptUpdated?: () => void;
+  onUpdateTransaction?: (payload: {
+    id: number;
+    category_name?: string;
+    clean_title?: string;
+    merchant_raw?: string;
+    tags?: string[];
+    save_as_rule?: boolean;
+    exclude_from_budget?: boolean;
+    metadata?: Record<string, any>;
+  }) => void | Promise<void>;
 }
 
 export function TransactionActionSheet({
@@ -50,6 +62,7 @@ export function TransactionActionSheet({
   onOpenSplit,
   onOpenTagProject,
   onReceiptUpdated,
+  onUpdateTransaction,
 }: TransactionActionSheetProps) {
   const [cleanTitleInput, setCleanTitleInput] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -58,6 +71,12 @@ export function TransactionActionSheet({
   const [currentTags, setCurrentTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+  // Стан форс-мажору (подушка) та амортизації
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [initialIsEmergency, setInitialIsEmergency] = useState(false);
+  const [amortizationMonths, setAmortizationMonths] = useState(1);
+  const [initialAmortizationMonths, setInitialAmortizationMonths] = useState(1);
 
   // Стан прикріпленої квитанції
   const [currentReceipt, setCurrentReceipt] =
@@ -75,6 +94,19 @@ export function TransactionActionSheet({
       setCurrentReceipt(
         (transaction.metadata?.receipt as TransactionReceiptMetadata) || null
       );
+
+      const emergencyInit = Boolean(
+        transaction.exclude_from_budget ||
+        transaction.metadata?.is_emergency ||
+        (Array.isArray(transaction.tags) &&
+          transaction.tags.includes("форсмажор"))
+      );
+      setIsEmergency(emergencyInit);
+      setInitialIsEmergency(emergencyInit);
+
+      const amortInit = Number(transaction.metadata?.amortization?.months) || 1;
+      setAmortizationMonths(amortInit);
+      setInitialAmortizationMonths(amortInit);
     }
     setTagInput("");
   }, [transaction]);
@@ -219,22 +251,90 @@ export function TransactionActionSheet({
     cleanTitleInput.trim() !== "" &&
     cleanTitleInput.trim() !== transaction.merchant_raw;
 
+  const isEmergencyModified = isEmergency !== initialIsEmergency;
+  const isAmortizationModified =
+    amortizationMonths !== initialAmortizationMonths;
+  const isDirty =
+    isTitleModified || isEmergencyModified || isAmortizationModified;
+
   const handleSave = async (targetCategory: string = selectedCategory) => {
     if (!transaction || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       triggerHaptic("success");
-      await onUpdateCategory(
-        transaction.id,
-        targetCategory,
-        cleanTitleInput.trim() || transaction.merchant_raw,
-        saveAsRule
-      );
+
+      const existingMetadata = transaction.metadata || {};
+      const newMetadata: Record<string, any> = { ...existingMetadata };
+
+      if (isEmergency) {
+        newMetadata.is_emergency = true;
+        delete newMetadata.amortization;
+      } else {
+        delete newMetadata.is_emergency;
+        if (amortizationMonths > 1) {
+          const monthlyAmount = Math.round(
+            Number(transaction.amount || 0) / amortizationMonths
+          );
+          newMetadata.amortization = {
+            months: amortizationMonths,
+            monthly_amount: monthlyAmount,
+            start_date: transaction.created_at,
+          };
+        } else {
+          delete newMetadata.amortization;
+        }
+      }
+
+      let updatedTags = [...currentTags];
+      if (isEmergency && !updatedTags.includes("форсмажор")) {
+        updatedTags.push("форсмажор");
+      } else if (!isEmergency && updatedTags.includes("форсмажор")) {
+        updatedTags = updatedTags.filter((t) => t !== "форсмажор");
+      }
+
+      if (onUpdateTransaction) {
+        await onUpdateTransaction({
+          id: transaction.id,
+          category_name: targetCategory,
+          clean_title: cleanTitleInput.trim() || transaction.merchant_raw,
+          merchant_raw: transaction.merchant_raw,
+          save_as_rule: saveAsRule,
+          tags: updatedTags,
+          exclude_from_budget: isEmergency,
+          metadata: newMetadata,
+        });
+      } else {
+        await fetch("/api/transactions", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: transaction.id,
+            category_name: targetCategory,
+            clean_title: cleanTitleInput.trim() || transaction.merchant_raw,
+            merchant_raw: transaction.merchant_raw,
+            save_as_rule: saveAsRule,
+            tags: updatedTags,
+            exclude_from_budget: isEmergency,
+            metadata: newMetadata,
+          }),
+        });
+        await onUpdateCategory(
+          transaction.id,
+          targetCategory,
+          cleanTitleInput.trim() || transaction.merchant_raw,
+          saveAsRule
+        );
+        if (onReceiptUpdated) {
+          onReceiptUpdated();
+        }
+      }
+      toast.success("Зміни збережено!");
       onClose();
     } catch (err) {
       triggerHaptic("error");
       console.error("Не вдалося оновити транзакцію:", err);
+      toast.error("Помилка збереження змін");
     } finally {
       setIsSubmitting(false);
     }
@@ -353,6 +453,102 @@ export function TransactionActionSheet({
               </div>
             </label>
           </div>
+
+          {/* Форс-мажор та покриття з Фінансової подушки */}
+          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3.5 transition-colors">
+            <label className="flex cursor-pointer items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <div
+                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                    isEmergency
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "bg-zinc-800 text-zinc-400"
+                  }`}
+                >
+                  <ShieldAlert size={16} />
+                </div>
+                <div className="text-xs">
+                  <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
+                    🛡️ Форс-мажор (покрити з подушки)
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
+                    Витрата на лікування чи непередбачені обставини покривається
+                    з Фінансової подушки і не занижує щоденний темп.
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isEmergency}
+                onChange={(e) => {
+                  triggerHaptic("selection");
+                  setIsEmergency(e.target.checked);
+                }}
+                className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-0 focus:ring-offset-0"
+              />
+            </label>
+          </div>
+
+          {/* Розподіл витрати на кілька місяців (амортизація) */}
+          {!isEmergency && Number(transaction.amount) >= 100 && (
+            <div className="space-y-2.5 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                  <CalendarDays size={14} className="text-indigo-400" />
+                  🗓️ Розподіл на кілька місяців (амортизація)
+                </div>
+                {amortizationMonths > 1 && (
+                  <span className="font-mono text-[11px] font-bold text-indigo-400">
+                    по ~
+                    {Math.round(
+                      Number(transaction.amount) / amortizationMonths
+                    ).toLocaleString("uk-UA")}{" "}
+                    ₴/міс
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] leading-relaxed text-zinc-400">
+                Для курсів лікування (вітаміни на 3+ міс), страховки або великих
+                покупок: у цей цикл зараховується лише 1 частка, а решта
+                автоматично розподіляється на наступні місяці.
+              </p>
+              <div className="grid grid-cols-5 gap-1.5 pt-1">
+                {[1, 2, 3, 6, 12].map((m) => {
+                  const isSelected = amortizationMonths === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic("selection");
+                        setAmortizationMonths(m);
+                      }}
+                      className={`rounded-xl py-1.5 text-center text-xs font-semibold transition-all active:scale-95 ${
+                        isSelected
+                          ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400"
+                          : "border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      }`}
+                    >
+                      {m === 1 ? "Вимкнено" : `${m} міс`}
+                    </button>
+                  );
+                })}
+              </div>
+              {amortizationMonths > 1 && (
+                <div className="rounded-lg border border-indigo-800/30 bg-indigo-950/40 px-2.5 py-1.5 text-[11px] text-indigo-300">
+                  💡 У цьому циклі витрата складе{" "}
+                  <b>
+                    {Math.round(
+                      Number(transaction.amount) / amortizationMonths
+                    ).toLocaleString("uk-UA")}{" "}
+                    ₴
+                  </b>{" "}
+                  замість {Number(transaction.amount).toLocaleString("uk-UA")}{" "}
+                  ₴.
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Вибір категорії */}
           <div>
@@ -559,6 +755,25 @@ export function TransactionActionSheet({
               </div>
             )}
           </div>
+
+          {/* Кнопка збереження змін форми (якщо змінено назву, форс-мажор або амортизацію) */}
+          {isDirty && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => handleSave(selectedCategory)}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 py-3 text-xs font-bold text-white shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500 active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Check size={16} />
+                )}
+                Зберегти зміни
+              </button>
+            </div>
+          )}
 
           {/* Розділити транзакцію (якщо це не вже розділена дочірня) */}
           {onOpenSplit && !transaction.parent_transaction_id && (

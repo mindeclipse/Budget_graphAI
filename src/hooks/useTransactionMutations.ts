@@ -16,6 +16,8 @@ interface UpdateTransactionPayload {
   clean_title?: string;
   tags?: string[];
   save_as_rule?: boolean;
+  exclude_from_budget?: boolean;
+  metadata?: Record<string, any> | null;
 }
 
 interface CreateTransactionPayload {
@@ -33,6 +35,7 @@ interface CreateTransactionPayload {
   type?: "expense" | "income" | "investment";
   created_at?: string;
   exclude_from_budget?: boolean;
+  tags?: string[];
   metadata?: Record<string, any> | null;
 }
 

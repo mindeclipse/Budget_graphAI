@@ -1,4 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("recharts", () => ({
+  ResponsiveContainer: () => null,
+  LineChart: () => null,
+  Line: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
+  CartesianGrid: () => null,
+  ReferenceLine: () => null,
+}));
+
 import { calculateBurnRateData } from "@/components/dashboard/BurnRateChart";
 
 describe("Burn Rate Chart Cycle Calculations", () => {

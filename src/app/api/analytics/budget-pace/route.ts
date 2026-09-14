@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { calculateBudgetPacing } from "@/lib/analytics-engine";
-import { calculateWeightedCalendarPacing } from "@/lib/weighted-pacing";
+import {
+  calculateWeightedCalendarPacing,
+  getEffectiveTransactionExpense,
+  loadPastAmortizationObligations,
+} from "@/lib/weighted-pacing";
 import { verifySessionToken } from "@/lib/session";
 import { Transaction } from "@/types/finance";
 
@@ -98,9 +102,19 @@ export async function GET(req: NextRequest) {
       day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
     }));
 
+    // Завантажуємо активні амортизовані витрати з попередніх місяців
+    const pastObligations = await loadPastAmortizationObligations(
+      supabase,
+      startDate,
+      now
+    );
+    if (pastObligations.length > 0) {
+      upcomingObligations.push(...pastObligations);
+    }
+
     const currentExpenseTotal = validTransactions
       .filter((t) => !t.exclude_from_budget && t.type !== "income")
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+      .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
     const weightedPacing = calculateWeightedCalendarPacing(validTransactions, {
       now,

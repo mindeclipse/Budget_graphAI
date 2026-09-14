@@ -9,7 +9,11 @@ import {
   getKyivDayOfWeek,
   formatAmount,
 } from "@/lib/behavioral-metrics";
-import { calculateWeightedCalendarPacing } from "@/lib/weighted-pacing";
+import {
+  calculateWeightedCalendarPacing,
+  getEffectiveTransactionExpense,
+  loadPastAmortizationObligations,
+} from "@/lib/weighted-pacing";
 import { Transaction } from "@/types/finance";
 
 import { timingSafeEqual } from "@/lib/security";
@@ -111,7 +115,7 @@ export async function generateFridayRadarAlert(options?: {
   const { data: txs } = await supabase
     .from("transactions")
     .select(
-      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
+      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
     .gte("created_at", startDate.toISOString())
@@ -131,9 +135,19 @@ export async function generateFridayRadarAlert(options?: {
     day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
   }));
 
+  // Завантажуємо активні амортизовані витрати з попередніх місяців
+  const pastObligations = await loadPastAmortizationObligations(
+    supabase,
+    startDate,
+    now
+  );
+  if (pastObligations.length > 0) {
+    upcomingObligations.push(...pastObligations);
+  }
+
   const currentExpenseTotal = validTransactions
     .filter((t) => !t.exclude_from_budget && t.type !== "income")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   // 5. Розрахунок зваженого темпу
   const pacing = calculateWeightedCalendarPacing(validTransactions, {
@@ -270,7 +284,7 @@ export async function generateMondayResetAlert(options?: {
   const { data: txs } = await supabase
     .from("transactions")
     .select(
-      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
+      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
     .gte("created_at", startDate.toISOString())
@@ -293,7 +307,7 @@ export async function generateMondayResetAlert(options?: {
   });
 
   const weekendSpent = pastWeekendTxs.reduce(
-    (sum, t) => sum + Number(t.amount || 0),
+    (sum, t) => sum + getEffectiveTransactionExpense(t),
     0
   );
 
@@ -309,9 +323,19 @@ export async function generateMondayResetAlert(options?: {
     day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
   }));
 
+  // Завантажуємо активні амортизовані витрати з попередніх місяців
+  const pastObligations = await loadPastAmortizationObligations(
+    supabase,
+    startDate,
+    now
+  );
+  if (pastObligations.length > 0) {
+    upcomingObligations.push(...pastObligations);
+  }
+
   const currentExpenseTotal = validTransactions
     .filter((t) => !t.exclude_from_budget && t.type !== "income")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   // 6. Розрахунок свіжого темпу на новий робочий тиждень
   const pacing = calculateWeightedCalendarPacing(validTransactions, {

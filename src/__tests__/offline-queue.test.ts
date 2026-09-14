@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getOfflineQueue,
@@ -8,9 +7,51 @@ import {
   clearOfflineQueue,
 } from "@/lib/offline-queue";
 
+let store: Record<string, string> = {};
+const localStorageMock = {
+  getItem: (key: string) => store[key] || null,
+  setItem: (key: string, val: string) => {
+    store[key] = String(val);
+  },
+  removeItem: (key: string) => {
+    delete store[key];
+  },
+  clear: () => {
+    store = {};
+  },
+};
+
+const listeners: Record<string, Function[]> = {};
+const windowMock = {
+  localStorage: localStorageMock,
+  addEventListener: (event: string, cb: Function) => {
+    listeners[event] = listeners[event] || [];
+    listeners[event].push(cb);
+  },
+  removeEventListener: (event: string, cb: Function) => {
+    listeners[event] = (listeners[event] || []).filter((fn) => fn !== cb);
+  },
+  dispatchEvent: (ev: any) => {
+    const handlers = listeners[ev.type] || [];
+    handlers.forEach((fn) => fn(ev));
+    return true;
+  },
+};
+
+(global as any).localStorage = localStorageMock;
+(global as any).window = windowMock;
+(global as any).CustomEvent = class CustomEvent {
+  type: string;
+  detail: any;
+  constructor(type: string, params?: any) {
+    this.type = type;
+    this.detail = params?.detail;
+  }
+};
+
 describe("Offline Queue Management (PWA)", () => {
   beforeEach(() => {
-    localStorage.clear();
+    localStorageMock.clear();
   });
 
   it("повертає порожній масив, якщо черга в localStorage чиста", () => {

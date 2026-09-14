@@ -46,6 +46,22 @@ export function SwipeableTransactionCard({
     Array.isArray(transaction.metadata?.receipt_items) &&
     transaction.metadata.receipt_items.length > 1;
 
+  const isEmergency =
+    Boolean(transaction.exclude_from_budget) &&
+    (Boolean(transaction.metadata?.is_emergency) ||
+      Boolean(transaction.tags?.includes("форсмажор")));
+
+  const amort = transaction.metadata?.amortization;
+  const isAmortized =
+    !isEmergency &&
+    Boolean(amort && typeof amort === "object" && Number(amort.months) > 1);
+
+  const amortMonths = isAmortized ? Number(amort.months) : 1;
+  const amortMonthly = isAmortized
+    ? Number(amort.monthly_amount) ||
+      Math.round(Number(transaction.amount) / amortMonths)
+    : Number(transaction.amount);
+
   // Очищення стану виходу при зміні транзакції
   useEffect(() => {
     setIsExiting(false);
@@ -259,35 +275,65 @@ export function SwipeableTransactionCard({
                 minute: "2-digit",
               })}
             </p>
-            {transaction.tags && transaction.tags.length > 0 && (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {transaction.tags.map((tag: string) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenTagProject?.(tag);
-                    }}
-                    title={`Аналітика проєкту #${tag} за всі періоди`}
-                    className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-sky-500/20 hover:text-sky-300"
-                  >
-                    #{tag}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Спеціальні бейджі: Покриття з подушки та Амортизація */}
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {isEmergency && (
+                <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                  🛡️ З подушки
+                </span>
+              )}
+              {isAmortized && (
+                <span className="inline-flex items-center rounded-md border border-indigo-500/30 bg-indigo-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-300">
+                  🗓️ {amortMonths} міс (по{" "}
+                  {amortMonthly.toLocaleString("uk-UA")} ₴)
+                </span>
+              )}
+              {transaction.tags &&
+                transaction.tags.length > 0 &&
+                transaction.tags
+                  .filter((t) => t !== "форсмажор")
+                  .map((tag: string) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenTagProject?.(tag);
+                      }}
+                      title={`Аналітика проєкту #${tag} за всі періоди`}
+                      className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-sky-500/20 hover:text-sky-300"
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+            </div>
           </div>
         </div>
 
-        <span
-          className={`ml-2 font-mono text-sm font-bold tracking-tight whitespace-nowrap tabular-nums ${
-            isIncome ? "text-emerald-400" : "text-white"
-          }`}
-        >
-          {isIncome ? "+" : "-"}
-          {Number(transaction.amount).toFixed(2)} ₴
-        </span>
+        <div className="ml-2 flex flex-col items-end">
+          <span
+            className={`font-mono text-sm font-bold tracking-tight whitespace-nowrap tabular-nums ${
+              isEmergency
+                ? "text-zinc-400 line-through opacity-80"
+                : isIncome
+                  ? "text-emerald-400"
+                  : "text-white"
+            }`}
+          >
+            {isIncome ? "+" : "-"}
+            {Number(transaction.amount).toFixed(2)} ₴
+          </span>
+          {isEmergency && (
+            <span className="text-[10px] font-medium text-amber-400">
+              з подушки
+            </span>
+          )}
+          {isAmortized && (
+            <span className="font-mono text-[10px] text-indigo-400 tabular-nums">
+              {amortMonthly.toFixed(2)} ₴/міс
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

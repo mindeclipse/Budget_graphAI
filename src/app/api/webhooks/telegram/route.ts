@@ -317,10 +317,13 @@ export async function POST(req: NextRequest) {
           category: finalCategory,
           type: parsed.type,
           date: parsed.date,
+          exclude_from_budget: parsed.exclude_from_budget,
+          tags: parsed.tags,
           metadata: {
             source_type: "natural_language_text",
             raw_text: text,
             note: parsed.note,
+            ...(parsed.metadata || {}),
           },
         });
 

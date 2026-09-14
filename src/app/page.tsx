@@ -1214,6 +1214,10 @@ export default function Dashboard() {
             invalidateTransactions();
             invalidateInvestmentTransactions();
           }}
+          onUpdateTransaction={(payload) => {
+            setSelectedTx(null);
+            updateTransaction(payload);
+          }}
         />
       )}
 

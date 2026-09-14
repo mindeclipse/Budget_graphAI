@@ -31,6 +31,11 @@ export const transactionCreateSchema = z.object({
   parent_transaction_id: z.number().int().positive().optional().nullable(),
   original_amount: z.number().positive().optional().nullable(),
   original_currency: z.string().optional().nullable(),
+  exclude_from_budget: z.boolean().optional(),
+  tags: z
+    .array(z.string().trim().min(1).max(50))
+    .max(30, "Максимум 30 тегів")
+    .optional(),
   metadata: z.record(z.string(), z.any()).optional().nullable(),
 });
 
@@ -44,6 +49,7 @@ export const transactionUpdateSchema = z.object({
     .max(30, "Максимум 30 тегів")
     .optional(),
   save_as_rule: z.boolean().optional(),
+  exclude_from_budget: z.boolean().optional(),
   metadata: z.record(z.string(), z.any()).optional().nullable(),
 });
 

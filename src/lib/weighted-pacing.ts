@@ -96,6 +96,119 @@ export interface PurchaseSimulationResult {
 }
 
 /**
+ * Повертає ефективну суму витрати для розрахунку темпу (з урахуванням амортизації)
+ */
+export function getEffectiveTransactionExpense(tx: Transaction): number {
+  if (tx.exclude_from_budget || tx.type === "income" || tx.deleted_at) {
+    return 0;
+  }
+  const amt = Number(tx.amount || 0);
+  if (isNaN(amt) || amt <= 0) return 0;
+
+  const amortization = tx.metadata?.amortization;
+  if (amortization && typeof amortization === "object") {
+    const months = Number(amortization.months);
+    if (months > 1 && !isNaN(months)) {
+      const monthly =
+        Number(amortization.monthly_amount) || Math.round(amt / months);
+      return Math.min(amt, Math.max(0, monthly));
+    }
+  }
+
+  return amt;
+}
+
+/**
+ * Знаходить активні амортизовані витрати з попередніх місяців та формує список зобов'язань для поточного циклу
+ */
+export function calculateActivePastAmortizations(
+  pastTransactions: Transaction[],
+  currentCycleDate: Date = new Date()
+): UpcomingObligation[] {
+  const obligations: UpcomingObligation[] = [];
+
+  for (const tx of pastTransactions) {
+    if (tx.deleted_at || tx.exclude_from_budget) continue;
+    const amortization = tx.metadata?.amortization;
+    if (!amortization || typeof amortization !== "object") continue;
+
+    const totalMonths = Number(amortization.months);
+    if (isNaN(totalMonths) || totalMonths <= 1) continue;
+
+    const rawDate = tx.created_at || (tx as any).date;
+    if (!rawDate) continue;
+    const txDate = new Date(rawDate);
+    if (isNaN(txDate.getTime())) continue;
+
+    // Розраховуємо різницю в місяцях між поточною датою та датою покупки
+    const monthDiff =
+      (currentCycleDate.getFullYear() - txDate.getFullYear()) * 12 +
+      (currentCycleDate.getMonth() - txDate.getMonth());
+
+    // Якщо поточний місяць пізніший за місяць покупки, але в межах періоду амортизації
+    if (monthDiff > 0 && monthDiff < totalMonths) {
+      const monthlyAmt =
+        Number(amortization.monthly_amount) ||
+        Math.round(Number(tx.amount || 0) / totalMonths);
+
+      obligations.push({
+        title: `🗓️ Амортизація (${monthDiff + 1}/${totalMonths}): ${tx.merchant_raw}`,
+        amount: monthlyAmt,
+        is_paid: false,
+      });
+    }
+  }
+
+  return obligations;
+}
+
+/**
+ * Безпечно завантажує активні амортизовані витрати з попередніх періодів із Supabase
+ */
+export async function loadPastAmortizationObligations(
+  supabaseAdmin: any,
+  startDate: Date,
+  now: Date = new Date()
+): Promise<UpcomingObligation[]> {
+  try {
+    const twelveMonthsAgo = new Date(
+      startDate.getTime() - 365 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const query = supabaseAdmin
+      .from("transactions")
+      ?.select(
+        "id, amount, merchant_raw, created_at, metadata, exclude_from_budget, deleted_at"
+      );
+
+    if (!query || typeof query.is !== "function") return [];
+    const isFiltered = query.is("deleted_at", null);
+    if (!isFiltered || typeof isFiltered.eq !== "function") return [];
+    const eqFiltered = isFiltered.eq("exclude_from_budget", false);
+    if (!eqFiltered || typeof eqFiltered.not !== "function") return [];
+    const notFiltered = eqFiltered.not("metadata->amortization", "is", null);
+    if (!notFiltered || typeof notFiltered.gte !== "function") return [];
+    const gteFiltered = notFiltered.gte("created_at", twelveMonthsAgo);
+    if (!gteFiltered || typeof gteFiltered.lt !== "function") return [];
+
+    const { data: pastAmortizedTxs } = await gteFiltered.lt(
+      "created_at",
+      startDate.toISOString()
+    );
+
+    if (pastAmortizedTxs && pastAmortizedTxs.length > 0) {
+      return calculateActivePastAmortizations(
+        pastAmortizedTxs as unknown as Transaction[],
+        now
+      );
+    }
+  } catch (err) {
+    console.warn("[Amortization Loader] Non-fatal query error:", err);
+  }
+  return [];
+}
+
+/**
  * Перевіряє, чи день відноситься до вихідних / leisure днів (П'ятниця = 5, Субота = 6, Неділя = 0)
  */
 export function isWeekendOrLeisureDay(dayOfWeek: number): boolean {
@@ -134,7 +247,7 @@ export function calibrateHabitsFromBaseline(
     const kyivDay = getKyivDateString(rawDate);
     const dayOfWeek = getKyivDayOfWeek(rawDate);
     const dateMs = new Date(rawDate).getTime();
-    const amt = Number(tx.amount || 0);
+    const amt = getEffectiveTransactionExpense(tx);
 
     totalCalibratedSpend += amt;
 
@@ -294,7 +407,12 @@ export function calculateWeightedCalendarPacing(
 
   // Розрахунок бюджетних показників
   const totalLimit = options.totalBudgetLimit || 0;
-  const currentExpense = options.currentExpenseTotal ?? 0;
+  const currentExpense =
+    options.currentExpenseTotal !== undefined
+      ? options.currentExpenseTotal
+      : transactions
+          .filter((t) => !t.exclude_from_budget && t.type !== "income")
+          .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
   const remainingTotal = Math.max(0, totalLimit - currentExpense);
 
   // Резервування майбутніх постійних платежів / підписок до кінця циклу

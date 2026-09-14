@@ -292,6 +292,7 @@ export async function PATCH(req: NextRequest) {
       clean_title,
       tags,
       save_as_rule,
+      exclude_from_budget,
       metadata,
     } = parsed.data;
     const supabase = getSupabaseAdmin();
@@ -301,6 +302,8 @@ export async function PATCH(req: NextRequest) {
     if (clean_title || merchant_raw)
       updateData.merchant_raw = clean_title || merchant_raw;
     if (tags !== undefined) updateData.tags = tags;
+    if (exclude_from_budget !== undefined)
+      updateData.exclude_from_budget = exclude_from_budget;
 
     if (metadata !== undefined) {
       if (metadata === null) {

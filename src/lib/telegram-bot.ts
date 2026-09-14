@@ -21,8 +21,11 @@ import {
   isWeekendOrLeisureDay,
   WeightedPacingResult,
   PurchaseSimulationResult,
+  getEffectiveTransactionExpense,
+  loadPastAmortizationObligations,
 } from "@/lib/weighted-pacing";
 import { getKyivDayOfWeek } from "@/lib/behavioral-metrics";
+import { Transaction } from "@/types/finance";
 
 export interface ParsedTelegramExpense {
   amount: number;
@@ -31,6 +34,11 @@ export interface ParsedTelegramExpense {
   type: "expense" | "income" | "investment";
   date: string;
   note?: string;
+  exclude_from_budget?: boolean;
+  is_emergency?: boolean;
+  amortization_months?: number;
+  tags?: string[];
+  metadata?: Record<string, any>;
 }
 
 export interface ParsedTelegramReceiptItem {
@@ -153,6 +161,8 @@ ${CATEGORIES.map((c) => `  - "${c}"`).join("\n")}
 4. type: "expense" (витрата), "income" (дохід/зарплата), або "investment" (інвестиції, ОВДП, Inzhur). За замовчуванням "expense".
 5. date: рядок ISO 8601 у часовому поясі України. Якщо користувач каже "вчора", "позавчора" чи вказує дату, розрахуй відносно поточного часу: ${kyivNowStr}. Якщо дата не вказана, поверни ${isoNow}.
 6. note: необов'язковий коментар або уточнення (наприклад "вітаміни", "лате з круасаном").
+7. is_emergency: boolean (true, якщо це термінова витрата на здоров'я, ліки, форс-мажор, або витрата "з подушки" чи "хвороба").
+8. amortization_months: число місяців (від 2 до 36) або null (якщо витрата розрахована на декілька місяців, наприклад "на 3 місяці", "курс вітамінів на 6 міс", "страховка на рік").
 
 Повертай ВИКЛЮЧНО валідний JSON-об'єкт із цими полями без markdown чи лапок.
 `;
@@ -200,15 +210,84 @@ ${CATEGORIES.map((c) => `  - "${c}"`).join("\n")}
 
     if (isNaN(amount) || amount <= 0) return null;
 
+    // Евристика та AI-детекція для форс-мажорів та подушки безпеки
+    const emergencyPattern =
+      /(?:з\s+подушки|подушк[аи]|форс-?мажор|хвороб[аи]|термінов(?:о|а|і)|лікарня|госпітал)/i;
+    const isEmergency =
+      Boolean(parsed.is_emergency) || emergencyPattern.test(text);
+
+    // Евристика та AI-детекція для розподілу витрати на кілька місяців (амортизація)
+    let amortizationMonths =
+      typeof parsed.amortization_months === "number"
+        ? parsed.amortization_months
+        : null;
+
+    if (
+      !amortizationMonths ||
+      isNaN(amortizationMonths) ||
+      amortizationMonths < 2
+    ) {
+      const matchAmort = text.match(
+        /(?:на|курс(?:ом)?|термін(?:ом)?)\s+(\d+)\s*(?:міс|місяц|місяців|місяці)/i
+      );
+      if (matchAmort) {
+        amortizationMonths = parseInt(matchAmort[1], 10);
+      } else if (/(?:на\s+рік|на\s+12\s+міс)/i.test(text)) {
+        amortizationMonths = 12;
+      } else if (/(?:на\s+півроку|на\s+6\s+міс)/i.test(text)) {
+        amortizationMonths = 6;
+      }
+    }
+    if (
+      amortizationMonths &&
+      (amortizationMonths < 2 || amortizationMonths > 36)
+    ) {
+      amortizationMonths = null;
+    }
+
+    let category = normalizeCategory(parsed.category);
+    // Якщо форс-мажор зі здоров'ям і категорія не визначилась точніше, встановлюємо Здоров'я
+    if (
+      isEmergency &&
+      (category === "Інше" ||
+        /хвороб|ліки|аптек|лікар/i.test(text) ||
+        /хвороб|ліки|аптек|лікар/i.test(parsed.merchant || ""))
+    ) {
+      category = "Здоров'я";
+    }
+
+    const txDate = parsed.date || isoNow;
+    const tags: string[] = [];
+    const metadata: Record<string, any> = {};
+
+    if (isEmergency) {
+      tags.push("форсмажор");
+      metadata.is_emergency = true;
+    }
+
+    if (amortizationMonths) {
+      const monthlyAmount = Math.round(amount / amortizationMonths);
+      metadata.amortization = {
+        months: amortizationMonths,
+        monthly_amount: monthlyAmount,
+        start_date: txDate,
+      };
+    }
+
     return {
       amount,
       merchant: String(parsed.merchant || "Витрата").trim(),
-      category: normalizeCategory(parsed.category),
+      category,
       type: ["expense", "income", "investment"].includes(parsed.type)
         ? parsed.type
         : "expense",
-      date: parsed.date || isoNow,
+      date: txDate,
       note: parsed.note ? String(parsed.note).trim() : undefined,
+      exclude_from_budget: isEmergency ? true : undefined,
+      is_emergency: isEmergency ? true : undefined,
+      amortization_months: amortizationMonths || undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
     };
   } catch (parseErr) {
     console.error(
@@ -391,6 +470,8 @@ export async function recordTelegramTransaction(
     category: CategoryType;
     type: "expense" | "income" | "investment";
     date?: string;
+    exclude_from_budget?: boolean;
+    tags?: string[];
     metadata?: Record<string, any>;
   }
 ): Promise<{
@@ -400,6 +481,7 @@ export async function recordTelegramTransaction(
 }> {
   const currency = params.currency || "UAH";
   const createdAt = params.date || new Date().toISOString();
+  const excludeFromBudget = Boolean(params.exclude_from_budget);
 
   // 1. Вставка в transactions
   const { data: transaction, error } = await supabaseAdmin
@@ -412,7 +494,8 @@ export async function recordTelegramTransaction(
       source: "telegram_bot",
       type: params.type,
       created_at: createdAt,
-      exclude_from_budget: false,
+      exclude_from_budget: excludeFromBudget,
+      tags: params.tags || [],
       metadata: params.metadata || {},
     })
     .select()
@@ -423,9 +506,9 @@ export async function recordTelegramTransaction(
     throw new Error("Не вдалося зберегти транзакцію в базі даних");
   }
 
-  // 2. Автоокруглення витрати на Фінансову подушку
+  // 2. Автоокруглення витрати на Фінансову подушку (тільки для звичайних витрат з бюджету)
   let roundupResult = null;
-  if (params.type === "expense" && currency === "UAH") {
+  if (params.type === "expense" && currency === "UAH" && !excludeFromBudget) {
     try {
       roundupResult = await processExpenseRoundup(supabaseAdmin, {
         parentTxId: transaction.id,
@@ -446,8 +529,8 @@ export async function recordTelegramTransaction(
     console.error("[Telegram Bot] Safe daily budget error:", budgetErr);
   }
 
-  // 4. Перевірка перевищення денного ліміту
-  if (params.type === "expense") {
+  // 4. Перевірка перевищення денного ліміту (тільки якщо витрата враховується в бюджеті)
+  if (params.type === "expense" && !excludeFromBudget) {
     checkDailyBudgetThreshold(undefined, undefined, dailyBudget).catch(
       (err) => {
         console.error("[Telegram Bot] Daily budget threshold error:", err);
@@ -518,6 +601,13 @@ export function formatTransactionConfirmation(params: {
   const isInvestment = transaction.type === "investment";
   const isExpense = !isIncome && !isInvestment;
 
+  const isEmergency =
+    Boolean(transaction.exclude_from_budget) ||
+    Boolean(transaction.metadata?.is_emergency) ||
+    (Array.isArray(transaction.tags) && transaction.tags.includes("форсмажор"));
+
+  const amort = transaction.metadata?.amortization;
+
   let title = `✅ <b>Витрату записано!</b>`;
   let sign = "";
   if (isIncome) {
@@ -535,7 +625,25 @@ export function formatTransactionConfirmation(params: {
     `📅 ${formatKyivDateTime(transaction.created_at)}`,
   ];
 
-  if (isExpense) {
+  if (isEmergency) {
+    lines.push(
+      ``,
+      `🛡️ <b>Покрито з Фінансової подушки (форс-мажор)</b>`,
+      `💡 <i>Операцію виключено з операційного бюджету — ваш щоденний темп збережено!</i>`
+    );
+  } else if (amort && typeof amort === "object" && Number(amort.months) > 1) {
+    const totalMonths = Number(amort.months);
+    const monthlyAmt =
+      Number(amort.monthly_amount) ||
+      Math.round(Number(transaction.amount || 0) / totalMonths);
+    lines.push(
+      ``,
+      `🗓 <b>Амортизація на ${totalMonths} міс</b> (по <b>${monthlyAmt.toLocaleString("uk-UA")} ₴/міс</b>)`,
+      `💡 <i>У цей місяць враховано лише ${monthlyAmt.toLocaleString("uk-UA")} ₴, решта автоматично списуватиметься у наступні ${totalMonths - 1} міс.</i>`
+    );
+  }
+
+  if (isExpense && !isEmergency) {
     if (roundupResult?.roundupAmount) {
       lines.push(
         `🐷 Подушка: +<b>${Number(roundupResult.roundupAmount).toFixed(2)} ₴</b>`
@@ -1055,13 +1163,13 @@ export async function handleTelegramPaceCommand(
   const { data: txs } = await supabaseAdmin
     .from("transactions")
     .select(
-      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
+      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
     .gte("created_at", startDate.toISOString())
     .lte("created_at", endDate.toISOString());
 
-  const validTransactions = (txs || []) as any[];
+  const validTransactions = (txs || []) as Transaction[];
 
   const { data: recurring } = await supabaseAdmin
     .from("recurring_templates")
@@ -1074,9 +1182,19 @@ export async function handleTelegramPaceCommand(
     day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
   }));
 
+  // Завантажуємо активні амортизовані витрати з попередніх місяців
+  const pastObligations = await loadPastAmortizationObligations(
+    supabaseAdmin,
+    startDate,
+    now
+  );
+  if (pastObligations.length > 0) {
+    upcomingObligations.push(...pastObligations);
+  }
+
   const currentExpenseTotal = validTransactions
     .filter((t) => !t.exclude_from_budget && t.type !== "income")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   const pacing = calculateWeightedCalendarPacing(validTransactions, {
     now,
@@ -1131,13 +1249,13 @@ export async function handleTelegramWhatIfCommand(
   const { data: txs } = await supabaseAdmin
     .from("transactions")
     .select(
-      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
+      "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
     .gte("created_at", startDate.toISOString())
     .lte("created_at", endDate.toISOString());
 
-  const validTransactions = (txs || []) as any[];
+  const validTransactions = (txs || []) as Transaction[];
 
   const { data: recurring } = await supabaseAdmin
     .from("recurring_templates")
@@ -1150,9 +1268,19 @@ export async function handleTelegramWhatIfCommand(
     day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
   }));
 
+  // Завантажуємо активні амортизовані витрати з попередніх місяців
+  const pastWhatIfObligations = await loadPastAmortizationObligations(
+    supabaseAdmin,
+    startDate,
+    now
+  );
+  if (pastWhatIfObligations.length > 0) {
+    upcomingObligations.push(...pastWhatIfObligations);
+  }
+
   const currentExpenseTotal = validTransactions
     .filter((t) => !t.exclude_from_budget && t.type !== "income")
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   const simulation = simulatePurchaseImpact(
     amount,
