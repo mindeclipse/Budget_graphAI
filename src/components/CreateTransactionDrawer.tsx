@@ -222,7 +222,7 @@ export function CreateTransactionDrawer({
           {/* Розподіл витрати на кілька місяців (амортизація) */}
           {!isEmergency &&
             category !== "Інвестиції" &&
-            parseFloat(amount.replace(",", ".") || "0") >= 100 && (
+            parseFloat(amount.replace(",", ".") || "0") > 0 && (
               <div className="space-y-2 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
