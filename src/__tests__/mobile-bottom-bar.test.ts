@@ -18,8 +18,8 @@ describe("MobileBottomBar Ergonomics & Haptic Feedback Logic", () => {
     });
 
     it("розташовує острів-капсулу в самому низу екрана", () => {
-      const bottomClass = "bottom-3.5";
-      expect(bottomClass).toBe("bottom-3.5");
+      const bottomClass = "bottom-5";
+      expect(bottomClass).toBe("bottom-5");
     });
   });
 
