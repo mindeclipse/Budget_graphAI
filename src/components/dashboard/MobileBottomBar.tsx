@@ -42,9 +42,9 @@ export function MobileBottomBar({
   return (
     <nav
       aria-label="Мобільна навігація"
-      className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-40 mx-auto max-w-md rounded-2xl border border-zinc-800/90 bg-zinc-950/90 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-all md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-800/80 bg-zinc-950/95 px-3 pt-2 pb-[max(env(safe-area-inset-bottom),10px)] shadow-2xl backdrop-blur-2xl transition-all md:hidden"
     >
-      <div className="flex items-center justify-between gap-1">
+      <div className="mx-auto flex max-w-md items-center justify-between gap-1.5">
         {/* 1. Вкладка: Аналітика & Бюджет */}
         <button
           type="button"
