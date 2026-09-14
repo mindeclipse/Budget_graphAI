@@ -38,13 +38,13 @@ export function MobileBottomBar({
       {/* М'який темний градієнт для усунення просвічування тексту під островом */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-16 bg-gradient-to-t from-black via-zinc-950/80 to-transparent md:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-20 bg-gradient-to-t from-black via-zinc-950/80 to-transparent md:hidden"
       />
 
       {/* Острів-капсула в самому низу екрана */}
       <nav
         aria-label="Мобільна навігація"
-        className="fixed inset-x-3 bottom-2 z-40 mx-auto max-w-md rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.9)] backdrop-blur-2xl transition-all md:hidden"
+        className="fixed inset-x-3 bottom-3.5 z-40 mx-auto max-w-md rounded-2xl border border-zinc-800/90 bg-zinc-950/95 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.9)] backdrop-blur-2xl transition-all md:hidden"
       >
         <div className="flex items-center justify-between gap-1">
           {/* 1. Вкладка: Аналітика & Бюджет */}
