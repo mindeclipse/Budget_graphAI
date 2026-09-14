@@ -5,13 +5,23 @@ import {
   TelegramReplyMarkup,
 } from "@/lib/telegram";
 import { sendBackupToTelegram } from "@/lib/backup-service";
-import { getGeminiClient, GEMINI_MODELS } from "@/lib/gemini";
+import {
+  getGeminiClient,
+  GEMINI_MODELS,
+  GEMINI_FALLBACK_CHAIN,
+} from "@/lib/gemini";
 import { getUsdRate } from "@/lib/currency";
 import {
   getCycleDateRange,
   calculateCycleDaysRemaining,
   DEFAULT_BUDGET_LIMIT,
 } from "@/lib/cycle-utils";
+import { Type } from "@google/genai";
+import {
+  SupportedGeminiModel,
+  BehavioralCoachAdvice,
+  BehavioralMetrics,
+} from "@/types/ai";
 
 function getAppUrl(): string {
   return (
@@ -21,18 +31,21 @@ function getAppUrl(): string {
   );
 }
 
-function getKyivDateString(date: Date | string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Kyiv",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(date));
-}
+import {
+  getKyivDateString,
+  formatAmount,
+  getKyivHour,
+  getKyivDayOfWeek,
+  calculateBehavioralMetrics,
+} from "./behavioral-metrics";
 
-function formatAmount(num: number): string {
-  return Math.round(num).toLocaleString("uk-UA");
-}
+export {
+  getKyivDateString,
+  formatAmount,
+  getKyivHour,
+  getKyivDayOfWeek,
+  calculateBehavioralMetrics,
+};
 
 function getKyivWeekKey(d: Date = new Date()): string {
   const dateStr = getKyivDateString(d);
@@ -87,6 +100,7 @@ export async function generateWeeklyDigest(options?: {
     .select(
       "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget"
     )
+    .is("deleted_at", null)
     .gte("created_at", prevWeekStart.toISOString())
     .order("created_at", { ascending: false });
 
@@ -149,6 +163,45 @@ export async function generateWeeklyDigest(options?: {
     0
   );
 
+  // 3c. Лист охолодження (Wishlist) за останні 7 днів
+  const { data: wishlistData } = await supabase
+    .from("wishlist_items")
+    .select(
+      "id, name, estimated_price, status, cooling_end_date, resolved_at, created_at"
+    );
+
+  const recentWishlist = wishlistData || [];
+  // Успішно скасовані імпульсивні бажання за 7 днів (saved)
+  const savedWishlistItems = recentWishlist.filter(
+    (item) =>
+      item.status === "saved" &&
+      item.resolved_at &&
+      new Date(item.resolved_at) >= currentWeekStart
+  );
+  const savedWishlistAmount = savedWishlistItems.reduce(
+    (sum, item) => sum + Number(item.estimated_price || 0),
+    0
+  );
+
+  // Товари, які зараз перебувають у стані охолодження (cooling)
+  const coolingWishlistItems = recentWishlist.filter(
+    (item) =>
+      item.status === "cooling" &&
+      item.cooling_end_date &&
+      new Date(item.cooling_end_date) > now
+  );
+  const coolingWishlistAmount = coolingWishlistItems.reduce(
+    (sum, item) => sum + Number(item.estimated_price || 0),
+    0
+  );
+
+  const behavioralMetrics = calculateBehavioralMetrics(currentWeekTx, {
+    savedAmount: savedWishlistAmount,
+    savedCount: savedWishlistItems.length,
+    coolingAmount: coolingWishlistAmount,
+    coolingCount: coolingWishlistItems.length,
+  });
+
   // 3. Динаміка порівняння з минулим тижнем (Week-over-Week)
   let wowText = "даних за попередній тиждень недостатньо";
   if (prevWeekSpent > 0) {
@@ -206,6 +259,7 @@ export async function generateWeeklyDigest(options?: {
     const { data: cycleTx } = await supabase
       .from("transactions")
       .select("amount, type, exclude_from_budget")
+      .is("deleted_at", null)
       .gte("created_at", cycleRange.startDate.toISOString());
 
     const totalCycleSpent = (cycleTx || [])
@@ -229,37 +283,141 @@ export async function generateWeeklyDigest(options?: {
     safeDailySpend = Math.max(0, Math.round(remainingBudget / daysRemaining));
   }
 
-  // 7. Аналітика від Gemini
-  let aiAdvice = "";
+  // 7. Поведінковий AI-коуч від Gemini (Structured Outputs & High-Availability Failover)
+  let coachAdvice: BehavioralCoachAdvice | null = null;
+  const candidateModels: SupportedGeminiModel[] = [
+    GEMINI_MODELS.BALANCED || "gemini-3.5-flash",
+    ...GEMINI_FALLBACK_CHAIN.filter(
+      (m) => m !== (GEMINI_MODELS.BALANCED || "gemini-3.5-flash")
+    ),
+  ];
+
+  const behavioralResponseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      behavioralInsight: {
+        type: Type.STRING,
+        description:
+          "Психологічне спостереження або сліпа зона витрат: зв'язок між часом (вечір), днем тижня (вихідні) чи дрібними чеками (латте-фактор) та емоційним станом (1-2 лаконічні ділові речення українською).",
+      },
+      capitalFeedback: {
+        type: Type.STRING,
+        description:
+          "Оцінка формування капіталу / сили волі: інвестиції, заощадження або вбережені кошти у вішлісті (1 лаконічне речення українською).",
+      },
+      microChallenge: {
+        type: Type.STRING,
+        description:
+          "Конкретний вимірний мікро-челендж на 7 днів із реальною прогнозованою сумою заощадження у гривнях (1-2 речення українською).",
+      },
+    },
+    required: ["behavioralInsight", "capitalFeedback", "microChallenge"],
+  };
+
   try {
     const ai = getGeminiClient();
-    const prompt = `
-Аналізуй щотижневі фінансові витрати користувача:
-- Споживчі витрати за останні 7 днів: ${formatAmount(thisWeekSpent)} ₴
-- Динаміка відносно минулого тижня: ${wowText} (було ${formatAmount(prevWeekSpent)} ₴)
-- Топ категорії витрат: ${sortedCategories.map((c) => `${c.name}: ${formatAmount(c.amount)} ₴ (${c.percent}%)`).join(", ")}
-${largestTx ? `- Найбільша разова споживча витрата: ${largestTx.merchant_raw} (${formatAmount(Number(largestTx.amount))} ₴)` : ""}
-${totalInvestedThisWeek > 0 ? `- Інвестовано в активи за 7 днів: ${formatAmount(totalInvestedThisWeek)} ₴` : ""}
-${totalSavedThisWeek > 0 ? `- Заощаджено у подушку безпеки за 7 днів: +${formatAmount(totalSavedThisWeek)} ₴` : ""}
-- До кінця циклу залишилося: ${daysRemaining} дн., вільний операційний залишок: ${formatAmount(remainingBudget)} ₴, рекомендовано на день: ${formatAmount(safeDailySpend)} ₴/день.
+    const systemInstruction = `Ти — персональний фінансовий AI-коуч із поведінкових фінансів (Behavioral Finance Coach & Nudge Economics).
+Твоє завдання — виявляти психологічні патерни («сліпі зони», вечірні імпульсивні витрати, вікенд-розрядку, розмивання грошей на дрібні суми до 200 ₴) та давати чіткий 7-денний челендж із конкретною вигодою у гривнях.
+Враховуй, що інвестиції та перекази у фінансову подушку — це позитивне формування капіталу, а НЕ споживчі витрати.
+Враховуй збережені гроші у «Листі охолодження» (Wishlist) як перемогу сили волі.
 
-ВАЖЛИВО: Інвестиції в активи та заощадження — це формування капіталу і накопичень, а НЕ споживчі витрати. Вони не зменшують щоденний операційний бюджет.
-Надай висновок українською мовою у 2-3 коротких ділових реченнях: оціни темп і дай 1 конкретну практичну пораду на наступний тиждень. Без вступних привітань, одразу суть.
+ОБОВ'ЯЗКОВО поверни суворий JSON-об'єкт із трьома полями:
+- behavioralInsight: Виявлена «сліпа зона» або патерн витрат (1-2 речення українською).
+- capitalFeedback: Оцінка формування капіталу, інвестицій або сили волі щодо імпульсивних покупок (1 речення українською).
+- microChallenge: Чітка вимірна дія на 7 днів із точною прогнозованою сумою заощадження у ₴ (1-2 речення українською). Без банальностей, максимально конкретно.`;
+
+    const prompt = `
+Проаналізуй фінансову поведінку користувача за останні 7 днів:
+• Споживчі витрати за 7 днів: ${formatAmount(thisWeekSpent)} ₴ (Динаміка: ${wowText})
+• Топ категорії витрат: ${sortedCategories.map((c) => `${c.name}: ${formatAmount(c.amount)} ₴ (${c.percent}%)`).join(", ")}
+${largestTx ? `• Найбільша окрема витрата: ${largestTx.merchant_raw} (${formatAmount(Number(largestTx.amount))} ₴)` : ""}
+• Часовий профіль витрат (Київ):
+  - Ранок (06:00–12:00): ${formatAmount(behavioralMetrics.timeProfile.morning.amount)} ₴ (${behavioralMetrics.timeProfile.morning.percent}%, ${behavioralMetrics.timeProfile.morning.count} транз.)
+  - День (12:00–18:00): ${formatAmount(behavioralMetrics.timeProfile.day.amount)} ₴ (${behavioralMetrics.timeProfile.day.percent}%, ${behavioralMetrics.timeProfile.day.count} транз.)
+  - Вечір/Ніч (18:00–06:00): ${formatAmount(behavioralMetrics.timeProfile.evening.amount)} ₴ (${behavioralMetrics.timeProfile.evening.percent}%, ${behavioralMetrics.timeProfile.evening.count} транз.)
+• Вікенд-сплеск vs Будні:
+  - Робочі дні (Пн–Пт): ${formatAmount(behavioralMetrics.dayProfile.weekday.amount)} ₴ (${behavioralMetrics.dayProfile.weekday.percent}%)
+  - Вихідні (Сб–Нд): ${formatAmount(behavioralMetrics.dayProfile.weekend.amount)} ₴ (${behavioralMetrics.dayProfile.weekend.percent}%)
+• «Латте-фактор» (покупки до 200 ₴): ${behavioralMetrics.microTransactions.count} покупок на суму ${formatAmount(behavioralMetrics.microTransactions.amount)} ₴ (${behavioralMetrics.microTransactions.percent}% від усіх витрат)
+• Лист охолодження (Wishlist):
+  - Успішно скасовано покупок (заощаджено): ${behavioralMetrics.wishlist.savedCount} шт. на суму +${formatAmount(behavioralMetrics.wishlist.savedAmount)} ₴
+  - Зараз на паузі охолодження: ${behavioralMetrics.wishlist.coolingCount} шт. на суму ${formatAmount(behavioralMetrics.wishlist.coolingAmount)} ₴
+• Капітал за 7 днів:
+  - Інвестовано: ${formatAmount(totalInvestedThisWeek)} ₴
+  - Заощаджено у подушку: +${formatAmount(totalSavedThisWeek)} ₴
+${activeCycle ? `• Стан активного циклу: залишилось ${daysRemaining} дн., вільний операційний залишок ${formatAmount(remainingBudget)} ₴, безпечний щоденний темп ${formatAmount(safeDailySpend)} ₴/день.` : ""}
+
+Сформуй JSON за наданою схемою.
 `;
 
-    const modelToUse = GEMINI_MODELS.BALANCED || "gemini-3.5-flash";
-    const result = await ai.models.generateContent({
-      model: modelToUse,
-      contents: prompt,
-      config: {
-        temperature: 0.3,
-      },
-    });
+    for (const modelToUse of candidateModels) {
+      try {
+        const result = await ai.models.generateContent({
+          model: modelToUse,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            temperature: 0.3,
+            responseMimeType: "application/json",
+            responseSchema: behavioralResponseSchema,
+          },
+        });
 
-    aiAdvice = result.text?.trim() || "";
+        if (result.text) {
+          const parsed = JSON.parse(result.text.trim());
+          if (
+            typeof parsed.behavioralInsight === "string" &&
+            typeof parsed.capitalFeedback === "string" &&
+            typeof parsed.microChallenge === "string"
+          ) {
+            coachAdvice = {
+              behavioralInsight: parsed.behavioralInsight.trim(),
+              capitalFeedback: parsed.capitalFeedback.trim(),
+              microChallenge: parsed.microChallenge.trim(),
+              usedModel: modelToUse,
+            };
+            break;
+          }
+        }
+      } catch (modelErr) {
+        console.warn(
+          `[WeeklyDigest] Gemini model ${modelToUse} failed in fallback chain:`,
+          modelErr
+        );
+      }
+    }
   } catch (err) {
-    console.warn("[WeeklyDigest] Gemini generation fallback:", err);
-    aiAdvice = `Темп споживчих витрат за 7 днів склав ${formatAmount(thisWeekSpent)} ₴. Зверніть увагу на категорію «${sortedCategories[0]?.name || "головні витрати"}», яка займає найбільшу частку бюджету.`;
+    console.warn("[WeeklyDigest] Gemini initialization failed:", err);
+  }
+
+  // Якщо моделі Gemini недоступні — використовуємо розумний детермінований алгоритм fallback
+  if (!coachAdvice) {
+    const topCatName = sortedCategories[0]?.name || "головні витрати";
+    const isEveningHeavy = behavioralMetrics.timeProfile.evening.percent >= 40;
+    const isMicroHeavy = behavioralMetrics.microTransactions.count >= 4;
+
+    const insight = isEveningHeavy
+      ? `${behavioralMetrics.timeProfile.evening.percent}% витрат припало на вечірній час (${formatAmount(behavioralMetrics.timeProfile.evening.amount)} ₴). Зверніть увагу на вечірні замовлення для зниження темпу.`
+      : isMicroHeavy
+        ? `Зафіксовано ${behavioralMetrics.microTransactions.count} дрібних оплат до 200 ₴ на суму ${formatAmount(behavioralMetrics.microTransactions.amount)} ₴ — це «латте-фактор», який непомітно зменшує бюджет.`
+        : `Споживчі витрати склали ${formatAmount(thisWeekSpent)} ₴. Основна стаття — «${topCatName}» (${sortedCategories[0]?.percent || 0}%).`;
+
+    const capital =
+      behavioralMetrics.wishlist.savedAmount > 0
+        ? `Сила волі: вберегли +${formatAmount(behavioralMetrics.wishlist.savedAmount)} ₴ завдяки листу охолодження бажань.`
+        : totalInvestedThisWeek > 0 || totalSavedThisWeek > 0
+          ? `Успішно сформовано ${formatAmount(totalInvestedThisWeek + totalSavedThisWeek)} ₴ капіталу та накопичень за 7 днів.`
+          : `Рекомендуємо запланувати регулярний переказ у подушку безпеки або активи.`;
+
+    const challenge = isMicroHeavy
+      ? `Об'єднайте дрібні щоденні покупки to-go у 1 запланований візит — це збереже ~${formatAmount(Math.round(behavioralMetrics.microTransactions.amount * 0.4))} ₴ за 7 днів.`
+      : `Спробуйте скоротити необов'язкові витрати у категорії «${topCatName}» на 10-15% — це збільшить денний безпечний темп.`;
+
+    coachAdvice = {
+      behavioralInsight: insight,
+      capitalFeedback: capital,
+      microChallenge: challenge,
+    };
   }
 
   // 8. Форматування Telegram повідомлення
@@ -321,10 +479,18 @@ ${totalSavedThisWeek > 0 ? `- Заощаджено у подушку безпе�
     );
   }
 
-  if (aiAdvice) {
+  if (coachAdvice) {
     lines.push(``);
-    lines.push(`💡 <b>Порада від Gemini:</b>`);
-    lines.push(`<i>${escapeHtml(aiAdvice)}</i>`);
+    lines.push(`🧠 <b>Поведінковий аудит & Коучинг:</b>`);
+    lines.push(
+      `• 🔍 <b>Сліпа зона:</b> ${escapeHtml(coachAdvice.behavioralInsight)}`
+    );
+    lines.push(
+      `• 🛡️ <b>Капітал & Сила волі:</b> ${escapeHtml(coachAdvice.capitalFeedback)}`
+    );
+    lines.push(
+      `• 🎯 <b>Мікро-челендж (7 днів):</b> ${escapeHtml(coachAdvice.microChallenge)}`
+    );
   }
 
   const appUrl = getAppUrl();
@@ -372,6 +538,8 @@ ${totalSavedThisWeek > 0 ? `- Заощаджено у подушку безпе�
       sortedCategories,
       largestTx,
       remainingBudget,
+      behavioralMetrics,
+      coachAdvice,
     },
   };
 }
@@ -445,6 +613,7 @@ export async function generateCycleSummary(
     .select(
       "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget"
     )
+    .is("deleted_at", null)
     .gte("created_at", startDateIso)
     .lte("created_at", endDateIso)
     .order("created_at", { ascending: false });

@@ -88,3 +88,34 @@ export interface ProactiveAlert {
   description: string;
   suggestedAction?: string;
 }
+
+export interface BehavioralCoachAdvice {
+  behavioralInsight: string;
+  capitalFeedback: string;
+  microChallenge: string;
+  usedModel?: SupportedGeminiModel;
+}
+
+export interface BehavioralMetrics {
+  totalExpense: number;
+  timeProfile: {
+    morning: { count: number; amount: number; percent: number };
+    day: { count: number; amount: number; percent: number };
+    evening: { count: number; amount: number; percent: number };
+  };
+  dayProfile: {
+    weekday: { count: number; amount: number; percent: number };
+    weekend: { count: number; amount: number; percent: number };
+  };
+  microTransactions: {
+    count: number;
+    amount: number;
+    percent: number;
+  };
+  wishlist: {
+    savedAmount: number;
+    savedCount: number;
+    coolingAmount: number;
+    coolingCount: number;
+  };
+}
