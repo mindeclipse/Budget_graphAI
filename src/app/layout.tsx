@@ -4,13 +4,55 @@ import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { Toaster } from "sonner";
 import "./globals.css";
 
+const appUrl =
+  process.env.APP_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://budget-graph-ai-w8r2.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Budget Graph AI",
-  description: "Особистий фінансовий трекер",
+  metadataBase: new URL(appUrl),
+  title: "BudgetGraph AI — Розумний фінансовий трекер",
+  description:
+    "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent", // Фон програми плавно затікає під острівець
-    title: "Finances",
+    title: "Budget",
+  },
+  openGraph: {
+    title: "BudgetGraph AI — Розумний фінансовий трекер",
+    description:
+      "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
+    url: appUrl,
+    siteName: "BudgetGraph AI",
+    locale: "uk_UA",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "BudgetGraph AI — Розумний фінансовий трекер",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BudgetGraph AI — Розумний фінансовий трекер",
+    description:
+      "Миттєвий облік витрат через Apple Pay, темп зарплатного циклу, аналітика портфеля та AI-асистент.",
+    images: ["/og-image.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
