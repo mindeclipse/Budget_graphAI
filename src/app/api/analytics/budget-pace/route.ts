@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { calculateBudgetPacing } from "@/lib/analytics-engine";
+import { calculateWeightedCalendarPacing } from "@/lib/weighted-pacing";
 import { verifySessionToken } from "@/lib/session";
 import { Transaction } from "@/types/finance";
 
@@ -85,7 +86,35 @@ export async function GET(req: NextRequest) {
       totalBudgetLimit
     );
 
-    return NextResponse.json({ success: true, pacing });
+    // Завантажуємо активні шаблони регулярних платежів для резервування зобов'язань
+    const { data: recurringItems } = await supabase
+      .from("recurring_templates")
+      .select("id, name, amount, day_of_month, is_active")
+      .eq("is_active", true);
+
+    const upcomingObligations = (recurringItems || []).map((r: any) => ({
+      title: r.name,
+      amount: Number(r.amount || 0),
+      day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
+    }));
+
+    const currentExpenseTotal = validTransactions
+      .filter((t) => !t.exclude_from_budget && t.type !== "income")
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    const weightedPacing = calculateWeightedCalendarPacing(validTransactions, {
+      now,
+      startDate,
+      endDate,
+      totalBudgetLimit:
+        totalBudgetLimit ||
+        pacing.totalExpense +
+          pacing.safeDailySpendRemaining * pacing.daysRemaining,
+      currentExpenseTotal,
+      upcomingObligations,
+    });
+
+    return NextResponse.json({ success: true, pacing, weightedPacing });
   } catch (err: any) {
     console.error("[API budget-pace error]:", err);
     return NextResponse.json(

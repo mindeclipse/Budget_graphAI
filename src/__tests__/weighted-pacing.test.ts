@@ -1,0 +1,213 @@
+import { describe, it, expect } from "vitest";
+import {
+  NEW_HABITS_BASELINE,
+  calibrateHabitsFromBaseline,
+  calculateWeightedCalendarPacing,
+  isWeekendOrLeisureDay,
+} from "@/lib/weighted-pacing";
+import { Transaction } from "@/types/finance";
+
+describe("Weighted Calendar Pacing Engine (Step 4)", () => {
+  describe("Базова лінія калібрування (August 15, 2026 Constraint)", () => {
+    it("має сувору константу початку відліку 15 серпня 2026 року", () => {
+      expect(NEW_HABITS_BASELINE).toBe("2026-08-15T00:00:00.000Z");
+    });
+
+    it("повністю ігнорує транзакції до 15 серпня 2026 року (попередній хаотичний досвід)", () => {
+      const mixedTransactions = [
+        {
+          id: 1,
+          amount: 5000,
+          type: "expense",
+          created_at: "2026-08-14T23:59:59.000Z", // ДО базової лінії
+          merchant_raw: "Хаотична стара витрата",
+        },
+        {
+          id: 2,
+          amount: 8000,
+          type: "expense",
+          created_at: "2026-07-20T12:00:00.000Z", // Липень
+          merchant_raw: "Старий відпочинок",
+        },
+        {
+          id: 3,
+          amount: 400,
+          type: "expense",
+          created_at: "2026-08-15T00:00:01.000Z", // ВІД базової лінії
+          merchant_raw: "Свідома витрата 1",
+        },
+        {
+          id: 4,
+          amount: 600,
+          type: "expense",
+          created_at: "2026-08-16T14:00:00.000Z", // ВІД базової лінії
+          merchant_raw: "Свідома витрата 2",
+        },
+      ] as unknown as Transaction[];
+
+      const habits = calibrateHabitsFromBaseline(mixedTransactions);
+
+      expect(habits.totalCalibratedTx).toBe(2);
+      expect(habits.totalCalibratedSpend).toBe(1000); // 400 + 600
+    });
+
+    it("ігнорує доходи, виключені з бюджету та видалені транзакції", () => {
+      const txs = [
+        {
+          id: 1,
+          amount: 15000,
+          type: "income",
+          created_at: "2026-08-20T10:00:00.000Z",
+        },
+        {
+          id: 2,
+          amount: 3000,
+          type: "expense",
+          exclude_from_budget: true,
+          created_at: "2026-08-21T10:00:00.000Z",
+        },
+        {
+          id: 3,
+          amount: 700,
+          type: "expense",
+          deleted_at: "2026-08-22T10:00:00.000Z",
+          created_at: "2026-08-22T10:00:00.000Z",
+        },
+        {
+          id: 4,
+          amount: 250,
+          type: "expense",
+          created_at: "2026-08-23T10:00:00.000Z",
+        },
+      ] as unknown as Transaction[];
+
+      const habits = calibrateHabitsFromBaseline(txs);
+      expect(habits.totalCalibratedTx).toBe(1);
+      expect(habits.totalCalibratedSpend).toBe(250);
+    });
+  });
+
+  describe("Класифікація днів тижня та розрахунок коефіцієнта вікенду (alpha)", () => {
+    it("правильно класифікує п'ятницю (5), суботу (6) та неділю (0) як вікенд/дозвілля", () => {
+      expect(isWeekendOrLeisureDay(5)).toBe(true); // П'ятниця
+      expect(isWeekendOrLeisureDay(6)).toBe(true); // Субота
+      expect(isWeekendOrLeisureDay(0)).toBe(true); // Неділя
+      expect(isWeekendOrLeisureDay(1)).toBe(false); // Понеділок
+      expect(isWeekendOrLeisureDay(2)).toBe(false); // Вівторок
+      expect(isWeekendOrLeisureDay(3)).toBe(false); // Середа
+      expect(isWeekendOrLeisureDay(4)).toBe(false); // Четвер
+    });
+
+    it("за недостатності днів використовує безпечний дефолтний коефіцієнт 1.35", () => {
+      const txs = [
+        {
+          id: 1,
+          amount: 500,
+          type: "expense",
+          created_at: "2026-08-17T12:00:00.000Z", // Понеділок
+        },
+      ] as unknown as Transaction[];
+
+      const habits = calibrateHabitsFromBaseline(txs);
+      expect(habits.isSufficientData).toBe(false);
+      expect(habits.weekendToWeekdayRatio).toBe(1.35);
+    });
+
+    it("при достатніх даних розраховує емпіричний коефіцієнт та обмежує межами [0.75, 2.5]", () => {
+      // Створюємо 2 будні по 200 грн і 2 вихідні по 400 грн -> ratio 2.0
+      const txs = [
+        {
+          id: 1,
+          amount: 200,
+          type: "expense",
+          created_at: "2026-08-17T12:00:00.000Z", // Пн
+        },
+        {
+          id: 2,
+          amount: 200,
+          type: "expense",
+          created_at: "2026-08-18T12:00:00.000Z", // Вт
+        },
+        {
+          id: 3,
+          amount: 400,
+          type: "expense",
+          created_at: "2026-08-22T12:00:00.000Z", // Сб
+        },
+        {
+          id: 4,
+          amount: 400,
+          type: "expense",
+          created_at: "2026-08-23T12:00:00.000Z", // Нд
+        },
+      ] as unknown as Transaction[];
+
+      const habits = calibrateHabitsFromBaseline(txs);
+      expect(habits.isSufficientData).toBe(true);
+      expect(habits.weekdayDailyAvg).toBe(200);
+      expect(habits.weekendDailyAvg).toBe(400);
+      expect(habits.weekendToWeekdayRatio).toBe(2);
+    });
+  });
+
+  describe("Резервування постійних платежів та розрахунок зваженого бюджету", () => {
+    it("коректно резервує майбутні платежі циклу та рахує зважений темп буднів і вихідних", () => {
+      // 14 вересня 2026 року (Понеділок), кінець місяця 30 вересня (Середа)
+      const now = new Date("2026-09-14T10:00:00.000Z");
+      const startDate = new Date("2026-09-01T00:00:00.000Z");
+      const endDate = new Date("2026-09-30T23:59:59.999Z");
+
+      const upcomingObligations = [
+        { title: "Netflix", amount: 400, day_of_month: 20, is_paid: false },
+        { title: "Оренда", amount: 12000, day_of_month: 5, is_paid: true }, // вже сплачено
+        { title: "Інтернет", amount: 300, day_of_month: 25, is_paid: false },
+      ];
+
+      const result = calculateWeightedCalendarPacing([], {
+        now,
+        startDate,
+        endDate,
+        totalBudgetLimit: 30000,
+        currentExpenseTotal: 10000, // Залишок 20 000 грн
+        upcomingObligations,
+      });
+
+      // Очікуване резервування: 400 + 300 = 700 грн
+      expect(result.budget.reservedObligationsTotal).toBe(700);
+      // Вільний залишок: 20 000 - 700 = 19 300 грн
+      expect(result.budget.discretionaryRemaining).toBe(19300);
+
+      // Безпечний день у вихідні має бути вищим за будень з урахуванням multiplier
+      expect(result.pacing.safeWeekendSpend).toBeGreaterThan(
+        result.pacing.safeWeekdaySpend
+      );
+      expect(result.pacing.status).toBe("healthy");
+    });
+
+    it("при вичерпанні ліміту встановлює статус depleted", () => {
+      const now = new Date("2026-09-20T10:00:00.000Z");
+      const result = calculateWeightedCalendarPacing([], {
+        now,
+        totalBudgetLimit: 15000,
+        currentExpenseTotal: 16000,
+      });
+
+      expect(result.budget.discretionaryRemaining).toBe(0);
+      expect(result.pacing.safeWeekdaySpend).toBe(0);
+      expect(result.pacing.safeWeekendSpend).toBe(0);
+      expect(result.pacing.status).toBe("depleted");
+    });
+
+    it("при критично малому залишку встановлює статус critical", () => {
+      const now = new Date("2026-09-14T10:00:00.000Z");
+      const result = calculateWeightedCalendarPacing([], {
+        now,
+        totalBudgetLimit: 10000,
+        currentExpenseTotal: 9000, // 1000 грн на 17 днів
+      });
+
+      expect(result.pacing.safeWeekdaySpend).toBeLessThan(250);
+      expect(result.pacing.status).toBe("critical");
+    });
+  });
+});
