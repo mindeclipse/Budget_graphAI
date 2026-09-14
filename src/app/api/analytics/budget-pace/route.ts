@@ -50,10 +50,13 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseAdmin();
 
-    // Завантажуємо транзакції вибраного циклу
+    // Завантажуємо активні транзакції вибраного циклу (виключаючи кошик)
     const { data: transactions, error: txError } = await supabase
       .from("transactions")
-      .select("*")
+      .select(
+        "id, amount, created_at, category_name, type, exclude_from_budget, deleted_at"
+      )
+      .is("deleted_at", null)
       .gte("created_at", fromDate)
       .lte("created_at", toDate)
       .order("created_at", { ascending: false });
@@ -63,7 +66,7 @@ export async function GET(req: NextRequest) {
     // Отримуємо збережені налаштування циклу (якщо є)
     const { data: cycleConfig } = await supabase
       .from("budget_cycles")
-      .select("*")
+      .select("id, category_limits, monthly_limit, start_date, end_date")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

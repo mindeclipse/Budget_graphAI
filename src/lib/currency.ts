@@ -52,6 +52,7 @@ async function fetchMonobankRates(): Promise<CommercialRates | null> {
     const res = await fetch("https://api.monobank.ua/bank/currency", {
       headers: { "User-Agent": "BudgetGraph/1.0" },
       next: { revalidate: 600 },
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!res.ok) return null;
@@ -95,7 +96,10 @@ async function fetchPrivatBankRates(): Promise<CommercialRates | null> {
   try {
     const res = await fetch(
       "https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=11",
-      { next: { revalidate: 600 } }
+      {
+        next: { revalidate: 600 },
+        signal: AbortSignal.timeout(5000),
+      }
     );
 
     if (!res.ok) return null;

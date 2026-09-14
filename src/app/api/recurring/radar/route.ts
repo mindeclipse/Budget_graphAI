@@ -65,7 +65,9 @@ export async function GET(req: NextRequest) {
     while (hasMore && allTransactions.length < 5000) {
       const { data, error: txError } = await supabaseAdmin
         .from("transactions")
-        .select("*")
+        .select(
+          "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, tags, deleted_at"
+        )
         .is("deleted_at", null)
         .gte("created_at", fromDate.toISOString())
         .order("created_at", { ascending: false })

@@ -39,6 +39,7 @@ export async function sendTelegramMessage(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(5000),
       }
     );
 
@@ -88,6 +89,7 @@ export async function sendTelegramDocument(
       {
         method: "POST",
         body: formData,
+        signal: AbortSignal.timeout(15000),
       }
     );
 

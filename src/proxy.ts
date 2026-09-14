@@ -17,7 +17,61 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Захист від CSRF для всіх змінюючих запитів браузера (POST, PATCH, DELETE, PUT)
+  // 2. Публічні винятки: автентифікація, вебхуки, крон
+  if (
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/cron")
+  ) {
+    return NextResponse.next();
+  }
+
+  // 3. Авторизація зовнішніх викликів через Bearer-токен (Apple Shortcuts, Cron)
+  const authHeader = req.headers.get("authorization");
+  const appSecretKey = process.env.APP_API_SECRET;
+  const cronSecretKey = process.env.CRON_SECRET;
+
+  // А. Шорткат класифікації чеків Apple Pay (/api/classify)
+  if (pathname.startsWith("/api/classify")) {
+    if (
+      appSecretKey &&
+      authHeader &&
+      timingSafeEqual(authHeader, `Bearer ${appSecretKey}`)
+    ) {
+      return NextResponse.next();
+    }
+
+    return NextResponse.json(
+      { error: "Unauthorized: Invalid or missing Bearer token" },
+      { status: 401 }
+    );
+  }
+
+  // Б. Шорткат округлення залишку (/api/roundup/balance)
+  if (pathname.startsWith("/api/roundup/balance")) {
+    if (
+      appSecretKey &&
+      authHeader &&
+      timingSafeEqual(authHeader, `Bearer ${appSecretKey}`)
+    ) {
+      return NextResponse.next();
+    }
+    // Якщо Bearer відсутній, продовжуємо перевірку сесії користувача нижче
+  }
+
+  // В. Віддалений запуск бекапу в Telegram (/api/backup/telegram)
+  if (pathname.startsWith("/api/backup/telegram")) {
+    if (
+      cronSecretKey &&
+      authHeader &&
+      timingSafeEqual(authHeader, `Bearer ${cronSecretKey}`)
+    ) {
+      return NextResponse.next();
+    }
+    // Якщо Bearer відсутній, продовжуємо перевірку сесії користувача нижче
+  }
+
+  // 4. Захист від CSRF для всіх сесійних змінюючих запитів браузера (POST, PATCH, DELETE, PUT)
   if (["POST", "PATCH", "DELETE", "PUT"].includes(req.method)) {
     const origin = req.headers.get("origin");
     if (origin) {
@@ -39,35 +93,6 @@ export async function proxy(req: NextRequest) {
         );
       }
     }
-  }
-
-  // 3. Публічні винятки: автентифікація, вебхуки, крон
-  if (
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/webhooks") ||
-    pathname.startsWith("/api/cron")
-  ) {
-    return NextResponse.next();
-  }
-
-  // 4. Авторизація зовнішніх викликів для Apple Shortcuts через Bearer-токен
-  if (pathname.startsWith("/api/classify")) {
-    const authHeader = req.headers.get("authorization");
-    const secretKey = process.env.APP_API_SECRET;
-
-    // Якщо ключ налаштований і співпадає із заголовком Bearer (постійне за часом порівняння)
-    if (
-      secretKey &&
-      authHeader &&
-      timingSafeEqual(authHeader, `Bearer ${secretKey}`)
-    ) {
-      return NextResponse.next();
-    }
-
-    return NextResponse.json(
-      { error: "Unauthorized: Invalid or missing Bearer token" },
-      { status: 401 }
-    );
   }
 
   const session = req.cookies.get("finance_session")?.value;
