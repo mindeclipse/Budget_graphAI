@@ -57,12 +57,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 0. Заборона кешування чутливих ендпоінтів автентифікації, біометрії та бекапів (Network Only)
+  // 0. Заборона кешування чутливих ендпоінтів автентифікації, біометрії та бекапів (Network Only з graceful offline fallback)
   if (
     url.pathname.startsWith("/api/auth") ||
     url.pathname.startsWith("/api/backup")
   ) {
-    event.respondWith(fetch(request));
+    event.respondWith(
+      fetch(request).catch(() => {
+        return new Response(
+          JSON.stringify({ error: "offline", message: "Network unavailable" }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        );
+      })
+    );
     return;
   }
 

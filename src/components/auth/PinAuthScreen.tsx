@@ -13,6 +13,7 @@ interface PinAuthScreenProps {
   onLogin: (e: React.FormEvent) => void;
   onBiometricLogin: () => void;
   isBiometricSupported?: boolean;
+  isOnline?: boolean;
 }
 
 export function PinAuthScreen({
@@ -24,6 +25,7 @@ export function PinAuthScreen({
   onLogin,
   onBiometricLogin,
   isBiometricSupported = true,
+  isOnline = true,
 }: PinAuthScreenProps) {
   if (isLoading) {
     return (
@@ -40,11 +42,20 @@ export function PinAuthScreen({
           <Lock size={20} />
         </div>
         <div>
-          <h2 className="text-base font-bold text-white">Вхід до фінансів</h2>
+          <div className="flex items-center justify-center gap-2">
+            <h2 className="text-base font-bold text-white">Вхід до фінансів</h2>
+            {!isOnline && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                ✈️ Офлайн
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-xs text-zinc-500">
-            {isBiometricSupported
-              ? "Touch ID / Face ID або PIN-код"
-              : "Введіть PIN-код доступу"}
+            {!isOnline
+              ? "Офлайн-режим: введіть PIN-код"
+              : isBiometricSupported
+                ? "Touch ID / Face ID або PIN-код"
+                : "Введіть PIN-код доступу"}
           </p>
         </div>
 

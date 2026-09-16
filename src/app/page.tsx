@@ -130,6 +130,7 @@ export default function Dashboard() {
     isAuthenticated,
     isVerifyingPin,
     isBiometricSupported,
+    isOnline,
     pinInput,
     setPinInput,
     pinError,
@@ -901,6 +902,7 @@ export default function Dashboard() {
         onLogin={handleLogin}
         onBiometricLogin={handleBiometricLogin}
         isBiometricSupported={isBiometricSupported}
+        isOnline={isOnline}
       />
     );
   }

@@ -5,6 +5,12 @@ import {
 } from "@simplewebauthn/browser";
 import { useAutoLock } from "@/hooks/useAutoLock";
 import { triggerHaptic } from "@/lib/haptics";
+import {
+  setupOfflinePinVerifier,
+  verifyOfflinePin,
+  clearOfflinePinVerifier,
+  resetOfflinePinAttempts,
+} from "@/lib/offline-pin";
 
 export function useAuthSession() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -12,10 +18,25 @@ export function useAuthSession() {
   const [pinError, setPinError] = useState("");
   const [isVerifyingPin, setIsVerifyingPin] = useState(false);
   const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
 
   // Кеш попередньо завантажених параметрів виклику WebAuthn (Pre-warming)
   const prewarmedOptionsRef = useRef<any>(null);
   const prewarmedTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsOnline(navigator.onLine);
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.PublicKeyCredential) {
@@ -25,7 +46,12 @@ export function useAuthSession() {
 
   // Фонове завантаження WebAuthn challenge для усунення 3-секундної затримки
   const prewarmBiometrics = useCallback(async () => {
-    if (typeof window === "undefined" || !window.PublicKeyCredential) return;
+    if (
+      typeof window === "undefined" ||
+      !window.PublicKeyCredential ||
+      !navigator.onLine
+    )
+      return;
     try {
       const res = await fetch("/api/auth/webauthn/login");
       if (res.ok) {
@@ -65,21 +91,62 @@ export function useAuthSession() {
     checkAuth();
   }, [prewarmBiometrics]);
 
-  // Вхід через PIN-код
+  // Вхід через PIN-код з прозорою підтримкою офлайн-розблокування (PBKDF2)
   const handleLogin = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setIsVerifyingPin(true);
       setPinError("");
 
-      try {
-        const res = await fetch("/api/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pin: pinInput }),
-        });
+      const currentlyOnline =
+        typeof navigator !== "undefined" ? navigator.onLine : true;
 
-        if (res.ok) {
+      // 1. Спроба онлайнового входу через бекенд (якщо мережа доступна)
+      if (currentlyOnline) {
+        try {
+          const res = await fetch("/api/auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pin: pinInput }),
+          });
+
+          // Якщо статус 503 (offline fallback від Service Worker), переходимо до офлайн-перевірки
+          if (res.status !== 503) {
+            if (res.ok) {
+              triggerHaptic("success");
+              if (typeof window !== "undefined") {
+                sessionStorage.removeItem("budget_auto_locked");
+              }
+              // Зберігаємо або освіжаємо локальний криптографічний верифікатор
+              await setupOfflinePinVerifier(pinInput);
+              resetOfflinePinAttempts();
+              setIsAuthenticated(true);
+              return;
+            }
+
+            if (res.status === 401) {
+              triggerHaptic("error");
+              const errData = await res.json().catch(() => null);
+              setPinError(errData?.error || "Невірний PIN-код");
+              return;
+            }
+
+            if (res.status === 429) {
+              triggerHaptic("error");
+              const errData = await res.json().catch(() => null);
+              setPinError(errData?.error || "Забагато спроб");
+              return;
+            }
+          }
+        } catch {
+          // Мережевий збій (авіарежим, обрив з'єднання) — переходимо до локальної перевірки
+        }
+      }
+
+      // 2. Локальна криптографічна перевірка в офлайн-режимі (PBKDF2 + SHA-256)
+      try {
+        const offlineRes = await verifyOfflinePin(pinInput);
+        if (offlineRes.success) {
           triggerHaptic("success");
           if (typeof window !== "undefined") {
             sessionStorage.removeItem("budget_auto_locked");
@@ -87,12 +154,11 @@ export function useAuthSession() {
           setIsAuthenticated(true);
         } else {
           triggerHaptic("error");
-          const errData = await res.json().catch(() => null);
-          setPinError(errData?.error || "Невірний PIN-код");
+          setPinError(offlineRes.error || "Невірний PIN-код");
         }
       } catch {
         triggerHaptic("error");
-        setPinError("Помилка підключення");
+        setPinError("Помилка офлайн-перевірки PIN-коду");
       } finally {
         setIsVerifyingPin(false);
       }
@@ -100,9 +166,21 @@ export function useAuthSession() {
     [pinInput]
   );
 
-  // Вхід через Face ID / Touch ID (з підтримкою 0-latency pre-warming)
+  // Вхід через Face ID / Touch ID (з підтримкою 0-latency pre-warming та офлайн-захистом)
   const handleBiometricLogin = useCallback(async () => {
     setPinError("");
+
+    const currentlyOnline =
+      typeof navigator !== "undefined" ? navigator.onLine : true;
+
+    if (!currentlyOnline) {
+      triggerHaptic("error");
+      setPinError(
+        "Face ID потребує інтернет-з'єднання. Для входу офлайн введіть PIN-код."
+      );
+      return;
+    }
+
     setIsVerifyingPin(true);
 
     try {
@@ -142,7 +220,19 @@ export function useAuthSession() {
     } catch (err: any) {
       if (err.name !== "NotAllowedError") {
         triggerHaptic("error");
-        setPinError(err.message || "Помилка Face ID");
+        const isOfflineError =
+          !navigator.onLine ||
+          err.message?.includes("Load failed") ||
+          err.message?.includes("offline") ||
+          err.message?.includes("Network");
+
+        if (isOfflineError) {
+          setPinError(
+            "Face ID потребує інтернет-з'єднання. Для входу офлайн введіть PIN-код."
+          );
+        } else {
+          setPinError(err.message || "Помилка Face ID");
+        }
         prewarmBiometrics();
       }
     } finally {
@@ -177,11 +267,12 @@ export function useAuthSession() {
     }
   }, []);
 
-  // Вихід із системи
+  // Вихід із системи (повне очищення онлайн та офлайн сесій)
   const handleLogout = useCallback(async () => {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("budget_auto_locked");
     }
+    clearOfflinePinVerifier();
     setIsAuthenticated(false);
     setPinInput("");
     setPinError("");
@@ -212,6 +303,7 @@ export function useAuthSession() {
     isAuthenticated,
     isVerifyingPin,
     isBiometricSupported,
+    isOnline,
     pinInput,
     setPinInput,
     pinError,
