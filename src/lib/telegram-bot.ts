@@ -1278,7 +1278,37 @@ export function isWhatIfGuideInquiry(text: string): boolean {
 export function parseWhatIfPurchaseQuery(
   text: string
 ): { amount: number; item?: string } | null {
-  const t = text.trim().toLowerCase();
+  const t = text.trim();
+
+  // 0. Пряма команда або префікс: /whatif 1500, /whatif кросівки 2500, /whatif 2500 кросівки
+  const cmdMatch = t.match(
+    /^(?:\/(?:whatif|simulator|calc)|(?:💡\s*)?що якщо)\s+(.+)$/i
+  );
+  if (cmdMatch) {
+    const rest = cmdMatch[1].trim();
+
+    // Шаблон А: Число першим — "/whatif 2500" або "/whatif 2500 кросівки"
+    const numFirst = rest.match(
+      /^(\d+(?:[.,]\d+)?)\s*(?:грн|₴)?(?:\s+(?:на|для)?\s*(.+))?$/i
+    );
+    if (numFirst) {
+      const amount = parseFloat(numFirst[1].replace(",", "."));
+      if (!isNaN(amount) && amount > 0) {
+        return { amount, item: numFirst[2]?.trim() || "планова покупка" };
+      }
+    }
+
+    // Шаблон Б: Назва першою — "/whatif кросівки 2500" або "/whatif на кросівки 2500 грн"
+    const textFirst = rest.match(
+      /^(?:на|для)?\s*(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:грн|₴)?$/i
+    );
+    if (textFirst) {
+      const amount = parseFloat(textFirst[2].replace(",", "."));
+      if (!isNaN(amount) && amount > 0) {
+        return { amount, item: textFirst[1].trim() };
+      }
+    }
+  }
 
   const hasWhatIfMarker =
     /^(чи\s+)?(можу|хочу|планую|чи\s+норм|чи\s+варто|чи\s+можна)\s+(купити|дозволити|взяти|витратити|замовити)/i.test(
@@ -1367,7 +1397,7 @@ export function formatPaceResponse(
   const lines = [
     `🗓 <b>Сьогодні ${dayName} (${isWeekend ? "вихідний/дозвілля" : "робочий день"})</b>`,
     ``,
-    `💰 <b>Безпечно на день:</b> <code>${todayAllowance.toLocaleString("uk-UA")} ₴</code>`,
+    `💰 <b>Безпечно на день:</b> <code>${todayAllowance.toLocaleString("uk-UA")} ₴</code> (лінійний: ~${pacing.pacing.flatDailySpend.toLocaleString("uk-UA")} ₴/д)`,
     `💼 <b>Будні (Пн–Чт):</b> ${pacing.pacing.safeWeekdaySpend.toLocaleString("uk-UA")} ₴/день`,
     `🍻 <b>Вікенд-буфер (Пт–Нд):</b> ~${pacing.pacing.safeWeekendSpend.toLocaleString("uk-UA")} ₴/день`,
     ``,
@@ -1379,6 +1409,11 @@ export function formatPaceResponse(
     lines.push(
       ``,
       `🎯 <b>Очікуваний профіцит на кінець циклу:</b> +${pacing.surplusProjection.projectedSurplusAmount.toLocaleString("uk-UA")} ₴ (${pacing.surplusProjection.savingsPotentialPercent}% бюджету)`
+    );
+  } else if ((pacing.surplusProjection.projectedDeficitAmount || 0) > 100) {
+    lines.push(
+      ``,
+      `⚠️ <b>Ризик дефіциту на кінець циклу:</b> -${(pacing.surplusProjection.projectedDeficitAmount || 0).toLocaleString("uk-UA")} ₴`
     );
   }
 
@@ -1858,6 +1893,7 @@ export function handleTelegramWhatIfGuideCommand(): string {
     `Симулятор дозволяє перед покупкою дізнатися, чи не порушить вона баланс бюджету та як змінить ваш щоденний темп витрат.`,
     ``,
     `🤖 <b>Як зробити запит? Напишіть у чат будь-яку з фраз:</b>`,
+    `• <code>/whatif 1500</code> або <code>/whatif 2500 кросівки</code>`,
     `• <code>чи можу купити кросівки за 3200?</code>`,
     `• <code>хочу купити навушники 2500 грн</code>`,
     `• <code>чи норм витратити 800 на ресторан?</code>`,

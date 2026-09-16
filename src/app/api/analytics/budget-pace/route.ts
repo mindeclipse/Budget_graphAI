@@ -59,14 +59,20 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseAdmin();
 
-    // Завантажуємо активні транзакції вибраного циклу (виключаючи кошик)
+    const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+    const fetchStart =
+      startDate.toISOString() < habitBaselineIso
+        ? startDate.toISOString()
+        : habitBaselineIso;
+
+    // Завантажуємо активні транзакції (для циклу та базової лінії звичок)
     const { data: transactions, error: txError } = await supabase
       .from("transactions")
       .select(
         "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, deleted_at"
       )
       .is("deleted_at", null)
-      .gte("created_at", fromDate)
+      .gte("created_at", fetchStart)
       .lte("created_at", toDate)
       .order("created_at", { ascending: false });
 
@@ -96,8 +102,13 @@ export async function GET(req: NextRequest) {
 
     const validTransactions = (transactions || []) as unknown as Transaction[];
 
+    const cycleTransactions = validTransactions.filter((t) => {
+      const d = new Date(t.created_at);
+      return d >= startDate && d <= endDate;
+    });
+
     const pacing = calculateBudgetPacing(
-      validTransactions.filter(
+      cycleTransactions.filter(
         (t) => !t.exclude_from_budget && t.type === "expense"
       ),
       startDate,
@@ -118,7 +129,7 @@ export async function GET(req: NextRequest) {
 
     const schedule = buildUpcomingSchedule(
       recurringItems || [],
-      validTransactions,
+      cycleTransactions,
       usdRate,
       now
     );
@@ -145,7 +156,7 @@ export async function GET(req: NextRequest) {
       upcomingObligations.push(...pastObligations);
     }
 
-    const currentExpenseTotal = validTransactions
+    const currentExpenseTotal = cycleTransactions
       .filter((t) => !t.exclude_from_budget && t.type === "expense")
       .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 

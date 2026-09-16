@@ -1323,6 +1323,20 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(q?.item).toBe("навушники");
     });
 
+    it("розпізнає прямі команди /whatif та 'що якщо'", () => {
+      const q1 = parseWhatIfPurchaseQuery("/whatif 1500");
+      expect(q1).toEqual({ amount: 1500, item: "планова покупка" });
+
+      const q2 = parseWhatIfPurchaseQuery("/whatif 2500 кросівки");
+      expect(q2).toEqual({ amount: 2500, item: "кросівки" });
+
+      const q3 = parseWhatIfPurchaseQuery("/whatif кросівки 2500 грн");
+      expect(q3).toEqual({ amount: 2500, item: "кросівки" });
+
+      const q4 = parseWhatIfPurchaseQuery("що якщо 1800 на вечерю");
+      expect(q4).toEqual({ amount: 1800, item: "вечерю" });
+    });
+
     it("не спрацьовує на звичайні записи витрат", () => {
       expect(parseWhatIfPurchaseQuery("таксі 240")).toBeNull();
       expect(parseWhatIfPurchaseQuery("кава 85")).toBeNull();

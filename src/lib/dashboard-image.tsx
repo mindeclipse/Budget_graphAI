@@ -32,10 +32,20 @@ export async function generateBudgetDashboardImage(
   const { cycle, budget, pacing: paceInfo, surplusProjection } = pacing;
 
   const totalLimit = Math.max(1, budget.totalBudgetLimit);
-  const spentPercent = Math.round(
+  const variableBudget = Math.max(
+    0,
+    budget.totalBudgetLimit - budget.reservedObligationsTotal
+  );
+  // Відсоток використання операційного (вільного) бюджету — відповідає панелі трекера в PWA
+  const variableSpentPercent =
+    variableBudget > 0
+      ? Math.round((budget.currentExpenseTotal / variableBudget) * 100)
+      : 100;
+  // Відсоток використання від загального ліміту циклу
+  const totalSpentPercent = Math.round(
     (budget.currentExpenseTotal / totalLimit) * 100
   );
-  const clampedPercent = Math.min(100, Math.max(0, spentPercent));
+  const clampedPercent = Math.min(100, Math.max(0, variableSpentPercent));
 
   const radius = 75;
   const circumference = 2 * Math.PI * radius; // ~471.24
@@ -223,11 +233,14 @@ export async function generateBudgetDashboardImage(
                 justifyContent: "center",
               }}
             >
-              <span style={{ fontSize: 44, fontWeight: 800, color: "#ffffff" }}>
-                {spentPercent}%
+              <span style={{ fontSize: 40, fontWeight: 800, color: "#ffffff" }}>
+                {variableSpentPercent}%
               </span>
-              <span style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>
-                витрачено
+              <span style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                вільного ліміту
+              </span>
+              <span style={{ fontSize: 10, color: "#6b7280", marginTop: 1 }}>
+                ({totalSpentPercent}% від заг.)
               </span>
             </div>
           </div>
