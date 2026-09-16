@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   normalizeCategory,
   cleanJsonOutput,
@@ -14,6 +14,7 @@ import {
   parseWhatIfPurchaseQuery,
   formatPaceResponse,
   formatWhatIfResponse,
+  tryFastNaturalLanguageParse,
 } from "@/lib/telegram-bot";
 import { CATEGORIES } from "@/constants/categories";
 
@@ -616,6 +617,130 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(text).toContain("⚡️ Потрібна дисципліна");
       expect(text).toContain("Будні: 800 ₴ ➔ <b>640 ₴/день</b> (-20%)");
       expect(text).toMatch(/12[\s\u00A0]000 ₴/);
+    });
+  });
+
+  describe("tryFastNaturalLanguageParse", () => {
+    it("миттєво розпізнає повернення коштів з вказанням імені 'повернення коштів від Кохана 250'", () => {
+      const parsed = tryFastNaturalLanguageParse(
+        "повернення коштів від Кохана 250"
+      );
+      expect(parsed).toBeDefined();
+      expect(parsed?.type).toBe("income");
+      expect(parsed?.amount).toBe(250);
+      expect(parsed?.merchant).toBe("Кохана");
+      expect(parsed?.category).toBe("Інше");
+      expect(parsed?.note).toBe("повернення коштів від Кохана");
+    });
+
+    it("розпізнає просте повернення коштів без імені 'повернення 300 грн'", () => {
+      const parsed = tryFastNaturalLanguageParse("повернення 300 грн");
+      expect(parsed).toBeDefined();
+      expect(parsed?.type).toBe("income");
+      expect(parsed?.amount).toBe(300);
+      expect(parsed?.merchant).toBe("Повернення коштів");
+    });
+
+    it("розпізнає зарахування на картку 'зарахування 250'", () => {
+      const parsed = tryFastNaturalLanguageParse("зарахування 250");
+      expect(parsed).toBeDefined();
+      expect(parsed?.type).toBe("income");
+      expect(parsed?.amount).toBe(250);
+      expect(parsed?.merchant).toBe("Зарахування коштів");
+      expect(parsed?.category).toBe("Інше");
+    });
+
+    it("розпізнає зарплату 'зарплата 45000'", () => {
+      const parsed = tryFastNaturalLanguageParse("зарплата 45000");
+      expect(parsed).toBeDefined();
+      expect(parsed?.type).toBe("income");
+      expect(parsed?.amount).toBe(45000);
+      expect(parsed?.category).toBe("Зарплата/ФОП");
+    });
+
+    it("повертає null для складних повідомлень з витратами, які потребують AI", () => {
+      expect(
+        tryFastNaturalLanguageParse("чи можу купити навушники за 3000")
+      ).toBeNull();
+      expect(
+        tryFastNaturalLanguageParse("вчора ввечері аптека 480")
+      ).toBeNull();
+    });
+  });
+
+  describe("Telegram Webhook Route Handler (POST /api/webhooks/telegram)", () => {
+    const origEnv = { ...process.env };
+
+    beforeEach(() => {
+      process.env = { ...origEnv };
+      process.env.TELEGRAM_CHAT_ID = "280769950";
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://mock.supabase.co";
+      process.env.SUPABASE_SERVICE_ROLE_KEY = "mock_service_role_key";
+    });
+
+    afterEach(() => {
+      process.env = origEnv;
+    });
+
+    it("відхиляє 401 Unauthorized, якщо налаштовано TELEGRAM_WEBHOOK_SECRET і заголовок не збігається", async () => {
+      const { POST } = await import("@/app/api/webhooks/telegram/route");
+      const { NextRequest } = await import("next/server");
+      process.env.TELEGRAM_WEBHOOK_SECRET = "super_secret_webhook_token_123";
+
+      const req = new NextRequest("http://localhost/api/webhooks/telegram", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-telegram-bot-api-secret-token": "wrong_token",
+        },
+        body: JSON.stringify({
+          message: { chat: { id: 280769950 }, text: "кава 85" },
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.error).toBe("Unauthorized");
+    });
+
+    it("НЕ відхиляє 401 через APP_API_SECRET, якщо TELEGRAM_WEBHOOK_SECRET не встановлено (усунено регресію)", async () => {
+      const { POST } = await import("@/app/api/webhooks/telegram/route");
+      const { NextRequest } = await import("next/server");
+      delete process.env.TELEGRAM_WEBHOOK_SECRET;
+      process.env.APP_API_SECRET = "apple_shortcut_secret_key";
+
+      const req = new NextRequest("http://localhost/api/webhooks/telegram", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: { chat: { id: 280769950 }, text: "/start" },
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+    });
+
+    it("ігнорує запити від неавторизованого chatId без падіння з помилкою", async () => {
+      const { POST } = await import("@/app/api/webhooks/telegram/route");
+      const { NextRequest } = await import("next/server");
+      delete process.env.TELEGRAM_WEBHOOK_SECRET;
+
+      const req = new NextRequest("http://localhost/api/webhooks/telegram", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: { chat: { id: 999999999 }, text: "хакерська спроба 500" },
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
     });
   });
 });

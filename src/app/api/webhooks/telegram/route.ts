@@ -24,8 +24,7 @@ export const dynamic = "force-dynamic";
 // Валідація секретного токена вебхука від Telegram
 function validateTelegramSecret(req: NextRequest): boolean {
   const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
-  const configuredSecret =
-    process.env.TELEGRAM_WEBHOOK_SECRET || process.env.APP_API_SECRET;
+  const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
   // Якщо секрет налаштовано в оточенні — суворо перевіряємо через timingSafeEqual
   if (configuredSecret) {
@@ -33,7 +32,7 @@ function validateTelegramSecret(req: NextRequest): boolean {
     return timingSafeEqual(secretHeader, configuredSecret);
   }
 
-  // Якщо специфічний секрет вебхука не задано, дозволяємо (авторизація відбудеться за TELEGRAM_CHAT_ID)
+  // Якщо специфічний секрет вебхука не задано, дозволяємо (авторизація суворо відбудеться за TELEGRAM_CHAT_ID)
   return true;
 }
 

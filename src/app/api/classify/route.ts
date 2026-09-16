@@ -412,13 +412,13 @@ export async function POST(req: NextRequest) {
       roundupResult?.roundupAmount
     );
 
-    // 4.5. Асинхронна перевірка денного ліміту для Telegram без блокування Apple Shortcuts
+    // 4.5. Перевірка денного ліміту для Telegram з надійним await (гарантує відправку у Vercel Serverless)
     if (type === "expense" && dailyBudget) {
-      void checkDailyBudgetThreshold(undefined, undefined, dailyBudget).catch(
-        (alertErr) => {
-          console.error("[Classify API] Daily budget alert error:", alertErr);
-        }
-      );
+      try {
+        await checkDailyBudgetThreshold(undefined, undefined, dailyBudget);
+      } catch (alertErr) {
+        console.error("[Classify API] Daily budget alert error:", alertErr);
+      }
     }
 
     // Повертаємо розширену відповідь для Apple Shortcuts
