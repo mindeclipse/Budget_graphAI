@@ -23,13 +23,17 @@ import {
   handleTelegramCycleSummaryCommand,
   handleTelegramEmergencyFundCommand,
   handleTelegramWhatIfGuideCommand,
+  isChartInquiry,
+  handleTelegramChartCommand,
 } from "@/lib/telegram-bot";
-import { getPersistentReplyKeyboard } from "@/lib/telegram";
+import { getPersistentReplyKeyboard, sendTelegramPhoto } from "@/lib/telegram";
+import { generateBudgetDashboardImage } from "@/lib/dashboard-image";
 import { CATEGORIES } from "@/constants/categories";
 
 // Mock @/lib/telegram
 vi.mock("@/lib/telegram", () => ({
   sendTelegramMessage: vi.fn().mockResolvedValue(true),
+  sendTelegramPhoto: vi.fn().mockResolvedValue(true),
   editTelegramMessageText: vi.fn().mockResolvedValue(true),
   answerTelegramCallbackQuery: vi.fn().mockResolvedValue(true),
   getTelegramFile: vi.fn().mockResolvedValue({
@@ -622,6 +626,90 @@ describe("Telegram Bot Utilities & Logic", () => {
         "Подушку оновлено!"
       );
     });
+
+    it("обробляє tg_send_chart і генерує та надсилає фото картки дашборду", async () => {
+      const mockSupabase = {
+        from: vi.fn((table: string) => {
+          if (table === "budget_cycles") {
+            return {
+              select: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  monthly_limit: 30000,
+                  start_date: "2026-09-01T00:00:00.000Z",
+                  end_date: "2026-09-30T23:59:59.999Z",
+                },
+              }),
+            };
+          }
+          if (table === "transactions") {
+            return {
+              select: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              gte: vi.fn().mockReturnThis(),
+              lte: vi.fn().mockReturnThis(),
+              or: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+              csv: vi.fn().mockResolvedValue(""),
+              then: (resolve: any) => resolve({ data: [] }),
+            };
+          }
+          if (table === "savings_goals") {
+            return {
+              select: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({
+                  data: [
+                    {
+                      id: 1,
+                      name: "Фінансова подушка",
+                      current_amount: 5000,
+                    },
+                  ],
+                }),
+              }),
+            };
+          }
+          if (table === "recurring_templates") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: [] }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnThis(),
+          };
+        }),
+      };
+
+      const { answerTelegramCallbackQuery, sendTelegramPhoto } =
+        await import("@/lib/telegram");
+
+      const success = await handleTelegramCallbackQuery(
+        {
+          id: "query_chart_1",
+          data: "tg_send_chart",
+          message: { chat: { id: 999 }, message_id: 888 },
+        },
+        mockSupabase
+      );
+
+      expect(success).toBe(true);
+      expect(answerTelegramCallbackQuery).toHaveBeenCalledWith(
+        "query_chart_1",
+        "Генерую графік..."
+      );
+      expect(sendTelegramPhoto).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        expect.stringContaining("Графічний дашборд"),
+        expect.any(Object)
+      );
+    });
   });
 
   describe("parseNaturalLanguageExpense with Gemini Fallback", () => {
@@ -849,6 +937,31 @@ describe("Telegram Bot Utilities & Logic", () => {
     });
   });
 
+  describe("isChartInquiry", () => {
+    it("розпізнає команди /chart, /graph, /dashboard, /stats", () => {
+      expect(isChartInquiry("/chart")).toBe(true);
+      expect(isChartInquiry("/graph")).toBe(true);
+      expect(isChartInquiry("/dashboard")).toBe(true);
+      expect(isChartInquiry("/stats")).toBe(true);
+    });
+
+    it("розпізнає кнопку '📈 Графік' та запити природною мовою", () => {
+      expect(isChartInquiry("📈 Графік")).toBe(true);
+      expect(isChartInquiry("графік")).toBe(true);
+      expect(isChartInquiry("графіки")).toBe(true);
+      expect(isChartInquiry("дашборд")).toBe(true);
+      expect(isChartInquiry("покажи графік?")).toBe(true);
+      expect(isChartInquiry("інфографіка")).toBe(true);
+      expect(isChartInquiry("діаграма")).toBe(true);
+    });
+
+    it("НЕ спрацьовує на звичайні витрати або інші запити", () => {
+      expect(isChartInquiry("графічний планшет 3000")).toBe(false);
+      expect(isChartInquiry("кава 85")).toBe(false);
+      expect(isChartInquiry("🎯 Мій темп")).toBe(false);
+    });
+  });
+
   describe("isEmergencyFundInquiry", () => {
     it("розпізнає кнопку '🛡️ Подушка', /cushion та запити про подушку/скарбничку", () => {
       expect(isEmergencyFundInquiry("🛡️ Подушка")).toBe(true);
@@ -1030,6 +1143,142 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(summary).toContain("Витрачено:");
       expect(summary).toContain("Вільний залишок:");
       expect(summary).toContain("Зарезервовано під підписки:");
+    });
+  });
+
+  describe("handleTelegramChartCommand", () => {
+    it("генерує валідне PNG зображення та метадані з підписом", async () => {
+      const mockSupabase = {
+        from: vi.fn((table: string) => {
+          if (table === "budget_cycles") {
+            return {
+              select: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  monthly_limit: 30000,
+                  start_date: "2026-09-01T00:00:00.000Z",
+                  end_date: "2026-09-30T23:59:59.999Z",
+                },
+              }),
+            };
+          }
+          if (table === "transactions") {
+            return {
+              select: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              gte: vi.fn().mockReturnThis(),
+              lte: vi.fn().mockReturnThis(),
+              or: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+              csv: vi.fn().mockResolvedValue(""),
+              then: (resolve: any) =>
+                resolve({
+                  data: [
+                    {
+                      id: 1,
+                      amount: 15000,
+                      currency: "UAH",
+                      merchant_raw: "Сільпо",
+                      category_name: "Продукти",
+                      source: "manual",
+                      type: "expense",
+                      created_at: "2026-09-10T12:00:00.000Z",
+                      exclude_from_budget: false,
+                    },
+                  ],
+                }),
+            };
+          }
+          if (table === "savings_goals") {
+            return {
+              select: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({
+                  data: [
+                    {
+                      id: 1,
+                      name: "Фінансова подушка",
+                      current_amount: 12000,
+                    },
+                  ],
+                }),
+              }),
+            };
+          }
+          if (table === "recurring_templates") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: [] }),
+              }),
+            };
+          }
+          return {
+            select: vi.fn().mockReturnThis(),
+          };
+        }),
+      };
+
+      const result = await handleTelegramChartCommand(
+        mockSupabase,
+        new Date("2026-09-15T12:00:00.000Z")
+      );
+
+      expect(result.photoBuffer).toBeDefined();
+      expect(result.photoBuffer.length).toBeGreaterThan(1000);
+      expect(result.photoBuffer.slice(0, 4).toString("hex")).toBe("89504e47");
+      expect(result.caption).toContain("Графічний дашборд");
+      expect(result.caption).toContain("Вільний залишок:");
+      expect(result.replyMarkup.inline_keyboard).toBeDefined();
+    });
+  });
+
+  describe("generateBudgetDashboardImage", () => {
+    it("генерує валідний PNG буфер розміром 1000x560", async () => {
+      const mockPacing: any = {
+        cycle: {
+          startDate: "2026-09-01T00:00:00.000Z",
+          endDate: "2026-09-30T23:59:59.999Z",
+          daysTotal: 30,
+          daysPassed: 15,
+          daysRemaining: 15,
+          remainingWeekdays: 10,
+          remainingWeekends: 5,
+        },
+        budget: {
+          totalBudgetLimit: 35000,
+          currentExpenseTotal: 18000,
+          remainingTotal: 17000,
+          reservedObligationsTotal: 2500,
+          discretionaryRemaining: 14500,
+        },
+        pacing: {
+          safeWeekdaySpend: 800,
+          safeWeekendSpend: 1300,
+          flatDailySpend: 966,
+          weekendMultiplierUsed: 1.6,
+          status: "healthy",
+          statusLabel: "Впевнений темп",
+          advice: "Темп ідеальний. Можна дозволити собі приємні плани.",
+        },
+        surplusProjection: {
+          projectedSurplusAmount: 3200,
+          savingsPotentialPercent: 9,
+          summaryText: "Очікуваний профіцит",
+        },
+      };
+
+      const buf = await generateBudgetDashboardImage(mockPacing, {
+        cushionCurrent: 75000,
+        monthRoundupAmount: 350,
+      });
+
+      expect(buf).toBeInstanceOf(Buffer);
+      expect(buf.length).toBeGreaterThan(1000);
+      expect(buf.slice(0, 4).toString("hex")).toBe("89504e47");
     });
   });
 
@@ -1334,6 +1583,32 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(res.status).toBe(200);
       expect(sendTelegramMessage).toHaveBeenCalledWith(
         expect.stringContaining("Симулятор покупок (What-If аналіз)"),
+        expect.objectContaining({
+          inline_keyboard: expect.any(Array),
+        })
+      );
+    });
+
+    it("обробляє запит '📈 Графік' у вебхуку та надсилає фото через sendTelegramPhoto", async () => {
+      const { POST } = await import("@/app/api/webhooks/telegram/route");
+      const { NextRequest } = await import("next/server");
+      const { sendTelegramPhoto } = await import("@/lib/telegram");
+      delete process.env.TELEGRAM_WEBHOOK_SECRET;
+      process.env.TELEGRAM_CHAT_ID = "280769950";
+
+      const req = new NextRequest("http://localhost/api/webhooks/telegram", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: { chat: { id: 280769950 }, text: "📈 Графік" },
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(sendTelegramPhoto).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        expect.stringContaining("Графічний дашборд"),
         expect.objectContaining({
           inline_keyboard: expect.any(Array),
         })

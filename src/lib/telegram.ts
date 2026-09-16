@@ -242,3 +242,51 @@ export async function sendTelegramDocument(
     return false;
   }
 }
+
+export async function sendTelegramPhoto(
+  photoData: Buffer | Uint8Array | Blob,
+  caption?: string,
+  replyMarkup?: TelegramReplyMarkup
+): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!token || !chatId) {
+    console.warn("Telegram photo skipped: missing credentials in environment.");
+    return false;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("chat_id", chatId);
+    const blob =
+      photoData instanceof Blob
+        ? photoData
+        : new Blob([photoData as any], { type: "image/png" });
+    formData.append("photo", blob, "dashboard.png");
+    if (caption) {
+      formData.append("caption", caption);
+      formData.append("parse_mode", "HTML");
+    }
+    if (replyMarkup) {
+      formData.append("reply_markup", JSON.stringify(replyMarkup));
+    }
+
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      body: formData,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error("Failed to send Telegram photo:", err);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Network error sending Telegram photo:", error);
+    return false;
+  }
+}

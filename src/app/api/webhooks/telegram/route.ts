@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { timingSafeEqual } from "@/lib/security";
 import {
   sendTelegramMessage,
+  sendTelegramPhoto,
   getTelegramFile,
   escapeHtml,
   getPersistentReplyKeyboard,
@@ -16,11 +17,13 @@ import {
   handleTelegramCallbackQuery,
   isPaceInquiry,
   isCycleSummaryInquiry,
+  isChartInquiry,
   isEmergencyFundInquiry,
   isWhatIfGuideInquiry,
   parseWhatIfPurchaseQuery,
   handleTelegramPaceCommand,
   handleTelegramCycleSummaryCommand,
+  handleTelegramChartCommand,
   handleTelegramEmergencyFundCommand,
   handleTelegramWhatIfGuideCommand,
   handleTelegramWhatIfCommand,
@@ -112,6 +115,7 @@ export async function POST(req: NextRequest) {
         `🎯 <b>Швидкі дії на клавіатурі внизу:</b>`,
         `• 🎯 <b>Мій темп</b> — актуальний ліміт на день (будні vs вихідні) та прогноз`,
         `• 📊 <b>Залишок циклу</b> — загальний ліміт, витрати, прогрес і залишок`,
+        `• 📈 <b>Графік</b> (/chart) — графічна картка темпу зі спідометром витрат`,
         `• 🛡️ <b>Подушка</b> — баланс скарбнички автоокруглення та резерви`,
         `• 💡 <b>Що якщо...?</b> — симулятор покупок перед здійсненням витрат`,
         ``,
@@ -272,7 +276,10 @@ export async function POST(req: NextRequest) {
               { text: "🔄 Оновити темп", callback_data: "tg_refresh_pace" },
               { text: "📊 Залишок циклу", callback_data: "tg_cycle_summary" },
             ],
-            [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+            [
+              { text: "📈 Графік", callback_data: "tg_send_chart" },
+              { text: "📊 Відкрити BudgetGraph", url: appUrl },
+            ],
           ],
         });
         return NextResponse.json({ ok: true });
@@ -293,9 +300,20 @@ export async function POST(req: NextRequest) {
               { text: "🔄 Оновити", callback_data: "tg_cycle_summary" },
               { text: "🎯 Мій темп", callback_data: "tg_refresh_pace" },
             ],
-            [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+            [
+              { text: "📈 Графік", callback_data: "tg_send_chart" },
+              { text: "📊 Відкрити BudgetGraph", url: appUrl },
+            ],
           ],
         });
+        return NextResponse.json({ ok: true });
+      }
+
+      // 2.5. Запит про графік / візуальний дашборд ("📈 Графік", /chart, "дашборд")
+      if (isChartInquiry(text)) {
+        const { photoBuffer, caption, replyMarkup } =
+          await handleTelegramChartCommand(supabaseAdmin);
+        await sendTelegramPhoto(photoBuffer, caption, replyMarkup);
         return NextResponse.json({ ok: true });
       }
 
@@ -314,7 +332,10 @@ export async function POST(req: NextRequest) {
               { text: "🔄 Оновити", callback_data: "tg_cushion_summary" },
               { text: "📊 Залишок циклу", callback_data: "tg_cycle_summary" },
             ],
-            [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+            [
+              { text: "📈 Графік", callback_data: "tg_send_chart" },
+              { text: "📊 Відкрити BudgetGraph", url: appUrl },
+            ],
           ],
         });
         return NextResponse.json({ ok: true });
