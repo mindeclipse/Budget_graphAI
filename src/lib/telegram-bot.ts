@@ -31,6 +31,7 @@ import {
   loadPastAmortizationObligations,
 } from "@/lib/weighted-pacing";
 import { getKyivDayOfWeek } from "@/lib/behavioral-metrics";
+import { getCycleDateRange, FALLBACK_BUDGET_LIMIT } from "@/lib/cycle-utils";
 import { Transaction } from "@/types/finance";
 
 export interface ParsedTelegramExpense {
@@ -1428,21 +1429,30 @@ export async function loadCyclePacing(
     999
   ).toISOString();
 
-  const { data: cycleConfig } = await supabaseAdmin
+  // Отримуємо активний або останній цикл
+  const { data: activeCycle } = await supabaseAdmin
     .from("budget_cycles")
-    .select("id, monthly_limit, start_date, end_date")
+    .select("id, name, budget_limit, start_date, end_date, is_active")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const startDate = cycleConfig?.start_date
-    ? new Date(cycleConfig.start_date)
-    : new Date(currentMonthStart);
-  const endDate = cycleConfig?.end_date
-    ? new Date(cycleConfig.end_date)
-    : new Date(currentMonthEnd);
+  const cycleConfig =
+    activeCycle ||
+    (
+      await supabaseAdmin
+        .from("budget_cycles")
+        .select("id, name, budget_limit, start_date, end_date, is_active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ).data;
 
-  const totalBudgetLimit = Number(cycleConfig?.monthly_limit || 30000);
+  const { startDate, endDate } = getCycleDateRange(cycleConfig, now);
+  const totalBudgetLimit = Number(
+    cycleConfig?.budget_limit || FALLBACK_BUDGET_LIMIT
+  );
 
   const { data: txs } = await supabaseAdmin
     .from("transactions")
@@ -1477,7 +1487,7 @@ export async function loadCyclePacing(
   }
 
   const currentExpenseTotal = validTransactions
-    .filter((t) => !t.exclude_from_budget && t.type !== "income")
+    .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   const pacing = calculateWeightedCalendarPacing(validTransactions, {
@@ -1853,19 +1863,30 @@ export async function handleTelegramWhatIfCommand(
     999
   ).toISOString();
 
-  const { data: cycleConfig } = await supabaseAdmin
+  // Отримуємо активний або останній цикл
+  const { data: activeCycle } = await supabaseAdmin
     .from("budget_cycles")
-    .select("id, monthly_limit, start_date, end_date")
+    .select("id, name, budget_limit, start_date, end_date, is_active")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const startDate = cycleConfig?.start_date
-    ? new Date(cycleConfig.start_date)
-    : new Date(currentMonthStart);
-  const endDate = cycleConfig?.end_date
-    ? new Date(cycleConfig.end_date)
-    : new Date(currentMonthEnd);
+  const cycleConfig =
+    activeCycle ||
+    (
+      await supabaseAdmin
+        .from("budget_cycles")
+        .select("id, name, budget_limit, start_date, end_date, is_active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ).data;
+
+  const { startDate, endDate } = getCycleDateRange(cycleConfig, now);
+  const totalBudgetLimit = Number(
+    cycleConfig?.budget_limit || FALLBACK_BUDGET_LIMIT
+  );
 
   const { data: txs } = await supabaseAdmin
     .from("transactions")
@@ -1900,7 +1921,7 @@ export async function handleTelegramWhatIfCommand(
   }
 
   const currentExpenseTotal = validTransactions
-    .filter((t) => !t.exclude_from_budget && t.type !== "income")
+    .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   const simulation = simulatePurchaseImpact(
@@ -1910,7 +1931,7 @@ export async function handleTelegramWhatIfCommand(
       now,
       startDate,
       endDate,
-      totalBudgetLimit: Number(cycleConfig?.monthly_limit || 30000),
+      totalBudgetLimit,
       currentExpenseTotal,
       upcomingObligations,
     },

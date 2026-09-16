@@ -392,7 +392,7 @@ export function calculateWeightedCalendarPacing(
     options.currentExpenseTotal !== undefined
       ? options.currentExpenseTotal
       : transactions
-          .filter((t) => !t.exclude_from_budget && t.type !== "income")
+          .filter((t) => !t.exclude_from_budget && t.type === "expense")
           .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
   const remainingTotal = Math.max(0, totalLimit - currentExpense);
 

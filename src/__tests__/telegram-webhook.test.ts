@@ -65,11 +65,13 @@ vi.mock("@/lib/supabase-admin", () => ({
       if (table === "budget_cycles") {
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           order: vi.fn().mockReturnThis(),
           limit: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({
             data: {
               id: "cycle-1",
+              budget_limit: 30000,
               monthly_limit: 30000,
               start_date: "2026-09-01T00:00:00Z",
               end_date: "2026-09-30T23:59:59Z",
@@ -439,11 +441,13 @@ describe("Telegram Bot Utilities & Logic", () => {
           if (table === "budget_cycles") {
             return {
               select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
               order: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnThis(),
               maybeSingle: vi.fn().mockResolvedValue({
                 data: {
                   id: "cycle-1",
+                  budget_limit: 30000,
                   monthly_limit: 30000,
                   start_date: "2026-09-01T00:00:00Z",
                   end_date: "2026-09-30T23:59:59Z",
@@ -506,11 +510,13 @@ describe("Telegram Bot Utilities & Logic", () => {
           if (table === "budget_cycles") {
             return {
               select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
               order: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnThis(),
               maybeSingle: vi.fn().mockResolvedValue({
                 data: {
                   id: "cycle-1",
+                  budget_limit: 30000,
                   monthly_limit: 30000,
                   start_date: "2026-09-01T00:00:00Z",
                   end_date: "2026-09-30T23:59:59Z",
@@ -633,10 +639,12 @@ describe("Telegram Bot Utilities & Logic", () => {
           if (table === "budget_cycles") {
             return {
               select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
               order: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnThis(),
               maybeSingle: vi.fn().mockResolvedValue({
                 data: {
+                  budget_limit: 30000,
                   monthly_limit: 30000,
                   start_date: "2026-09-01T00:00:00.000Z",
                   end_date: "2026-09-30T23:59:59.999Z",
@@ -1081,22 +1089,26 @@ describe("Telegram Bot Utilities & Logic", () => {
       const mockSupabase = {
         from: vi.fn((table: string) => {
           if (table === "budget_cycles") {
-            return {
-              select: vi.fn().mockReturnValue({
-                order: vi.fn().mockReturnValue({
-                  limit: vi.fn().mockReturnValue({
-                    maybeSingle: vi.fn().mockResolvedValue({
-                      data: {
-                        id: 1,
-                        monthly_limit: 30000,
-                        start_date: "2026-09-01T00:00:00.000Z",
-                        end_date: "2026-09-30T23:59:59.999Z",
-                      },
-                    }),
-                  }),
-                }),
+            const builder: any = {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              order: vi.fn().mockReturnThis(),
+              limit: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 1,
+                  budget_limit: 30000,
+                  monthly_limit: 30000,
+                  start_date: "2026-09-01T00:00:00.000Z",
+                  end_date: "2026-09-30T23:59:59.999Z",
+                },
               }),
             };
+            builder.select.mockReturnValue(builder);
+            builder.eq.mockReturnValue(builder);
+            builder.order.mockReturnValue(builder);
+            builder.limit.mockReturnValue(builder);
+            return builder;
           }
           if (table === "transactions") {
             return {
@@ -1151,18 +1163,25 @@ describe("Telegram Bot Utilities & Logic", () => {
       const mockSupabase = {
         from: vi.fn((table: string) => {
           if (table === "budget_cycles") {
-            return {
+            const builder: any = {
               select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
               order: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnThis(),
               maybeSingle: vi.fn().mockResolvedValue({
                 data: {
+                  budget_limit: 30000,
                   monthly_limit: 30000,
                   start_date: "2026-09-01T00:00:00.000Z",
                   end_date: "2026-09-30T23:59:59.999Z",
                 },
               }),
             };
+            builder.select.mockReturnValue(builder);
+            builder.eq.mockReturnValue(builder);
+            builder.order.mockReturnValue(builder);
+            builder.limit.mockReturnValue(builder);
+            return builder;
           }
           if (table === "transactions") {
             return {

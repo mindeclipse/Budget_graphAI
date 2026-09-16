@@ -36,11 +36,13 @@ describe("Proactive Pacing Scheduled Alerts (Step 4)", () => {
           if (table === "budget_cycles") {
             return {
               select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
               order: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnThis(),
               maybeSingle: vi.fn().mockResolvedValue({
                 data: {
                   id: "cycle-1",
+                  budget_limit: 30000,
                   monthly_limit: 30000,
                   start_date: "2026-09-01T00:00:00Z",
                   end_date: "2026-09-30T23:59:59Z",
@@ -151,10 +153,11 @@ describe("Proactive Pacing Scheduled Alerts (Step 4)", () => {
           if (table === "budget_cycles") {
             return {
               select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
               order: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnThis(),
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { monthly_limit: 25000 },
+                data: { budget_limit: 25000, monthly_limit: 25000 },
                 error: null,
               }),
             };
@@ -211,10 +214,12 @@ describe("Proactive Pacing Scheduled Alerts (Step 4)", () => {
           if (table === "budget_cycles") {
             return {
               select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
               order: vi.fn().mockReturnThis(),
               limit: vi.fn().mockReturnThis(),
               maybeSingle: vi.fn().mockResolvedValue({
                 data: {
+                  budget_limit: 30000,
                   monthly_limit: 30000,
                   start_date: "2026-09-01T00:00:00Z",
                   end_date: "2026-09-30T23:59:59Z",

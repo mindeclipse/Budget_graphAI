@@ -71,23 +71,36 @@ export async function GET(req: NextRequest) {
     if (txError) throw txError;
 
     // Отримуємо збережені налаштування циклу (якщо є)
-    const { data: cycleConfig } = await supabase
+    const { data: activeCycle } = await supabase
       .from("budget_cycles")
-      .select("id, category_limits, monthly_limit, start_date, end_date")
+      .select("id, budget_limit, start_date, end_date, is_active")
+      .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    const categoryLimits = cycleConfig?.category_limits || [];
-    const totalBudgetLimit = cycleConfig?.monthly_limit || undefined;
+    const cycleConfig =
+      activeCycle ||
+      (
+        await supabase
+          .from("budget_cycles")
+          .select("id, budget_limit, start_date, end_date, is_active")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ).data;
+
+    const totalBudgetLimit = cycleConfig?.budget_limit || undefined;
 
     const validTransactions = (transactions || []) as unknown as Transaction[];
 
     const pacing = calculateBudgetPacing(
-      validTransactions.filter((t) => !t.exclude_from_budget),
+      validTransactions.filter(
+        (t) => !t.exclude_from_budget && t.type === "expense"
+      ),
       startDate,
       endDate,
-      categoryLimits,
+      [],
       totalBudgetLimit
     );
 
@@ -116,7 +129,7 @@ export async function GET(req: NextRequest) {
     }
 
     const currentExpenseTotal = validTransactions
-      .filter((t) => !t.exclude_from_budget && t.type !== "income")
+      .filter((t) => !t.exclude_from_budget && t.type === "expense")
       .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
     const weightedPacing = calculateWeightedCalendarPacing(validTransactions, {

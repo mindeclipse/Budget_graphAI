@@ -15,7 +15,7 @@ import {
   loadPastAmortizationObligations,
 } from "@/lib/weighted-pacing";
 import { Transaction } from "@/types/finance";
-
+import { getCycleDateRange, FALLBACK_BUDGET_LIMIT } from "@/lib/cycle-utils";
 import { timingSafeEqual } from "@/lib/security";
 
 function getAppUrl(): string {
@@ -97,19 +97,30 @@ export async function generateFridayRadarAlert(options?: {
     999
   ).toISOString();
 
-  const { data: cycleConfig } = await supabase
+  // Отримуємо активний або останній цикл
+  const { data: activeCycle } = await supabase
     .from("budget_cycles")
-    .select("id, monthly_limit, start_date, end_date")
+    .select("id, name, budget_limit, start_date, end_date, is_active")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const startDate = cycleConfig?.start_date
-    ? new Date(cycleConfig.start_date)
-    : new Date(currentMonthStart);
-  const endDate = cycleConfig?.end_date
-    ? new Date(cycleConfig.end_date)
-    : new Date(currentMonthEnd);
+  const cycleConfig =
+    activeCycle ||
+    (
+      await supabase
+        .from("budget_cycles")
+        .select("id, name, budget_limit, start_date, end_date, is_active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ).data;
+
+  const { startDate, endDate } = getCycleDateRange(cycleConfig, now);
+  const totalBudgetLimit = Number(
+    cycleConfig?.budget_limit || FALLBACK_BUDGET_LIMIT
+  );
 
   // 3. Завантаження валідних транзакцій циклу
   const { data: txs } = await supabase
@@ -146,7 +157,7 @@ export async function generateFridayRadarAlert(options?: {
   }
 
   const currentExpenseTotal = validTransactions
-    .filter((t) => !t.exclude_from_budget && t.type !== "income")
+    .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   // 5. Розрахунок зваженого темпу
@@ -154,7 +165,7 @@ export async function generateFridayRadarAlert(options?: {
     now,
     startDate,
     endDate,
-    totalBudgetLimit: Number(cycleConfig?.monthly_limit || 30000),
+    totalBudgetLimit,
     currentExpenseTotal,
     upcomingObligations,
   });
@@ -266,19 +277,30 @@ export async function generateMondayResetAlert(options?: {
     999
   ).toISOString();
 
-  const { data: cycleConfig } = await supabase
+  // Отримуємо активний або останній цикл
+  const { data: activeCycle } = await supabase
     .from("budget_cycles")
-    .select("id, monthly_limit, start_date, end_date")
+    .select("id, name, budget_limit, start_date, end_date, is_active")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const startDate = cycleConfig?.start_date
-    ? new Date(cycleConfig.start_date)
-    : new Date(currentMonthStart);
-  const endDate = cycleConfig?.end_date
-    ? new Date(cycleConfig.end_date)
-    : new Date(currentMonthEnd);
+  const cycleConfig =
+    activeCycle ||
+    (
+      await supabase
+        .from("budget_cycles")
+        .select("id, name, budget_limit, start_date, end_date, is_active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ).data;
+
+  const { startDate, endDate } = getCycleDateRange(cycleConfig, now);
+  const totalBudgetLimit = Number(
+    cycleConfig?.budget_limit || FALLBACK_BUDGET_LIMIT
+  );
 
   // 3. Завантаження валідних транзакцій циклу
   const { data: txs } = await supabase
@@ -299,7 +321,7 @@ export async function generateMondayResetAlert(options?: {
   const sundayKyivStr = getKyivDateString(sundayDate);
 
   const pastWeekendTxs = validTransactions.filter((t) => {
-    if (t.exclude_from_budget || t.type === "income" || t.deleted_at) {
+    if (t.exclude_from_budget || t.type !== "expense" || t.deleted_at) {
       return false;
     }
     const tKyiv = getKyivDateString(t.created_at);
@@ -334,7 +356,7 @@ export async function generateMondayResetAlert(options?: {
   }
 
   const currentExpenseTotal = validTransactions
-    .filter((t) => !t.exclude_from_budget && t.type !== "income")
+    .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   // 6. Розрахунок свіжого темпу на новий робочий тиждень
@@ -342,7 +364,7 @@ export async function generateMondayResetAlert(options?: {
     now,
     startDate,
     endDate,
-    totalBudgetLimit: Number(cycleConfig?.monthly_limit || 30000),
+    totalBudgetLimit,
     currentExpenseTotal,
     upcomingObligations,
   });
