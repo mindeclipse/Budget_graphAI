@@ -1561,11 +1561,21 @@ export async function handleTelegramEmergencyFundCommand(
     )
     .is("deleted_at", null);
 
-  const roundupTxs = (rawRoundupTxs || []).filter(
-    (t: any) =>
-      isRoundupTransaction(t.merchant_raw, t.category_name) ||
+  const roundupTxs: any[] = [];
+  const directTransfers: any[] = [];
+
+  for (const t of rawRoundupTxs || []) {
+    const m = (t.merchant_raw || "").toLowerCase();
+    if (
+      m.includes("округлення") ||
+      m.includes("решта") ||
       t.source === "roundup"
-  );
+    ) {
+      roundupTxs.push(t);
+    } else {
+      directTransfers.push(t);
+    }
+  }
 
   const totalRoundupAmount =
     Math.round(
@@ -1575,6 +1585,15 @@ export async function handleTelegramEmergencyFundCommand(
       ) * 100
     ) / 100;
   const totalRoundupsCount = roundupTxs.length;
+
+  const directTransferTotal =
+    Math.round(
+      directTransfers.reduce(
+        (sum: number, t: any) => sum + Number(t.amount || 0),
+        0
+      ) * 100
+    ) / 100;
+  const directTransfersCount = directTransfers.length;
 
   const currentMonthStart = new Date(
     now.getFullYear(),
@@ -1603,7 +1622,7 @@ export async function handleTelegramEmergencyFundCommand(
     `🛡️ <b>Фінансова подушка безпеки</b>`,
     ``,
     `🪙 <b>Скарбничка автоокруглення («${escapeHtml(cushionGoal?.name || ROUNDUP_GOAL_NAME)}»):</b>`,
-    `• Баланс: <b>${cushionCurrent.toLocaleString("uk-UA")} ₴</b>`,
+    `• Доступний баланс: <b>${cushionCurrent.toLocaleString("uk-UA")} ₴</b>`,
   ];
 
   if (cushionTarget && cushionTarget > 0) {
@@ -1618,9 +1637,15 @@ export async function handleTelegramEmergencyFundCommand(
   }
 
   lines.push(
-    `• Заощаджено за цей місяць: <b>+${monthRoundupAmount.toLocaleString("uk-UA")} ₴</b> (${monthRoundupCount} оп.)`,
-    `• Всього накопичено рештою: <b>+${totalRoundupAmount.toLocaleString("uk-UA")} ₴</b> (${totalRoundupsCount} оп.)`
+    `• Заощаджено рештою за цей місяць: <b>+${monthRoundupAmount.toLocaleString("uk-UA")} ₴</b> (${monthRoundupCount} оп.)`,
+    `• Всього накопичено чистою рештою: <b>+${totalRoundupAmount.toLocaleString("uk-UA")} ₴</b> (${totalRoundupsCount} оп.)`
   );
+
+  if (directTransfersCount > 0) {
+    lines.push(
+      `• Прямі поповнення подушки: <b>+${directTransferTotal.toLocaleString("uk-UA")} ₴</b> (${directTransfersCount} оп.)`
+    );
+  }
 
   if (otherGoals.length > 0) {
     lines.push(``, `💵 <b>Інші активи та резерви:</b>`);
