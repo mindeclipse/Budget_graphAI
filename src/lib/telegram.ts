@@ -7,8 +7,27 @@ export interface TelegramInlineKeyboardButton {
   callback_data?: string;
 }
 
+export interface TelegramKeyboardButton {
+  text: string;
+}
+
 export interface TelegramReplyMarkup {
   inline_keyboard?: TelegramInlineKeyboardButton[][];
+  keyboard?: TelegramKeyboardButton[][];
+  resize_keyboard?: boolean;
+  is_persistent?: boolean;
+  one_time_keyboard?: boolean;
+}
+
+export function getPersistentReplyKeyboard(): TelegramReplyMarkup {
+  return {
+    keyboard: [
+      [{ text: "🎯 Мій темп" }, { text: "📊 Залишок циклу" }],
+      [{ text: "🛡️ Подушка" }, { text: "💡 Що якщо...?" }],
+    ],
+    resize_keyboard: true,
+    is_persistent: true,
+  };
 }
 
 export async function sendTelegramMessage(

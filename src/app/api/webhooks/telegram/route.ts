@@ -5,6 +5,7 @@ import {
   sendTelegramMessage,
   getTelegramFile,
   escapeHtml,
+  getPersistentReplyKeyboard,
 } from "@/lib/telegram";
 import {
   parseNaturalLanguageExpense,
@@ -14,8 +15,14 @@ import {
   formatTransactionConfirmation,
   handleTelegramCallbackQuery,
   isPaceInquiry,
+  isCycleSummaryInquiry,
+  isEmergencyFundInquiry,
+  isWhatIfGuideInquiry,
   parseWhatIfPurchaseQuery,
   handleTelegramPaceCommand,
+  handleTelegramCycleSummaryCommand,
+  handleTelegramEmergencyFundCommand,
+  handleTelegramWhatIfGuideCommand,
   handleTelegramWhatIfCommand,
 } from "@/lib/telegram-bot";
 
@@ -89,7 +96,7 @@ export async function POST(req: NextRequest) {
     const text = message.text?.trim() || "";
 
     // А. Команди початку роботи / допомоги
-    if (text === "/start" || text === "/help") {
+    if (text === "/start" || text === "/help" || text === "/menu") {
       const welcomeText = [
         `👋 <b>Вітаю у BudgetGraph Bot!</b>`,
         ``,
@@ -102,9 +109,11 @@ export async function POST(req: NextRequest) {
         `• <code>кава 85</code>`,
         `• <code>зарплата 45000</code>`,
         ``,
-        `🎯 <b>Темп бюджету та симулятор покупок (What-If):</b>`,
-        `• <code>/pace</code> або <i>«який темп?»</i> — актуальний ліміт на день (будні vs вихідні) та прогноз профіциту`,
-        `• <i>«чи можу купити навушники 3500 грн?»</i> — аналіз наслідків покупки для залишку`,
+        `🎯 <b>Швидкі дії на клавіатурі внизу:</b>`,
+        `• 🎯 <b>Мій темп</b> — актуальний ліміт на день (будні vs вихідні) та прогноз`,
+        `• 📊 <b>Залишок циклу</b> — загальний ліміт, витрати, прогрес і залишок`,
+        `• 🛡️ <b>Подушка</b> — баланс скарбнички автоокруглення та резерви`,
+        `• 💡 <b>Що якщо...?</b> — симулятор покупок перед здійсненням витрат`,
         ``,
         `🧾 <b>Електронні чеки та PDF:</b>`,
         `• Надішліть скріншот чека (Сільпо, Monobank, Checkbox тощо).`,
@@ -114,7 +123,7 @@ export async function POST(req: NextRequest) {
         `Під кожним повідомленням доступні кнопки швидкої зміни категорії, скасування або розбиття чеку на окремі позиції.`,
       ].join("\n");
 
-      await sendTelegramMessage(welcomeText);
+      await sendTelegramMessage(welcomeText, getPersistentReplyKeyboard());
       return NextResponse.json({ ok: true });
     }
 
@@ -249,7 +258,7 @@ export async function POST(req: NextRequest) {
 
     // Г. Обробка тексту природною мовою
     if (text) {
-      // 1. Запит про стан та зважений темп бюджету (/pace, "який темп?", "скільки на день?")
+      // 1. Запит про стан та зважений темп бюджету (/pace, "🎯 Мій темп", "який темп?", "скільки на день?")
       if (isPaceInquiry(text)) {
         const paceReply = await handleTelegramPaceCommand(supabaseAdmin);
         const appUrl =
@@ -261,14 +270,77 @@ export async function POST(req: NextRequest) {
           inline_keyboard: [
             [
               { text: "🔄 Оновити темп", callback_data: "tg_refresh_pace" },
-              { text: "📊 Відкрити BudgetGraph", url: appUrl },
+              { text: "📊 Залишок циклу", callback_data: "tg_cycle_summary" },
             ],
+            [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
           ],
         });
         return NextResponse.json({ ok: true });
       }
 
-      // 2. Симулятор покупок What-If ("чи можу купити ... за ...?", "хочу купити куртку 3500")
+      // 2. Запит про підсумок та залишок циклу ("📊 Залишок циклу", /cycle, "залишок циклу")
+      if (isCycleSummaryInquiry(text)) {
+        const cycleReply =
+          await handleTelegramCycleSummaryCommand(supabaseAdmin);
+        const appUrl =
+          process.env.APP_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "https://budget-pwa.vercel.app";
+
+        await sendTelegramMessage(cycleReply, {
+          inline_keyboard: [
+            [
+              { text: "🔄 Оновити", callback_data: "tg_cycle_summary" },
+              { text: "🎯 Мій темп", callback_data: "tg_refresh_pace" },
+            ],
+            [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+          ],
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // 3. Запит про фінансову подушку безпеки ("🛡️ Подушка", /cushion, "подушка")
+      if (isEmergencyFundInquiry(text)) {
+        const cushionReply =
+          await handleTelegramEmergencyFundCommand(supabaseAdmin);
+        const appUrl =
+          process.env.APP_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "https://budget-pwa.vercel.app";
+
+        await sendTelegramMessage(cushionReply, {
+          inline_keyboard: [
+            [
+              { text: "🔄 Оновити", callback_data: "tg_cushion_summary" },
+              { text: "📊 Залишок циклу", callback_data: "tg_cycle_summary" },
+            ],
+            [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+          ],
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // 4. Інструкція щодо симулятора What-If ("💡 Що якщо...?", /whatif, "що якщо")
+      if (isWhatIfGuideInquiry(text)) {
+        const guideReply = handleTelegramWhatIfGuideCommand();
+        const appUrl =
+          process.env.APP_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          "https://budget-pwa.vercel.app";
+
+        await sendTelegramMessage(guideReply, {
+          inline_keyboard: [
+            [
+              { text: "🎯 Мій темп", callback_data: "tg_refresh_pace" },
+              { text: "📊 Залишок циклу", callback_data: "tg_cycle_summary" },
+            ],
+            [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+          ],
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // 5. Симулятор покупок What-If ("чи можу купити ... за ...?", "хочу купити куртку 3500")
       const whatIf = parseWhatIfPurchaseQuery(text);
       if (whatIf) {
         const whatIfReply = await handleTelegramWhatIfCommand(

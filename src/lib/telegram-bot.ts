@@ -12,7 +12,7 @@ import {
   computeSafeDailyBudget,
   DailyBudgetInfo,
 } from "@/lib/classify-formatter";
-import { processExpenseRoundup } from "@/lib/roundup-utils";
+import { processExpenseRoundup, ROUNDUP_GOAL_NAME } from "@/lib/roundup-utils";
 import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 import { SupportedGeminiModel } from "@/types/ai";
 import {
@@ -114,6 +114,31 @@ export function formatKyivDateTime(dateStr: string | Date): string {
   } catch {
     return String(dateStr);
   }
+}
+
+export function formatKyivDate(dateStr: string | Date): string {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return new Intl.DateTimeFormat("uk-UA", {
+      timeZone: "Europe/Kyiv",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(d);
+  } catch {
+    return String(dateStr);
+  }
+}
+
+/**
+ * Рендерить текстовий прогрес-бар для повідомлень Telegram
+ */
+export function renderProgressBar(percent: number, totalBlocks = 10): string {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  const filledBlocks = Math.round((safePercent / 100) * totalBlocks);
+  const emptyBlocks = Math.max(0, totalBlocks - filledBlocks);
+  return `${"█".repeat(filledBlocks)}${"░".repeat(emptyBlocks)}`;
 }
 
 /**
@@ -1056,11 +1081,54 @@ export async function handleTelegramCallbackQuery(
       inline_keyboard: [
         [
           { text: "🔄 Оновити темп", callback_data: "tg_refresh_pace" },
-          { text: "📊 Відкрити BudgetGraph", url: appUrl },
+          { text: "📊 Залишок циклу", callback_data: "tg_cycle_summary" },
         ],
+        [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
       ],
     });
     await answerTelegramCallbackQuery(queryId, "Темп оновлено!");
+    return true;
+  }
+
+  // 7. Оновлення залишку циклу: tg_cycle_summary
+  if (data === "tg_cycle_summary") {
+    const cycleText = await handleTelegramCycleSummaryCommand(supabaseAdmin);
+    const appUrl =
+      process.env.APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://budget-pwa.vercel.app";
+
+    await editTelegramMessageText(chatId, messageId, cycleText, {
+      inline_keyboard: [
+        [
+          { text: "🔄 Оновити", callback_data: "tg_cycle_summary" },
+          { text: "🎯 Мій темп", callback_data: "tg_refresh_pace" },
+        ],
+        [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+      ],
+    });
+    await answerTelegramCallbackQuery(queryId, "Залишок циклу оновлено!");
+    return true;
+  }
+
+  // 8. Оновлення подушки: tg_cushion_summary
+  if (data === "tg_cushion_summary") {
+    const cushionText = await handleTelegramEmergencyFundCommand(supabaseAdmin);
+    const appUrl =
+      process.env.APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://budget-pwa.vercel.app";
+
+    await editTelegramMessageText(chatId, messageId, cushionText, {
+      inline_keyboard: [
+        [
+          { text: "🔄 Оновити", callback_data: "tg_cushion_summary" },
+          { text: "📊 Залишок циклу", callback_data: "tg_cycle_summary" },
+        ],
+        [{ text: "📊 Відкрити BudgetGraph", url: appUrl }],
+      ],
+    });
+    await answerTelegramCallbackQuery(queryId, "Подушку оновлено!");
     return true;
   }
 
@@ -1072,17 +1140,91 @@ export async function handleTelegramCallbackQuery(
  */
 export function isPaceInquiry(text: string): boolean {
   const t = text.trim().toLowerCase();
-  if (/^\/(pace|today|budget)/i.test(t)) return true;
-  if (/^(темп|який темп\??|який мій темп\??|який темп бюджету\??)/i.test(t))
-    return true;
-  if (/^(скільки (можу|можна) витратити( сьогодні)?\??)/i.test(t)) return true;
-  if (/^(скільки на день\??|безпечно на день\??|ліміт на день\??)/i.test(t))
-    return true;
+  if (/^\/(pace|today|budget)$/i.test(t)) return true;
   if (
-    /^(чи є гроші\??|який залишок\??|скільки залишилось( грошей)?\??)/i.test(t)
-  )
+    /^(🎯\s*)?(темп|мій темп|який темп|який мій темп|який темп бюджету)\s*(\?+)?$/i.test(
+      t
+    )
+  ) {
     return true;
-  if (/^(ліміт на вихідні\??|скільки на вихідні\??)/i.test(t)) return true;
+  }
+  if (/^скільки (можу|можна) витратити( сьогодні)?\s*(\?+)?$/i.test(t)) {
+    return true;
+  }
+  if (
+    /^скільки на день\s*(\?+)?$|^безпечно на день\s*(\?+)?$|^ліміт на день\s*(\?+)?$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(чи є гроші|який залишок|скільки залишилось( грошей)?)\s*(\?+)?$/i.test(t)
+  ) {
+    return true;
+  }
+  if (/^(ліміт на вихідні|скільки на вихідні)\s*(\?+)?$/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Перевіряє, чи є текст запитом про підсумок/залишок циклу
+ */
+export function isCycleSummaryInquiry(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (/^\/(cycle|period|summary)$/i.test(t)) return true;
+  if (
+    /^(📊\s*)?(залишок циклу|підсумок циклу|баланс циклу|стан циклу|мій цикл)\s*(\?+)?$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(скільки (залишилось|лишилось) до кінця циклу|скільки (залишилось|лишилось) до кінця місяця)\s*(\?+)?$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Перевіряє, чи є текст запитом про стан фінансової подушки безпеки
+ */
+export function isEmergencyFundInquiry(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (/^\/(cushion|fund|pillow|roundup|savings)$/i.test(t)) return true;
+  if (
+    /^(🛡️?\s*|🏦\s*)?(подушка|фінансова подушка|скарбничка|накопичення|заощадження|решта|округлення)\s*(\?+)?$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  if (
+    /^(скільки в подушці|скільки на подушці|стан подушки)\s*(\?+)?$/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Перевіряє, чи є текст запитом про інструкцію/довідку щодо симулятора покупок What-If
+ */
+export function isWhatIfGuideInquiry(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (/^\/(whatif|simulator|calc)$/i.test(t)) return true;
+  if (
+    /^(💡\s*)?що якщо(\.{1,3})?(\?+)?$/i.test(t) ||
+    /^(💡\s*)?(симулятор|симулятор покупок|як працює що якщо)\s*(\?+)?$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -1220,12 +1362,17 @@ export function formatWhatIfResponse(sim: PurchaseSimulationResult): string {
 }
 
 /**
- * Обробник команди або запиту про темп бюджету
+ * Допоміжна функція завантаження та розрахунку темпу поточного бюджетного циклу
  */
-export async function handleTelegramPaceCommand(
+export async function loadCyclePacing(
   supabaseAdmin: any,
   now: Date = new Date()
-): Promise<string> {
+): Promise<{
+  pacing: WeightedPacingResult;
+  startDate: Date;
+  endDate: Date;
+  totalBudgetLimit: number;
+}> {
   const currentMonthStart = new Date(
     now.getFullYear(),
     now.getMonth(),
@@ -1254,6 +1401,8 @@ export async function handleTelegramPaceCommand(
   const endDate = cycleConfig?.end_date
     ? new Date(cycleConfig.end_date)
     : new Date(currentMonthEnd);
+
+  const totalBudgetLimit = Number(cycleConfig?.monthly_limit || 30000);
 
   const { data: txs } = await supabaseAdmin
     .from("transactions")
@@ -1295,12 +1444,210 @@ export async function handleTelegramPaceCommand(
     now,
     startDate,
     endDate,
-    totalBudgetLimit: Number(cycleConfig?.monthly_limit || 30000),
+    totalBudgetLimit,
     currentExpenseTotal,
     upcomingObligations,
   });
 
+  return { pacing, startDate, endDate, totalBudgetLimit };
+}
+
+/**
+ * Обробник команди або запиту про темп бюджету
+ */
+export async function handleTelegramPaceCommand(
+  supabaseAdmin: any,
+  now: Date = new Date()
+): Promise<string> {
+  const { pacing } = await loadCyclePacing(supabaseAdmin, now);
   return formatPaceResponse(pacing, now);
+}
+
+/**
+ * Обробник запиту про розгорнутий залишок та підсумок циклу
+ */
+export async function handleTelegramCycleSummaryCommand(
+  supabaseAdmin: any,
+  now: Date = new Date()
+): Promise<string> {
+  const { pacing, startDate, endDate, totalBudgetLimit } =
+    await loadCyclePacing(supabaseAdmin, now);
+
+  const spentPercent = Math.min(
+    999,
+    Math.round(
+      (pacing.budget.currentExpenseTotal / (totalBudgetLimit || 1)) * 100
+    )
+  );
+
+  const statusEmojis: Record<string, string> = {
+    healthy: "🟢",
+    tight: "🟡",
+    critical: "🟠",
+    depleted: "🔴",
+  };
+  const statusEmoji = statusEmojis[pacing.pacing.status] || "ℹ️";
+
+  const actualDailyAverage =
+    pacing.cycle.daysPassed > 0
+      ? Math.round(pacing.budget.currentExpenseTotal / pacing.cycle.daysPassed)
+      : 0;
+
+  const lines = [
+    `📊 <b>Підсумок бюджетного циклу</b>`,
+    ``,
+    `🗓 <b>Період:</b> ${formatKyivDate(startDate)} — ${formatKyivDate(endDate)}`,
+    `⏳ <b>Прогрес часу:</b> ${pacing.cycle.daysPassed} з ${pacing.cycle.daysTotal} дн. (залишилось ${pacing.cycle.daysRemaining} дн.)`,
+    ``,
+    `💰 <b>Загальний ліміт:</b> <code>${totalBudgetLimit.toLocaleString("uk-UA")} ₴</code>`,
+    `💸 <b>Витрачено:</b> <code>${pacing.budget.currentExpenseTotal.toLocaleString("uk-UA")} ₴</code> (${spentPercent}%)`,
+    `<code>[${renderProgressBar(spentPercent)}]</code>`,
+    ``,
+    `💵 <b>Вільний залишок:</b> <b>${pacing.budget.discretionaryRemaining.toLocaleString("uk-UA")} ₴</b>`,
+    `🔒 <b>Зарезервовано під підписки:</b> ${pacing.budget.reservedObligationsTotal.toLocaleString("uk-UA")} ₴`,
+    ``,
+    `📈 <b>Середні витрати:</b>`,
+    `• Фактично: ~${actualDailyAverage.toLocaleString("uk-UA")} ₴/день`,
+    `• Базовий орієнтир: ~${pacing.pacing.flatDailySpend.toLocaleString("uk-UA")} ₴/день`,
+    `• Рекомендовано будні: ~${pacing.pacing.safeWeekdaySpend.toLocaleString("uk-UA")} ₴/день`,
+    `• Рекомендовано вихідні: ~${pacing.pacing.safeWeekendSpend.toLocaleString("uk-UA")} ₴/день`,
+  ];
+
+  if (pacing.surplusProjection.projectedSurplusAmount > 0) {
+    lines.push(
+      ``,
+      `🎯 <b>Очікуваний профіцит:</b> +${pacing.surplusProjection.projectedSurplusAmount.toLocaleString("uk-UA")} ₴ (${pacing.surplusProjection.savingsPotentialPercent}%)`
+    );
+  }
+
+  lines.push(
+    ``,
+    `${statusEmoji} <b>Статус:</b> ${pacing.pacing.statusLabel}`,
+    `💡 <i>${escapeHtml(pacing.pacing.advice)}</i>`
+  );
+
+  return lines.join("\n");
+}
+
+/**
+ * Обробник запиту про стан подушки безпеки та скарбнички автоокруглення
+ */
+export async function handleTelegramEmergencyFundCommand(
+  supabaseAdmin: any,
+  now: Date = new Date()
+): Promise<string> {
+  const { data: goals } = await supabaseAdmin
+    .from("savings_goals")
+    .select("id, name, target_amount, current_amount, currency")
+    .order("id", { ascending: true });
+
+  const cushionGoal = (goals || []).find(
+    (g: any) =>
+      g.name?.toLowerCase().includes("подушка") ||
+      g.name?.toLowerCase() === ROUNDUP_GOAL_NAME.toLowerCase()
+  );
+
+  const otherGoals = (goals || []).filter((g: any) => g.id !== cushionGoal?.id);
+
+  const { data: roundupTxs } = await supabaseAdmin
+    .from("transactions")
+    .select("amount, created_at")
+    .eq("source", "roundup")
+    .is("deleted_at", null);
+
+  const totalRoundupAmount = (roundupTxs || []).reduce(
+    (sum: number, t: any) => sum + Number(t.amount || 0),
+    0
+  );
+  const totalRoundupsCount = roundupTxs?.length || 0;
+
+  const currentMonthStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    1
+  ).toISOString();
+
+  const monthRoundupTxs = (roundupTxs || []).filter(
+    (t: any) => t.created_at && t.created_at >= currentMonthStart
+  );
+  const monthRoundupAmount = monthRoundupTxs.reduce(
+    (sum: number, t: any) => sum + Number(t.amount || 0),
+    0
+  );
+  const monthRoundupCount = monthRoundupTxs.length;
+
+  const cushionCurrent = Number(cushionGoal?.current_amount || 0);
+  const cushionTarget = cushionGoal?.target_amount
+    ? Number(cushionGoal.target_amount)
+    : null;
+
+  const lines = [
+    `🛡️ <b>Фінансова подушка безпеки</b>`,
+    ``,
+    `🪙 <b>Скарбничка автоокруглення («${escapeHtml(cushionGoal?.name || ROUNDUP_GOAL_NAME)}»):</b>`,
+    `• Баланс: <b>${cushionCurrent.toLocaleString("uk-UA")} ₴</b>`,
+  ];
+
+  if (cushionTarget && cushionTarget > 0) {
+    const progressPercent = Math.min(
+      100,
+      Math.round((cushionCurrent / cushionTarget) * 100)
+    );
+    lines.push(
+      `• Ціль: <b>${cushionTarget.toLocaleString("uk-UA")} ₴</b> (${progressPercent}%)`,
+      `<code>[${renderProgressBar(progressPercent)}]</code>`
+    );
+  }
+
+  lines.push(
+    `• Заощаджено за цей місяць: <b>+${monthRoundupAmount.toLocaleString("uk-UA")} ₴</b> (${monthRoundupCount} оп.)`,
+    `• Всього накопичено рештою: <b>+${totalRoundupAmount.toLocaleString("uk-UA")} ₴</b> (${totalRoundupsCount} оп.)`
+  );
+
+  if (otherGoals.length > 0) {
+    lines.push(``, `💵 <b>Інші активи та резерви:</b>`);
+    for (const g of otherGoals) {
+      const currSymbol =
+        g.currency === "USD"
+          ? "$"
+          : g.currency === "EUR"
+            ? "€"
+            : g.currency === "UAH"
+              ? "₴"
+              : g.currency;
+      const amount = Number(g.current_amount || 0).toLocaleString("uk-UA");
+      lines.push(`• ${escapeHtml(g.name)}: <b>${amount} ${currSymbol}</b>`);
+    }
+  }
+
+  lines.push(
+    ``,
+    `💡 <i>Кожна безготівкова витрата округлюється до 10 ₴, непомітно формуючи вашу фінансову безпеку.</i>`
+  );
+
+  return lines.join("\n");
+}
+
+/**
+ * Обробник довідки щодо симулятора What-If
+ */
+export function handleTelegramWhatIfGuideCommand(): string {
+  return [
+    `💡 <b>Симулятор покупок (What-If аналіз)</b>`,
+    ``,
+    `Симулятор дозволяє перед покупкою дізнатися, чи не порушить вона баланс бюджету та як змінить ваш щоденний темп витрат.`,
+    ``,
+    `🤖 <b>Як зробити запит? Напишіть у чат будь-яку з фраз:</b>`,
+    `• <code>чи можу купити кросівки за 3200?</code>`,
+    `• <code>хочу купити навушники 2500 грн</code>`,
+    `• <code>чи норм витратити 800 на ресторан?</code>`,
+    `• <code>планую покупку 4500</code>`,
+    ``,
+    `📊 <b>Що порахує бот:</b>`,
+    `1. ✅ <b>Вердикт:</b> <i>Безпечно</i>, <i>Обережно</i> або <i>Не рекомендовано</i>.`,
+    `2. 📉 <b>Зміну лімітів:</b> перерахує новий ліміт на будні (Пн-Чт) та вихідні (Пт-Нд).`,
+    `3. 🔒 <b>Захист зобов'язань:</b> врахує всі майбутні підписки та обов'язкові платежі до кінця циклу.`,
+  ].join("\n");
 }
 
 /**
