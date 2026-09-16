@@ -629,7 +629,7 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(parsed?.type).toBe("income");
       expect(parsed?.amount).toBe(250);
       expect(parsed?.merchant).toBe("Кохана");
-      expect(parsed?.category).toBe("Інше");
+      expect(parsed?.category).toBe("Зарплата/ФОП");
       expect(parsed?.note).toBe("повернення коштів від Кохана");
     });
 
@@ -639,6 +639,7 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(parsed?.type).toBe("income");
       expect(parsed?.amount).toBe(300);
       expect(parsed?.merchant).toBe("Повернення коштів");
+      expect(parsed?.category).toBe("Зарплата/ФОП");
     });
 
     it("розпізнає зарахування на картку 'зарахування 250'", () => {
@@ -647,7 +648,7 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(parsed?.type).toBe("income");
       expect(parsed?.amount).toBe(250);
       expect(parsed?.merchant).toBe("Зарахування коштів");
-      expect(parsed?.category).toBe("Інше");
+      expect(parsed?.category).toBe("Зарплата/ФОП");
     });
 
     it("розпізнає зарплату 'зарплата 45000'", () => {

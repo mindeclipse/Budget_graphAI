@@ -167,7 +167,7 @@ export function tryFastNaturalLanguageParse(
       return {
         amount,
         merchant: fromPerson ? fromPerson : "Повернення коштів",
-        category: "Інше",
+        category: "Зарплата/ФОП",
         type: "income",
         date: isoNow,
         note: fromPerson
@@ -187,7 +187,7 @@ export function tryFastNaturalLanguageParse(
       return {
         amount,
         merchant: "Зарахування коштів",
-        category: "Інше",
+        category: "Зарплата/ФОП",
         type: "income",
         date: isoNow,
         note: "зарахування",
@@ -244,9 +244,9 @@ export async function parseNaturalLanguageExpense(
 Твоє завдання — розпізнати:
 1. amount: додатнє число (наприклад 240, 1500, 480.50).
 2. merchant: чиста назва закладу або послуги (наприклад "Таксі Uklon", "Аптека Подорожник", "Сільпо", "Кафе", "АЗС OKKO").
-3. category: суворо одна з наступних категорій:
+3. category: суворо одна з наступних категорій (якщо це дохід, зарахування чи повернення коштів, обери "Зарплата/ФОП", а не "Інше"):
 ${CATEGORIES.map((c) => `  - "${c}"`).join("\n")}
-4. type: "expense" (витрата), "income" (дохід/зарплата), або "investment" (інвестиції, ОВДП, Inzhur). За замовчуванням "expense".
+4. type: "expense" (витрата), "income" (дохід/зарплата/повернення коштів), або "investment" (інвестиції, ОВДП, Inzhur). За замовчуванням "expense".
 5. date: рядок ISO 8601 у часовому поясі України. Якщо користувач каже "вчора", "позавчора" чи вказує дату, розрахуй відносно поточного часу: ${kyivNowStr}. Якщо дата не вказана, поверни ${isoNow}.
 6. note: необов'язковий коментар або уточнення (наприклад "вітаміни", "лате з круасаном").
 7. is_emergency: boolean (true, якщо це термінова витрата на здоров'я, ліки, форс-мажор, або витрата "з подушки" чи "хвороба").
@@ -363,13 +363,20 @@ ${CATEGORIES.map((c) => `  - "${c}"`).join("\n")}
       };
     }
 
+    const txType = ["expense", "income", "investment"].includes(parsed.type)
+      ? (parsed.type as "expense" | "income" | "investment")
+      : "expense";
+
+    // Якщо це дохід і категорія не визначилась або визначилась як Інше, за замовчуванням встановлюємо Зарплата/ФОП
+    if (txType === "income" && (category === "Інше" || !category)) {
+      category = "Зарплата/ФОП";
+    }
+
     return {
       amount,
       merchant: String(parsed.merchant || "Витрата").trim(),
       category,
-      type: ["expense", "income", "investment"].includes(parsed.type)
-        ? parsed.type
-        : "expense",
+      type: txType,
       date: txDate,
       note: parsed.note ? String(parsed.note).trim() : undefined,
       exclude_from_budget: undefined,
