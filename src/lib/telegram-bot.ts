@@ -12,7 +12,11 @@ import {
   computeSafeDailyBudget,
   DailyBudgetInfo,
 } from "@/lib/classify-formatter";
-import { processExpenseRoundup, ROUNDUP_GOAL_NAME } from "@/lib/roundup-utils";
+import {
+  processExpenseRoundup,
+  ROUNDUP_GOAL_NAME,
+  isRoundupTransaction,
+} from "@/lib/roundup-utils";
 import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 import { SupportedGeminiModel } from "@/types/ai";
 import {
@@ -1549,17 +1553,28 @@ export async function handleTelegramEmergencyFundCommand(
 
   const otherGoals = (goals || []).filter((g: any) => g.id !== cushionGoal?.id);
 
-  const { data: roundupTxs } = await supabaseAdmin
+  const { data: rawRoundupTxs } = await supabaseAdmin
     .from("transactions")
-    .select("amount, created_at")
-    .eq("source", "roundup")
+    .select("amount, created_at, merchant_raw, category_name, source")
+    .or(
+      "category_name.ilike.%подушка%,merchant_raw.ilike.%округлення%,source.eq.roundup"
+    )
     .is("deleted_at", null);
 
-  const totalRoundupAmount = (roundupTxs || []).reduce(
-    (sum: number, t: any) => sum + Number(t.amount || 0),
-    0
+  const roundupTxs = (rawRoundupTxs || []).filter(
+    (t: any) =>
+      isRoundupTransaction(t.merchant_raw, t.category_name) ||
+      t.source === "roundup"
   );
-  const totalRoundupsCount = roundupTxs?.length || 0;
+
+  const totalRoundupAmount =
+    Math.round(
+      roundupTxs.reduce(
+        (sum: number, t: any) => sum + Number(t.amount || 0),
+        0
+      ) * 100
+    ) / 100;
+  const totalRoundupsCount = roundupTxs.length;
 
   const currentMonthStart = new Date(
     now.getFullYear(),
@@ -1567,13 +1582,16 @@ export async function handleTelegramEmergencyFundCommand(
     1
   ).toISOString();
 
-  const monthRoundupTxs = (roundupTxs || []).filter(
+  const monthRoundupTxs = roundupTxs.filter(
     (t: any) => t.created_at && t.created_at >= currentMonthStart
   );
-  const monthRoundupAmount = monthRoundupTxs.reduce(
-    (sum: number, t: any) => sum + Number(t.amount || 0),
-    0
-  );
+  const monthRoundupAmount =
+    Math.round(
+      monthRoundupTxs.reduce(
+        (sum: number, t: any) => sum + Number(t.amount || 0),
+        0
+      ) * 100
+    ) / 100;
   const monthRoundupCount = monthRoundupTxs.length;
 
   const cushionCurrent = Number(cushionGoal?.current_amount || 0);

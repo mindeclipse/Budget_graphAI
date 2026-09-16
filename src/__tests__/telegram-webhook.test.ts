@@ -96,6 +96,7 @@ vi.mock("@/lib/supabase-admin", () => ({
           gte: vi.fn().mockReturnThis(),
           lte: vi.fn().mockResolvedValue({ data: [] }),
           eq: vi.fn().mockReturnThis(),
+          or: vi.fn().mockReturnThis(),
           insert: vi.fn().mockResolvedValue({ data: [], error: null }),
         };
       }
@@ -584,6 +585,7 @@ describe("Telegram Bot Utilities & Logic", () => {
           if (table === "transactions") {
             return {
               select: vi.fn().mockReturnThis(),
+              or: vi.fn().mockReturnThis(),
               eq: vi.fn().mockReturnThis(),
               is: vi.fn().mockResolvedValue({
                 data: [],
@@ -925,11 +927,23 @@ describe("Telegram Bot Utilities & Logic", () => {
           if (table === "transactions") {
             return {
               select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
+                or: vi.fn().mockReturnValue({
                   is: vi.fn().mockResolvedValue({
                     data: [
-                      { amount: 5.4, created_at: new Date().toISOString() },
-                      { amount: 8.0, created_at: new Date().toISOString() },
+                      {
+                        amount: 5.4,
+                        created_at: new Date().toISOString(),
+                        merchant_raw:
+                          "Решта від округлення витрат на Фінансова подушка",
+                        category_name: "Внутрішні перекази / Подушка",
+                      },
+                      {
+                        amount: 8.0,
+                        created_at: new Date().toISOString(),
+                        merchant_raw:
+                          "Решта від округлення витрат на Фінансова подушка",
+                        category_name: "Внутрішні перекази / Подушка",
+                      },
                     ],
                   }),
                 }),
