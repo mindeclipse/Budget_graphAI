@@ -35,7 +35,9 @@ export interface UpcomingObligation {
 
 export interface SurplusProjection {
   projectedSurplusAmount: number;
+  projectedDeficitAmount?: number;
   savingsPotentialPercent: number;
+  status?: "surplus" | "on_track" | "deficit";
   summaryText: string;
 }
 
@@ -99,7 +101,7 @@ export interface PurchaseSimulationResult {
  * Повертає ефективну суму витрати для розрахунку темпу (з урахуванням амортизації)
  */
 export function getEffectiveTransactionExpense(tx: Transaction): number {
-  if (tx.exclude_from_budget || tx.type === "income" || tx.deleted_at) {
+  if (tx.exclude_from_budget || tx.type !== "expense" || tx.deleted_at) {
     return 0;
   }
   const amt = Number(tx.amount || 0);
@@ -114,7 +116,7 @@ export function getEffectiveTransactionExpense(tx: Transaction): number {
  * Розраховує нормалізовану щомісячну частку для аналітики та ШІ (без спотворення кеш-балансу)
  */
 export function getAmortizedMonthlyExpense(tx: Transaction): number {
-  if (tx.exclude_from_budget || tx.type === "income" || tx.deleted_at) {
+  if (tx.exclude_from_budget || tx.type !== "expense" || tx.deleted_at) {
     return 0;
   }
   const amt = Number(tx.amount || 0);
@@ -206,7 +208,7 @@ export function calibrateHabitsFromBaseline(
 ): CalibratedHabits {
   // 1. Фільтрація: тільки валідні витрати від базової лінії
   const validTx = transactions.filter((t) => {
-    if (t.type === "income" || t.exclude_from_budget || t.deleted_at) {
+    if (t.type !== "expense" || t.exclude_from_budget || t.deleted_at) {
       return false;
     }
     const rawDate = t.created_at || (t as any).date;
@@ -325,6 +327,28 @@ export function calibrateHabitsFromBaseline(
 }
 
 /**
+ * Перевіряє, чи припадає число регулярного платежу на залишок активного циклу
+ */
+export function isObligationDueInRemainingCycle(
+  dayOfMonth: number,
+  startKyivStr: string,
+  endKyivStr: string
+): boolean {
+  if (dayOfMonth < 1 || dayOfMonth > 31) return false;
+  const [sYear, sMonth, sDay] = startKyivStr.split("-").map(Number);
+  const [eYear, eMonth, eDay] = endKyivStr.split("-").map(Number);
+  const cur = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+  const end = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+  while (cur <= end) {
+    if (cur.getUTCDate() === dayOfMonth) {
+      return true;
+    }
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return false;
+}
+
+/**
  * Розраховує зважений календарний темп на залишок циклу та прогноз профіциту
  */
 export function calculateWeightedCalendarPacing(
@@ -397,14 +421,19 @@ export function calculateWeightedCalendarPacing(
   const remainingTotal = Math.max(0, totalLimit - currentExpense);
 
   // Резервування майбутніх постійних платежів / підписок до кінця циклу
-  const currentDayOfMonth = parseInt(currentKyivDateStr.split("-")[2], 10);
   const upcomingObligations = options.upcomingObligations || [];
 
   let reservedObligationsTotal = 0;
   for (const obl of upcomingObligations) {
     if (obl.is_paid) continue;
     if (obl.day_of_month !== undefined) {
-      if (obl.day_of_month >= currentDayOfMonth) {
+      if (
+        isObligationDueInRemainingCycle(
+          obl.day_of_month,
+          currentKyivDateStr,
+          endKyivDateStr
+        )
+      ) {
         reservedObligationsTotal += Number(obl.amount || 0);
       }
     } else {
@@ -468,21 +497,30 @@ export function calculateWeightedCalendarPacing(
     projectedRemainingSpend = avgDailySoFar * daysRemaining;
   }
 
+  const projectedDiff = discretionaryRemaining - projectedRemainingSpend;
   const projectedSurplusAmount =
-    projectedRemainingSpend > 0 &&
-    discretionaryRemaining > projectedRemainingSpend
-      ? Math.round(discretionaryRemaining - projectedRemainingSpend)
-      : 0;
+    projectedDiff > 0 ? Math.round(projectedDiff) : 0;
+  const projectedDeficitAmount =
+    projectedDiff < 0 ? Math.round(Math.abs(projectedDiff)) : 0;
 
   const savingsPotentialPercent =
     totalLimit > 0
       ? Math.round((projectedSurplusAmount / totalLimit) * 100)
       : 0;
 
+  let surplusStatus: "surplus" | "on_track" | "deficit" = "on_track";
+  if (projectedSurplusAmount > 0) {
+    surplusStatus = "surplus";
+  } else if (projectedDeficitAmount > 100) {
+    surplusStatus = "deficit";
+  }
+
   const surplusSummary =
-    projectedSurplusAmount > 0
+    surplusStatus === "surplus"
       ? `При збереженні поточного темпу очікуваний профіцит у кінці циклу: +${projectedSurplusAmount.toLocaleString("uk-UA")} ₴ (${savingsPotentialPercent}% бюджету).`
-      : "При повному використанні рекомендованого ліміту бюджет буде закрито в нуль без дефіциту.";
+      : surplusStatus === "deficit"
+        ? `При поточному темпі є ризик перевитрати на ~${projectedDeficitAmount.toLocaleString("uk-UA")} ₴. Дотримуйтесь рекомендованого ліміту.`
+        : "При повному використанні рекомендованого ліміту бюджет буде закрито в нуль без дефіциту.";
 
   return {
     baselineDate: NEW_HABITS_BASELINE,
@@ -514,7 +552,9 @@ export function calculateWeightedCalendarPacing(
     },
     surplusProjection: {
       projectedSurplusAmount,
+      projectedDeficitAmount,
       savingsPotentialPercent,
+      status: surplusStatus,
       summaryText: surplusSummary,
     },
   };

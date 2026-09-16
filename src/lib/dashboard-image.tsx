@@ -433,11 +433,27 @@ export async function generateBudgetDashboardImage(
               🔒 Зарезервовано під підписки:{" "}
               {budget.reservedObligationsTotal.toLocaleString("uk-UA")} ₴
             </span>
-            <span style={{ color: "#10b981", fontWeight: 600 }}>
-              🎯 Очікуваний профіцит: +
-              {surplusProjection.projectedSurplusAmount.toLocaleString("uk-UA")}{" "}
-              ₴ ({surplusProjection.savingsPotentialPercent}%)
-            </span>
+            {surplusProjection.projectedSurplusAmount > 0 ? (
+              <span style={{ color: "#10b981", fontWeight: 600 }}>
+                🎯 Очікуваний профіцит: +
+                {surplusProjection.projectedSurplusAmount.toLocaleString(
+                  "uk-UA"
+                )}{" "}
+                ₴ ({surplusProjection.savingsPotentialPercent}%)
+              </span>
+            ) : (surplusProjection.projectedDeficitAmount || 0) > 100 ? (
+              <span style={{ color: "#f87171", fontWeight: 600 }}>
+                ⚠️ Ризик дефіциту: -
+                {(surplusProjection.projectedDeficitAmount || 0).toLocaleString(
+                  "uk-UA"
+                )}{" "}
+                ₴
+              </span>
+            ) : (
+              <span style={{ color: "#60a5fa", fontWeight: 600 }}>
+                🎯 Прогноз: У межах бюджету
+              </span>
+            )}
           </div>
         </div>
       </div>

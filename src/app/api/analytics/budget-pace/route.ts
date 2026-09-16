@@ -9,6 +9,8 @@ import {
   type UpcomingObligation,
 } from "@/lib/weighted-pacing";
 import { verifySessionToken } from "@/lib/session";
+import { getUsdRate } from "@/lib/currency";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
 import { Transaction } from "@/types/finance";
 
 export const dynamic = "force-dynamic";
@@ -107,16 +109,31 @@ export async function GET(req: NextRequest) {
     // Завантажуємо активні шаблони регулярних платежів для резервування зобов'язань
     const { data: recurringItems } = await supabase
       .from("recurring_templates")
-      .select("id, name, amount, day_of_month, is_active")
+      .select(
+        "id, title, amount, currency, day_of_month, is_active, category_name"
+      )
       .eq("is_active", true);
 
-    const upcomingObligations: UpcomingObligation[] = (
-      recurringItems || []
-    ).map((r: any) => ({
-      title: r.name,
-      amount: Number(r.amount || 0),
-      day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
-    }));
+    const usdRate = await getUsdRate();
+
+    const schedule = buildUpcomingSchedule(
+      recurringItems || [],
+      validTransactions,
+      usdRate,
+      now
+    );
+
+    const upcomingObligations: UpcomingObligation[] = schedule.upcoming.map(
+      (u) => ({
+        title: u.title,
+        amount:
+          u.currency === "USD"
+            ? Math.round(u.amount * usdRate)
+            : Number(u.amount),
+        day_of_month: u.day_of_month,
+        is_paid: u.status === "paid",
+      })
+    );
 
     // Завантажуємо активні амортизовані витрати з попередніх місяців
     const pastObligations = await loadPastAmortizationObligations(

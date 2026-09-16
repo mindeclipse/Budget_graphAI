@@ -13,9 +13,12 @@ import {
   calculateWeightedCalendarPacing,
   getEffectiveTransactionExpense,
   loadPastAmortizationObligations,
+  UpcomingObligation,
 } from "@/lib/weighted-pacing";
 import { Transaction } from "@/types/finance";
 import { getCycleDateRange, FALLBACK_BUDGET_LIMIT } from "@/lib/cycle-utils";
+import { getUsdRate } from "@/lib/currency";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
 import { timingSafeEqual } from "@/lib/security";
 
 function getAppUrl(): string {
@@ -122,29 +125,57 @@ export async function generateFridayRadarAlert(options?: {
     cycleConfig?.budget_limit || FALLBACK_BUDGET_LIMIT
   );
 
-  // 3. Завантаження валідних транзакцій циклу
+  // 3. Завантаження валідних транзакцій циклу та історії звички
+  const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+  const fetchStart =
+    startDate.toISOString() < habitBaselineIso
+      ? startDate.toISOString()
+      : habitBaselineIso;
+
   const { data: txs } = await supabase
     .from("transactions")
     .select(
       "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
-    .gte("created_at", startDate.toISOString())
+    .gte("created_at", fetchStart)
     .lte("created_at", endDate.toISOString());
 
-  const validTransactions = (txs || []) as Transaction[];
+  const allValidTransactions = (txs || []) as Transaction[];
+
+  const cycleTransactions = allValidTransactions.filter((t) => {
+    const d = new Date(t.created_at);
+    return d >= startDate && d <= endDate;
+  });
 
   // 4. Завантаження шаблонів постійних платежів
   const { data: recurring } = await supabase
     .from("recurring_templates")
-    .select("id, name, amount, day_of_month, is_active")
+    .select(
+      "id, title, amount, currency, day_of_month, is_active, category_name"
+    )
     .eq("is_active", true);
 
-  const upcomingObligations = (recurring || []).map((r: any) => ({
-    title: r.name,
-    amount: Number(r.amount || 0),
-    day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
-  }));
+  const usdRate = await getUsdRate();
+
+  const schedule = buildUpcomingSchedule(
+    recurring || [],
+    cycleTransactions,
+    usdRate,
+    now
+  );
+
+  const upcomingObligations: UpcomingObligation[] = schedule.upcoming.map(
+    (u) => ({
+      title: u.title,
+      amount:
+        u.currency === "USD"
+          ? Math.round(u.amount * usdRate)
+          : Number(u.amount),
+      day_of_month: u.day_of_month,
+      is_paid: u.status === "paid",
+    })
+  );
 
   // Завантажуємо активні амортизовані витрати з попередніх місяців
   const pastObligations = await loadPastAmortizationObligations(
@@ -156,12 +187,12 @@ export async function generateFridayRadarAlert(options?: {
     upcomingObligations.push(...pastObligations);
   }
 
-  const currentExpenseTotal = validTransactions
+  const currentExpenseTotal = cycleTransactions
     .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   // 5. Розрахунок зваженого темпу
-  const pacing = calculateWeightedCalendarPacing(validTransactions, {
+  const pacing = calculateWeightedCalendarPacing(allValidTransactions, {
     now,
     startDate,
     endDate,
@@ -303,16 +334,28 @@ export async function generateMondayResetAlert(options?: {
   );
 
   // 3. Завантаження валідних транзакцій циклу
+  // 3. Завантаження валідних транзакцій циклу та історії звички
+  const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+  const fetchStart =
+    startDate.toISOString() < habitBaselineIso
+      ? startDate.toISOString()
+      : habitBaselineIso;
+
   const { data: txs } = await supabase
     .from("transactions")
     .select(
       "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
-    .gte("created_at", startDate.toISOString())
+    .gte("created_at", fetchStart)
     .lte("created_at", endDate.toISOString());
 
-  const validTransactions = (txs || []) as Transaction[];
+  const allValidTransactions = (txs || []) as Transaction[];
+
+  const cycleTransactions = allValidTransactions.filter((t) => {
+    const d = new Date(t.created_at);
+    return d >= startDate && d <= endDate;
+  });
 
   // 4. Аналіз минулих вихідних (Пт, Сб, Нд перед цим понеділком)
   const fridayDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
@@ -320,7 +363,7 @@ export async function generateMondayResetAlert(options?: {
   const fridayKyivStr = getKyivDateString(fridayDate);
   const sundayKyivStr = getKyivDateString(sundayDate);
 
-  const pastWeekendTxs = validTransactions.filter((t) => {
+  const pastWeekendTxs = cycleTransactions.filter((t) => {
     if (t.exclude_from_budget || t.type !== "expense" || t.deleted_at) {
       return false;
     }
@@ -336,14 +379,31 @@ export async function generateMondayResetAlert(options?: {
   // 5. Завантаження обов'язкових платежів
   const { data: recurring } = await supabase
     .from("recurring_templates")
-    .select("id, name, amount, day_of_month, is_active")
+    .select(
+      "id, title, amount, currency, day_of_month, is_active, category_name"
+    )
     .eq("is_active", true);
 
-  const upcomingObligations = (recurring || []).map((r: any) => ({
-    title: r.name,
-    amount: Number(r.amount || 0),
-    day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
-  }));
+  const usdRate = await getUsdRate();
+
+  const schedule = buildUpcomingSchedule(
+    recurring || [],
+    cycleTransactions,
+    usdRate,
+    now
+  );
+
+  const upcomingObligations: UpcomingObligation[] = schedule.upcoming.map(
+    (u) => ({
+      title: u.title,
+      amount:
+        u.currency === "USD"
+          ? Math.round(u.amount * usdRate)
+          : Number(u.amount),
+      day_of_month: u.day_of_month,
+      is_paid: u.status === "paid",
+    })
+  );
 
   // Завантажуємо активні амортизовані витрати з попередніх місяців
   const pastObligations = await loadPastAmortizationObligations(
@@ -355,12 +415,12 @@ export async function generateMondayResetAlert(options?: {
     upcomingObligations.push(...pastObligations);
   }
 
-  const currentExpenseTotal = validTransactions
+  const currentExpenseTotal = cycleTransactions
     .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   // 6. Розрахунок свіжого темпу на новий робочий тиждень
-  const pacing = calculateWeightedCalendarPacing(validTransactions, {
+  const pacing = calculateWeightedCalendarPacing(allValidTransactions, {
     now,
     startDate,
     endDate,

@@ -52,7 +52,7 @@ describe("Weighted Calendar Pacing Engine (Step 4)", () => {
       expect(habits.totalCalibratedSpend).toBe(1000); // 400 + 600
     });
 
-    it("ігнорує доходи, виключені з бюджету та видалені транзакції", () => {
+    it("ігнорує доходи, інвестиції, перекази, виключені з бюджету та видалені транзакції", () => {
       const txs = [
         {
           id: 1,
@@ -62,20 +62,32 @@ describe("Weighted Calendar Pacing Engine (Step 4)", () => {
         },
         {
           id: 2,
+          amount: 35000,
+          type: "investment",
+          created_at: "2026-08-20T11:00:00.000Z",
+        },
+        {
+          id: 3,
+          amount: 10000,
+          type: "transfer",
+          created_at: "2026-08-20T12:00:00.000Z",
+        },
+        {
+          id: 4,
           amount: 3000,
           type: "expense",
           exclude_from_budget: true,
           created_at: "2026-08-21T10:00:00.000Z",
         },
         {
-          id: 3,
+          id: 5,
           amount: 700,
           type: "expense",
           deleted_at: "2026-08-22T10:00:00.000Z",
           created_at: "2026-08-22T10:00:00.000Z",
         },
         {
-          id: 4,
+          id: 6,
           amount: 250,
           type: "expense",
           created_at: "2026-08-23T10:00:00.000Z",
@@ -183,6 +195,38 @@ describe("Weighted Calendar Pacing Engine (Step 4)", () => {
         result.pacing.safeWeekdaySpend
       );
       expect(result.pacing.status).toBe("healthy");
+    });
+
+    it("коректно резервує регулярні платежі при циклі через межу місяців (напр. 08.09 - 08.10)", () => {
+      // 17 вересня 2026, цикл з 8 вересня по 8 жовтня
+      const now = new Date("2026-09-17T10:00:00.000Z");
+      const startDate = new Date("2026-09-08T00:00:00.000Z");
+      const endDate = new Date("2026-10-08T23:59:59.999Z");
+
+      const upcomingObligations = [
+        { title: "Spotify", amount: 269, day_of_month: 18, is_paid: false }, // 18 вересня -> в циклі
+        { title: "Оренда", amount: 20000, day_of_month: 28, is_paid: false }, // 28 вересня -> в циклі
+        {
+          title: "Youtube Бродячий",
+          amount: 100,
+          day_of_month: 4,
+          is_paid: false,
+        }, // 4 жовтня -> в циклі (хоч 4 < 17)
+        { title: "Київстар", amount: 250, day_of_month: 11, is_paid: true }, // вже сплачено
+      ];
+
+      const result = calculateWeightedCalendarPacing([], {
+        now,
+        startDate,
+        endDate,
+        totalBudgetLimit: 35000,
+        currentExpenseTotal: 5000,
+        upcomingObligations,
+      });
+
+      // 269 + 20000 + 100 = 20369 грн
+      expect(result.budget.reservedObligationsTotal).toBe(20369);
+      expect(result.budget.discretionaryRemaining).toBe(35000 - 5000 - 20369);
     });
 
     it("при вичерпанні ліміту встановлює статус depleted", () => {

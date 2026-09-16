@@ -29,9 +29,12 @@ import {
   PurchaseSimulationResult,
   getEffectiveTransactionExpense,
   loadPastAmortizationObligations,
+  UpcomingObligation,
 } from "@/lib/weighted-pacing";
 import { getKyivDayOfWeek } from "@/lib/behavioral-metrics";
 import { getCycleDateRange, FALLBACK_BUDGET_LIMIT } from "@/lib/cycle-utils";
+import { getUsdRate } from "@/lib/currency";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
 import { Transaction } from "@/types/finance";
 
 export interface ParsedTelegramExpense {
@@ -1454,27 +1457,55 @@ export async function loadCyclePacing(
     cycleConfig?.budget_limit || FALLBACK_BUDGET_LIMIT
   );
 
+  const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+  const fetchStart =
+    startDate.toISOString() < habitBaselineIso
+      ? startDate.toISOString()
+      : habitBaselineIso;
+
   const { data: txs } = await supabaseAdmin
     .from("transactions")
     .select(
       "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
-    .gte("created_at", startDate.toISOString())
+    .gte("created_at", fetchStart)
     .lte("created_at", endDate.toISOString());
 
-  const validTransactions = (txs || []) as Transaction[];
+  const allValidTransactions = (txs || []) as Transaction[];
+
+  const cycleTransactions = allValidTransactions.filter((t) => {
+    const d = new Date(t.created_at);
+    return d >= startDate && d <= endDate;
+  });
 
   const { data: recurring } = await supabaseAdmin
     .from("recurring_templates")
-    .select("id, name, amount, day_of_month, is_active")
+    .select(
+      "id, title, amount, currency, day_of_month, is_active, category_name"
+    )
     .eq("is_active", true);
 
-  const upcomingObligations = (recurring || []).map((r: any) => ({
-    title: r.name,
-    amount: Number(r.amount || 0),
-    day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
-  }));
+  const usdRate = await getUsdRate();
+
+  const schedule = buildUpcomingSchedule(
+    recurring || [],
+    cycleTransactions,
+    usdRate,
+    now
+  );
+
+  const upcomingObligations: UpcomingObligation[] = schedule.upcoming.map(
+    (u) => ({
+      title: u.title,
+      amount:
+        u.currency === "USD"
+          ? Math.round(u.amount * usdRate)
+          : Number(u.amount),
+      day_of_month: u.day_of_month,
+      is_paid: u.status === "paid",
+    })
+  );
 
   // Завантажуємо активні амортизовані витрати з попередніх місяців
   const pastObligations = await loadPastAmortizationObligations(
@@ -1486,11 +1517,11 @@ export async function loadCyclePacing(
     upcomingObligations.push(...pastObligations);
   }
 
-  const currentExpenseTotal = validTransactions
+  const currentExpenseTotal = cycleTransactions
     .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
-  const pacing = calculateWeightedCalendarPacing(validTransactions, {
+  const pacing = calculateWeightedCalendarPacing(allValidTransactions, {
     now,
     startDate,
     endDate,
@@ -1888,27 +1919,55 @@ export async function handleTelegramWhatIfCommand(
     cycleConfig?.budget_limit || FALLBACK_BUDGET_LIMIT
   );
 
+  const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+  const fetchStart =
+    startDate.toISOString() < habitBaselineIso
+      ? startDate.toISOString()
+      : habitBaselineIso;
+
   const { data: txs } = await supabaseAdmin
     .from("transactions")
     .select(
       "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata, deleted_at"
     )
     .is("deleted_at", null)
-    .gte("created_at", startDate.toISOString())
+    .gte("created_at", fetchStart)
     .lte("created_at", endDate.toISOString());
 
-  const validTransactions = (txs || []) as Transaction[];
+  const allValidTransactions = (txs || []) as Transaction[];
+
+  const cycleTransactions = allValidTransactions.filter((t) => {
+    const d = new Date(t.created_at);
+    return d >= startDate && d <= endDate;
+  });
 
   const { data: recurring } = await supabaseAdmin
     .from("recurring_templates")
-    .select("id, name, amount, day_of_month, is_active")
+    .select(
+      "id, title, amount, currency, day_of_month, is_active, category_name"
+    )
     .eq("is_active", true);
 
-  const upcomingObligations = (recurring || []).map((r: any) => ({
-    title: r.name,
-    amount: Number(r.amount || 0),
-    day_of_month: r.day_of_month ? Number(r.day_of_month) : undefined,
-  }));
+  const usdRate = await getUsdRate();
+
+  const schedule = buildUpcomingSchedule(
+    recurring || [],
+    cycleTransactions,
+    usdRate,
+    now
+  );
+
+  const upcomingObligations: UpcomingObligation[] = schedule.upcoming.map(
+    (u) => ({
+      title: u.title,
+      amount:
+        u.currency === "USD"
+          ? Math.round(u.amount * usdRate)
+          : Number(u.amount),
+      day_of_month: u.day_of_month,
+      is_paid: u.status === "paid",
+    })
+  );
 
   // Завантажуємо активні амортизовані витрати з попередніх місяців
   const pastWhatIfObligations = await loadPastAmortizationObligations(
@@ -1920,13 +1979,13 @@ export async function handleTelegramWhatIfCommand(
     upcomingObligations.push(...pastWhatIfObligations);
   }
 
-  const currentExpenseTotal = validTransactions
+  const currentExpenseTotal = cycleTransactions
     .filter((t) => !t.exclude_from_budget && t.type === "expense")
     .reduce((sum, t) => sum + getEffectiveTransactionExpense(t), 0);
 
   const simulation = simulatePurchaseImpact(
     amount,
-    validTransactions,
+    allValidTransactions,
     {
       now,
       startDate,
