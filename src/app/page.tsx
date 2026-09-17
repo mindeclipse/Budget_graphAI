@@ -1,102 +1,32 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-  useMemo,
-  Suspense,
-  useDeferredValue,
-} from "react";
-import dynamic from "next/dynamic";
+import { useState, useMemo, Suspense } from "react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import { useBudgetMetrics } from "@/hooks/useBudgetMetrics";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
+import { useDashboardModals } from "@/hooks/useDashboardModals";
+import { useAiAdvisor } from "@/hooks/useAiAdvisor";
+import { useHistoryFilters } from "@/hooks/useHistoryFilters";
+import { useCapitalTransactions } from "@/hooks/useCapitalTransactions";
+import { useRecurringActions } from "@/hooks/useRecurringActions";
 
 import { PinAuthScreen } from "@/components/auth/PinAuthScreen";
 import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
 import { PeriodNav } from "@/components/dashboard/PeriodNav";
 import { BudgetSummaryHeader } from "@/components/dashboard/BudgetSummaryHeader";
 import { BudgetLimitCard } from "@/components/dashboard/BudgetLimitCard";
-import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown";
-import { AICard } from "@/components/dashboard/AICard";
-import { TransactionsList } from "@/components/dashboard/TransactionsList";
-import { SubscriptionRadar } from "@/components/dashboard/SubscriptionRadar";
-import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
-import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
-import { WishlistCard } from "@/components/dashboard/WishlistCard";
-import { CostPerUseCard } from "@/components/dashboard/CostPerUseCard";
-import { CapitalYieldMetrics } from "@/components/dashboard/CapitalYieldMetrics";
-import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
-import { DetectedSubscription } from "@/lib/subscription-radar";
-
-import { QuickActionsListener } from "@/components/QuickActionsListener";
-import { MobileBottomBar } from "@/components/dashboard/MobileBottomBar";
-import { triggerHaptic } from "@/lib/haptics";
-import { toast } from "sonner";
-
 import { DashboardModals } from "@/components/dashboard/DashboardModals";
-import { useDashboardModals } from "@/hooks/useDashboardModals";
+import { MobileBottomBar } from "@/components/dashboard/MobileBottomBar";
+import { QuickActionsListener } from "@/components/QuickActionsListener";
 
-// Пульсуючий прелоадер-скелетон для відкладеного завантаження графіків Recharts
-function ChartSkeleton({ height = "h-44 md:h-52" }: { height?: string }) {
-  return (
-    <div className="relative animate-pulse rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="h-3.5 w-36 rounded bg-zinc-800/80" />
-        <div className="h-3 w-10 rounded bg-zinc-800/80" />
-      </div>
-      <div
-        className={`${height} flex w-full items-center justify-center rounded-xl bg-zinc-800/30`}
-      >
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-400 opacity-40" />
-      </div>
-    </div>
-  );
-}
-
-// Code Splitting для важких аналітичних графіків (прискорює початковий бандл на ~35%)
-const DailyDynamicsChart = dynamic(
-  () =>
-    import("@/components/dashboard/DailyDynamicsChart").then(
-      (m) => m.DailyDynamicsChart
-    ),
-  {
-    ssr: false,
-    loading: () => <ChartSkeleton height="h-44 md:h-52" />,
-  }
-);
-const BurnRateChart = dynamic(
-  () =>
-    import("@/components/dashboard/BurnRateChart").then((m) => m.BurnRateChart),
-  {
-    ssr: false,
-    loading: () => <ChartSkeleton height="h-52 md:h-64" />,
-  }
-);
-const MoMComparison = dynamic(
-  () =>
-    import("@/components/dashboard/MoMComparison").then((m) => m.MoMComparison),
-  {
-    ssr: false,
-    loading: () => <ChartSkeleton height="h-44 md:h-52" />,
-  }
-);
-const CapitalHistoryCard = dynamic(
-  () =>
-    import("@/components/dashboard/CapitalHistoryCard").then(
-      (m) => m.CapitalHistoryCard
-    ),
-  {
-    ssr: false,
-    loading: () => <ChartSkeleton height="h-52 md:h-60" />,
-  }
-);
+import { DashboardOverviewTab } from "@/components/dashboard/tabs/DashboardOverviewTab";
+import { DashboardHistoryTab } from "@/components/dashboard/tabs/DashboardHistoryTab";
+import { DashboardWealthTab } from "@/components/dashboard/tabs/DashboardWealthTab";
 
 import {
   Transaction,
   BudgetCycle,
-  RecurringItem,
   SavingsGoal,
   InvestmentAsset,
   WishlistItem,
@@ -105,13 +35,7 @@ import {
 import {
   getCycleDateRange,
   filterTransactionsByDateRange,
-  FALLBACK_BUDGET_LIMIT,
 } from "@/lib/cycle-utils";
-import {
-  AIAnalysisResponse,
-  SupportedGeminiModel,
-  AIAnalysisRequest,
-} from "@/types/ai";
 
 export default function Dashboard() {
   // 1. Автентифікація та сесія
@@ -156,7 +80,7 @@ export default function Dashboard() {
     return rawTransactions.filter((t: Transaction) => !t.exclude_from_budget);
   }, [rawTransactions]);
 
-  // 3. Стан тайтлів і розрахункових періодів
+  // 3. Стан вкладок і періодів
   const [activeTab, setActiveTab] = useState<"overview" | "wealth" | "history">(
     "overview"
   );
@@ -171,7 +95,7 @@ export default function Dashboard() {
     return activeIdx !== -1 ? cycles[activeIdx + 1] || null : cycles[1] || null;
   }, [cycles, activeCycle]);
 
-  // Стан для розширених фінансових можливостей з TanStack Query (кешовано)
+  // 4. Стан капіталу з TanStack Query
   const savingsGoals = useMemo<SavingsGoal[]>(() => {
     return Array.isArray(wealthData?.goals) ? wealthData.goals : [];
   }, [wealthData?.goals]);
@@ -201,7 +125,7 @@ export default function Dashboard() {
     );
   }, [wealthData?.rates]);
 
-  // Стан для усвідомлених покупок (Wishlist & Cost-per-Use)
+  // Стан для Wishlist & Cost-per-Use
   const wishlistItems = useMemo<WishlistItem[]>(() => {
     return wealthData?.wishlist?.items || [];
   }, [wealthData?.wishlist?.items]);
@@ -218,7 +142,7 @@ export default function Dashboard() {
     return wealthData?.costPerUse?.metrics?.total_money_saved ?? 0;
   }, [wealthData?.costPerUse?.metrics?.total_money_saved]);
 
-  // Стан модальних вікон через виділений хук
+  // 5. Модальні вікна
   const {
     isCycleModalOpen,
     openCycleModal,
@@ -228,7 +152,6 @@ export default function Dashboard() {
     openImportModal,
     closeImportModal,
     isInzhurImportOpen,
-    openInzhurImport,
     closeInzhurImport,
     isCreateExpenseOpen,
     openCreateExpense,
@@ -260,7 +183,7 @@ export default function Dashboard() {
     setPrefillCostPerUse,
   } = useDashboardModals();
 
-  // 4. Оптимістичні мутації транзакцій
+  // 6. Оптимістичні мутації транзакцій
   const {
     updateTransaction,
     createTransaction,
@@ -269,7 +192,7 @@ export default function Dashboard() {
     isSyncing,
   } = useTransactionMutations();
 
-  // 5. Розрахунок аналітичних показників через кастомний хук
+  // 7. Розрахунок аналітичних показників
   const {
     selectedMonthKey,
     monthLabel,
@@ -339,267 +262,63 @@ export default function Dashboard() {
     monthLabel,
   ]);
 
-  // 6. Керування AI-аналізом
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [selectedAiModel, setSelectedAiModel] =
-    useState<SupportedGeminiModel>("gemini-3.5-flash");
-
-  const aiFinancialContext = useMemo(() => {
-    const coolingCount = wishlistItems.filter(
-      (i) => i.status === "cooling" || i.status === "ready"
-    ).length;
-    const pendingAmount = wishlistItems
-      .filter((i) => i.status === "cooling" || i.status === "ready")
-      .reduce((sum, i) => sum + Number(i.estimated_price || 0), 0);
-
-    return {
-      cycleName: activeCycle?.name,
-      budgetLimit: effectiveLimit,
-      totalSpent,
-      remaining: budgetMetrics.remaining,
-      safeDailySpend: budgetMetrics.safeDailySpend,
-      daysRemaining: budgetMetrics.daysRemaining,
-      topCategories: categoryStats.slice(0, 5).map((c) => ({
-        name: c.name,
-        amount: c.amount,
-        percentage: c.percentage,
-      })),
-      analysisSummary: aiAnalysis?.summary,
-      upcomingSubscriptions: (radarData?.upcoming || [])
-        .slice(0, 4)
-        .map((s) => ({
-          title: s.title,
-          amount: s.amount,
-          daysRemaining: s.days_remaining,
-        })),
-      wishlistCount: coolingCount,
-      wishlistPendingAmount: pendingAmount,
-      savedImpulseAmount: wishlistSavedAmount,
-      costPerUseCount: costPerUseItems.length,
-      costPerUseTotalSaved: costPerUseSavedAmount,
-      recentTransactions: filteredTransactions
-        .filter(
-          (t) =>
-            (t.tags && t.tags.length > 0) ||
-            t.metadata?.comment ||
-            t.metadata?.note
-        )
-        .slice(0, 15)
-        .map((t) => ({
-          merchant: t.merchant_raw,
-          amount: Number(t.amount),
-          category: t.category_name,
-          tags: t.tags,
-          comment:
-            (t.metadata?.comment as string) ||
-            (t.metadata?.note as string) ||
-            undefined,
-          isEmergency: Boolean(
-            t.metadata?.is_emergency || t.tags?.includes("форсмажор")
-          ),
-          date: new Date(t.created_at).toLocaleDateString("uk-UA", {
-            day: "numeric",
-            month: "short",
-          }),
-        })),
-    };
-  }, [
-    activeCycle?.name,
+  // 8. Виділені хуки бізнес-логіки
+  const {
+    aiAnalysis,
+    isAiLoading,
+    selectedAiModel,
+    setSelectedAiModel,
+    aiFinancialContext,
+    handleRunAiAnalysis,
+  } = useAiAdvisor({
+    activeCycle,
     effectiveLimit,
+    recurringTotal,
     totalSpent,
-    budgetMetrics.remaining,
-    budgetMetrics.safeDailySpend,
-    budgetMetrics.daysRemaining,
+    budgetMetrics,
     categoryStats,
-    aiAnalysis?.summary,
-    radarData?.upcoming,
+    filteredTransactions,
     wishlistItems,
     wishlistSavedAmount,
-    costPerUseItems.length,
+    costPerUseItems,
     costPerUseSavedAmount,
+    radarData,
+    openAiDrawer,
+  });
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    activeTag,
+    setActiveTag,
+    availableTags,
+    displayedTransactions,
+  } = useHistoryFilters({
     filteredTransactions,
-  ]);
+  });
 
-  const handleRunAiAnalysis = async (
-    modelToUse = selectedAiModel,
-    initialPrompt?: string
-  ) => {
-    openAiDrawer(initialPrompt);
+  const capitalTransactions = useCapitalTransactions({
+    investmentTransactions,
+    rawTransactions,
+  });
 
-    if (aiAnalysis && !initialPrompt) {
-      return;
-    }
+  const {
+    handleSaveRecurring,
+    handleDeleteRecurring,
+    handleExecuteRecurring,
+    handleAddDetectedFromRadar,
+    handleDismissDetectedFromRadar,
+  } = useRecurringActions({
+    commercialRates,
+    markRecurringPaidOptimistic,
+    createTransaction,
+    invalidateRecurring,
+    invalidateRadar,
+    openEditRecurring,
+    closeRecurringModal,
+  });
 
-    setIsAiLoading(true);
-
-    try {
-      const recentTaggedTransactions = filteredTransactions
-        .filter(
-          (t) =>
-            (t.tags && t.tags.length > 0) ||
-            t.metadata?.comment ||
-            t.metadata?.note
-        )
-        .slice(0, 10)
-        .map((t) => ({
-          merchant: t.merchant_raw,
-          amount: Number(t.amount),
-          category: t.category_name,
-          tags: t.tags,
-          comment:
-            (t.metadata?.comment as string) ||
-            (t.metadata?.note as string) ||
-            undefined,
-          isEmergency: Boolean(
-            t.metadata?.is_emergency || t.tags?.includes("форсмажор")
-          ),
-        }));
-
-      const payload: AIAnalysisRequest = {
-        cycleName: activeCycle?.name,
-        budgetLimit: effectiveLimit,
-        variableBudget: Math.max(0, effectiveLimit - recurringTotal),
-        recurringTotal,
-        totalSpent,
-        remaining: budgetMetrics.remaining,
-        safeDailySpend: budgetMetrics.safeDailySpend,
-        daysRemaining: budgetMetrics.daysRemaining,
-        spentPercent: budgetMetrics.exactPercent,
-        topCategories: categoryStats.slice(0, 4).map((c) => ({
-          name: c.name,
-          amount: c.amount,
-          percentage: c.percentage,
-        })),
-        recentTaggedTransactions,
-        preferredModel: modelToUse,
-      };
-
-      const res = await fetch("/api/ai/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Не вдалося отримати аналіз");
-
-      const data: AIAnalysisResponse = await res.json();
-      setAiAnalysis(data);
-    } catch (err) {
-      console.error("AI Analysis error:", err);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-  // 7. Пошук та теги для історії (з оптимізацією useDeferredValue для 120 FPS)
-  const [searchQuery, setSearchQuery] = useState("");
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-
-  const availableTags = useMemo<string[]>(() => {
-    const tagsSet = new Set<string>();
-    filteredTransactions.forEach((tx) => {
-      tx.tags?.forEach((tag: string) => tagsSet.add(tag));
-    });
-    return Array.from(tagsSet);
-  }, [filteredTransactions]);
-
-  const displayedTransactions = useMemo(() => {
-    return filteredTransactions.filter((t) => {
-      const q = deferredSearchQuery.toLowerCase().trim();
-      const comment =
-        (typeof t.metadata?.comment === "string" ? t.metadata.comment : "") ||
-        (typeof t.metadata?.note === "string" ? t.metadata.note : "");
-
-      const matchesSearch =
-        q === "" ||
-        t.merchant_raw?.toLowerCase().includes(q) ||
-        t.category_name?.toLowerCase().includes(q) ||
-        String(t.amount).includes(q) ||
-        t.tags?.some((tag) => tag.toLowerCase().includes(q)) ||
-        comment.toLowerCase().includes(q);
-
-      const matchesTag = !activeTag || (t.tags && t.tags.includes(activeTag));
-
-      return matchesSearch && matchesTag;
-    });
-  }, [filteredTransactions, deferredSearchQuery, activeTag]);
-
-  // Вибірка транзакцій для вкладки "Капітал & Цілі" — поєднує:
-  // 1) Окремий запит investmentTransactions (ліміт 5000, без date-фільтру) для всієї історії Inzhur/ОВДП
-  // 2) Транзакції капіталу із загального списку rawTransactions (скарбнички, заощадження, депозити)
-  // 3) Розумна дедуплікація (Reconciliation): якщо банківський переказ на Inzhur (з виписки банку) вже
-  //    представлений у виписці Inzhur як «Поповнення брокерського рахунку», банківський дублікат автоматично відсікається.
-  const capitalTransactions = useMemo(() => {
-    const txMap = new Map<number, Transaction>();
-
-    // 1. Спеціальні investment-транзакції брокера
-    for (const t of investmentTransactions) {
-      if (!t.exclude_from_budget) {
-        txMap.set(t.id, t);
-      }
-    }
-
-    const hasInzhurStatement = investmentTransactions.some(
-      (t) => t.source === "inzhur_statement"
-    );
-
-    // 2. Операції капіталу із загального списку транзакцій
-    for (const t of rawTransactions) {
-      if (t.exclude_from_budget) continue;
-
-      const isCapital =
-        t.type === "investment" ||
-        t.category_name?.toLowerCase().includes("інвест") ||
-        t.category_name?.toLowerCase().includes("заощадж") ||
-        t.tags?.some(
-          (tag: string) =>
-            tag.toLowerCase().includes("капітал") ||
-            tag.toLowerCase().includes("інвест")
-        );
-
-      if (!isCapital) continue;
-
-      // Якщо це банківський переказ на брокерський рахунок Inzhur, перевіряємо, чи є
-      // вже відповідне «Поповнення брокерського рахунку» у виписці Inzhur
-      const isInzhurBankTransfer =
-        t.source !== "inzhur_statement" &&
-        (t.merchant_raw?.toLowerCase().includes("інжур") ||
-          t.merchant_raw?.toLowerCase().includes("inzhur") ||
-          t.category_name?.toLowerCase().includes("inzhur"));
-
-      if (isInzhurBankTransfer && hasInzhurStatement) {
-        const hasMatchingInzhurDeposit = investmentTransactions.some(
-          (inv) =>
-            inv.source === "inzhur_statement" &&
-            Math.abs(Number(inv.amount) - Number(t.amount)) < 0.01 &&
-            Math.abs(
-              new Date(inv.created_at).getTime() -
-                new Date(t.created_at).getTime()
-            ) <
-              3 * 24 * 60 * 60 * 1000 // збіг суми у межах 3 днів банківського клірингу
-        );
-
-        if (hasMatchingInzhurDeposit) {
-          continue; // Усуваємо дублювання: брокерський запис Inzhur є пріоритетним
-        }
-      }
-
-      txMap.set(t.id, t);
-    }
-
-    return Array.from(txMap.values()).sort(
-      (a: Transaction, b: Transaction) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }, [investmentTransactions, rawTransactions]);
-
-  const [isExecutingRecurring, setIsExecutingRecurring] = useState<
-    number | null
-  >(null);
-
-  // Форматування суми для заголовка
+  // 9. Хендлери операцій
   const [spentWhole, spentCents] = totalSpent
     .toLocaleString("uk-UA", {
       minimumFractionDigits: 2,
@@ -607,7 +326,6 @@ export default function Dashboard() {
     })
     .split(",");
 
-  // Перемикання місяців
   const handlePrevMonth = () => {
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
@@ -620,19 +338,15 @@ export default function Dashboard() {
     );
   };
 
-  // Збереження ліміту активного циклу
   const handleSaveBudgetLimit = async (newLimit: number) => {
     if (!activeCycle?.id) return;
-
     updateActiveCycleLimitOptimistic(newLimit);
-
     try {
       const res = await fetch("/api/cycles", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cycleId: activeCycle.id, limit: newLimit }),
       });
-
       if (!res.ok) throw new Error("Не вдалося оновити ліміт на сервері");
     } catch (error) {
       console.error("Помилка збереження бюджету:", error);
@@ -640,164 +354,6 @@ export default function Dashboard() {
     }
   };
 
-  // Керування регулярними платежами
-  const handleSaveRecurring = async (formData: {
-    id?: number;
-    title: string;
-    amount: number;
-    currency: "UAH" | "USD";
-    category_name: string;
-    day_of_month: number;
-  }) => {
-    try {
-      if (formData.id) {
-        const res = await fetch("/api/recurring", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
-        if (!res.ok) throw new Error("Помилка оновлення шаблону");
-      } else {
-        const newItem = { ...formData, is_active: true };
-        const res = await fetch("/api/recurring", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newItem),
-        });
-        if (!res.ok) throw new Error("Помилка створення шаблону");
-      }
-
-      invalidateRecurring();
-      invalidateRadar();
-      closeRecurringModal();
-    } catch (err) {
-      console.error("Помилка збереження регулярного платежу:", err);
-    }
-  };
-
-  const handleDeleteRecurring = async (id: number) => {
-    await fetch(`/api/recurring?id=${id}`, { method: "DELETE" });
-    invalidateRecurring();
-    invalidateRadar();
-    closeRecurringModal();
-  };
-
-  const handleExecuteRecurring = async (item: RecurringItem) => {
-    if (isExecutingRecurring === item.id) return;
-    setIsExecutingRecurring(item.id);
-
-    try {
-      const isUsd = item.currency === "USD";
-      let finalAmount = Number(item.amount);
-      let merchantTitle = item.title;
-
-      if (isUsd) {
-        const rateRes = await fetch("/api/currency/rate").catch(() => null);
-        const rateData = rateRes?.ok
-          ? await rateRes.json()
-          : { rate: commercialRates.USD };
-        finalAmount = Math.round(Number(item.amount) * rateData.rate);
-        merchantTitle = `${item.title} ($${item.amount})`;
-      }
-
-      // 1. Миттєве оптимістичне оновлення Радара (0ms) — підписка одразу стає «Сплачено» та опускається вниз
-      markRecurringPaidOptimistic(item.id, finalAmount);
-      triggerHaptic("success");
-      toast.success("Підписку проведено", {
-        description: `${item.title} — ${finalAmount.toLocaleString("uk-UA")} ₴ враховано в цьому циклі`,
-      });
-
-      // 2. Створення транзакції з метаданими прив'язки до шаблону
-      const newTx = {
-        amount: finalAmount,
-        currency: "UAH" as const,
-        merchant_raw: merchantTitle,
-        category_name: item.category_name,
-        source: "recurring" as const,
-        type: "expense" as const,
-        metadata: {
-          recurring_id: item.id,
-        },
-      };
-
-      createTransaction(newTx, {
-        onSuccess: () => {
-          invalidateRadar();
-          invalidateRecurring();
-        },
-        onError: (err: any) => {
-          console.error("Помилка списання регулярного платежу:", err);
-          invalidateRadar();
-        },
-      });
-    } catch (err) {
-      console.error("Помилка підготовки транзакції:", err);
-      invalidateRadar();
-    } finally {
-      setIsExecutingRecurring(null);
-    }
-  };
-
-  const handleAddDetectedFromRadar = (sub: DetectedSubscription) => {
-    openEditRecurring({
-      id: 0,
-      title: sub.title,
-      amount: sub.amount,
-      currency: sub.currency,
-      category_name: sub.category_name,
-      day_of_month: sub.predicted_day_of_month,
-      is_active: true,
-    });
-  };
-
-  const handleDismissDetectedFromRadar = async (
-    signature: string,
-    title?: string
-  ) => {
-    try {
-      const cleanId = signature.replace(/-[0-9]+-[a-z]+$/, "");
-      const cleanMerchant = cleanId.replace(/^radar-/, "");
-      const itemsToAdd = [signature, cleanId, cleanMerchant];
-      if (title) itemsToAdd.push(title);
-
-      const stored = localStorage.getItem("budget_dismissed_radar_subs");
-      const current: string[] = stored ? JSON.parse(stored) : [];
-      let changed = false;
-
-      for (const item of itemsToAdd) {
-        if (!current.includes(item)) {
-          current.push(item);
-          changed = true;
-        }
-      }
-
-      if (changed) {
-        localStorage.setItem(
-          "budget_dismissed_radar_subs",
-          JSON.stringify(current)
-        );
-      }
-
-      // Синхронізуємо на сервер у cookie для довгострокового збереження між сесіями та пристроями
-      await fetch("/api/recurring/radar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "dismiss",
-          signature,
-          title,
-          cleanId,
-          cleanMerchant,
-        }),
-      }).catch(() => null);
-
-      invalidateRadar();
-    } catch (e) {
-      console.error("Error dismissing radar subscription:", e);
-    }
-  };
-
-  // Мутації транзакцій
   const handleUpdateCategory = (
     txId: number,
     newCategory: string,
@@ -830,7 +386,6 @@ export default function Dashboard() {
     });
   };
 
-  // Керування лімітами категорій
   const handleSaveCategoryBudget = async (
     categoryName: string,
     limit: number
@@ -864,7 +419,6 @@ export default function Dashboard() {
     }
   };
 
-  // Експорт у Excel (.xlsx) з лінивим завантаженням важкої бібліотеки SheetJS
   const handleExportExcel = async () => {
     try {
       const { exportFinancialDataToExcel } = await import("@/lib/export-excel");
@@ -878,14 +432,12 @@ export default function Dashboard() {
     }
   };
 
-  // Відновлення бази даних з бекапу
   const handleRestoreSuccess = async () => {
     invalidateCycles();
     invalidateWealth();
     window.location.reload();
   };
 
-  // Успішний спліт транзакції
   const handleSplitSuccess = async () => {
     invalidateWealth();
     invalidateTransactions();
@@ -948,7 +500,7 @@ export default function Dashboard() {
         onSaveBudget={handleSaveBudgetLimit}
       />
 
-      {/* Навігація між вкладками: Аналітика & Бюджет -> Історія операцій -> Капітал & Цілі (Тільки десктоп md:flex, на мобільному використовується MobileBottomBar) */}
+      {/* Навігація між вкладками: Аналітика & Бюджет -> Історія операцій -> Капітал & Цілі */}
       <div className="mb-6 hidden rounded-2xl border border-zinc-800 bg-zinc-900/80 p-1 backdrop-blur-md md:flex">
         <button
           type="button"
@@ -985,179 +537,89 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Вкладка 1: Аналітика & Бюджет (Безшовна згрупована сітка без пробілів) */}
+      {/* Вкладка 1: Аналітика & Бюджет */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
-          {/* Ліва колонка: Щоденна динаміка -> Категорії -> Радар підписок */}
-          <section className="space-y-6">
-            <DailyDynamicsChart dailyStats={dailyStats} />
-
-            <CategoryBreakdown
-              categoryStats={categoryStats}
-              categoryBudgets={categoryBudgets}
-              onSelectCategory={setSelectedCategory}
-              onSaveCategoryBudget={handleSaveCategoryBudget}
-              onDeleteCategoryBudget={handleDeleteCategoryBudget}
-            />
-
-            <SubscriptionRadar
-              recurring={recurring}
-              radarData={radarData}
-              isLoading={isLoadingRadar}
-              onAddRecurring={openAddRecurring}
-              onEditRecurring={openEditRecurring}
-              onExecuteRecurring={handleExecuteRecurring}
-              onAddDetected={handleAddDetectedFromRadar}
-              onDismissDetected={handleDismissDetectedFromRadar}
-            />
-          </section>
-
-          {/* Права колонка: Прогноз темпу (Burn Rate) -> Порівняння циклів -> AI Радник */}
-          <section className="space-y-6">
-            <BurnRateChart
-              transactions={filteredTransactions}
-              budgetLimit={effectiveLimit}
-              recurringTotal={recurringTotal}
-              selectedMonthKey={selectedMonthKey}
-              recurring={recurring}
-              usdRate={commercialRates.USD}
-              activeCycle={activeCycle}
-            />
-
-            <MoMComparison
-              currentTransactions={cycleCurrentTransactions}
-              previousTransactions={cyclePreviousTransactions}
-              currentMonthLabel={cycleCurrentLabel}
-              previousMonthLabel={cyclePreviousLabel}
-              title={
-                activeCycle
-                  ? "Порівняння з минулим циклом"
-                  : "Порівняння з минулим місяцем"
-              }
-            />
-
-            <AICard
-              aiAnalysis={aiAnalysis}
-              isAiLoading={isAiLoading}
-              budgetMetrics={budgetMetrics}
-              categoryStats={categoryStats}
-              categoryBudgets={categoryBudgets}
-              radarUpcoming={radarData?.upcoming}
-              selectedModel={selectedAiModel}
-              onModelChange={(model) => {
-                setSelectedAiModel(model);
-                handleRunAiAnalysis(model);
-              }}
-              onOpenAiDrawer={(initialPrompt) =>
-                handleRunAiAnalysis(selectedAiModel, initialPrompt)
-              }
-            />
-          </section>
-        </div>
+        <DashboardOverviewTab
+          dailyStats={dailyStats}
+          categoryStats={categoryStats}
+          categoryBudgets={categoryBudgets}
+          onSelectCategory={setSelectedCategory}
+          onSaveCategoryBudget={handleSaveCategoryBudget}
+          onDeleteCategoryBudget={handleDeleteCategoryBudget}
+          recurring={recurring}
+          radarData={radarData}
+          isLoadingRadar={isLoadingRadar}
+          onAddRecurring={openAddRecurring}
+          onEditRecurring={openEditRecurring}
+          onExecuteRecurring={handleExecuteRecurring}
+          onAddDetectedFromRadar={handleAddDetectedFromRadar}
+          onDismissDetectedFromRadar={handleDismissDetectedFromRadar}
+          filteredTransactions={filteredTransactions}
+          effectiveLimit={effectiveLimit}
+          recurringTotal={recurringTotal}
+          selectedMonthKey={selectedMonthKey}
+          commercialRates={commercialRates}
+          activeCycle={activeCycle}
+          cycleCurrentTransactions={cycleCurrentTransactions}
+          cyclePreviousTransactions={cyclePreviousTransactions}
+          cycleCurrentLabel={cycleCurrentLabel}
+          cyclePreviousLabel={cyclePreviousLabel}
+          aiAnalysis={aiAnalysis}
+          isAiLoading={isAiLoading}
+          budgetMetrics={budgetMetrics}
+          selectedAiModel={selectedAiModel}
+          onModelChange={(model) => {
+            setSelectedAiModel(model);
+            handleRunAiAnalysis(model);
+          }}
+          onRunAiAnalysis={handleRunAiAnalysis}
+        />
       )}
 
-      {/* Вкладка 2: Історія операцій (2-колонковий адаптивний вигляд) */}
+      {/* Вкладка 2: Історія операцій */}
       {activeTab === "history" && (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-          {/* Список транзакцій */}
-          <section className="space-y-6 lg:col-span-8">
-            <TransactionsList
-              totalMonthTransactionsCount={filteredTransactions.length}
-              displayedTransactions={displayedTransactions}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              availableTags={availableTags}
-              activeTag={activeTag}
-              onTagChange={setActiveTag}
-              onOpenCreateExpense={openCreateExpense}
-              onSelectTransaction={setSelectedTx}
-              onDeleteTransaction={handleDeleteTransaction}
-              onOpenSplitTransaction={(tx) => setSplitTx(tx)}
-              onOpenTrash={openTrash}
-              onOpenMerchantRules={openMerchantRules}
-              onOpenTagProject={setSelectedProjectTag}
-            />
-          </section>
-
-          {/* Бічна колонка: Аналітика вибірки та швидкий фільтр */}
-          <aside className="space-y-6 lg:col-span-4">
-            <HistorySidebar
-              displayedTransactions={displayedTransactions}
-              totalPeriodTransactions={filteredTransactions}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              activeTag={activeTag}
-              onTagChange={setActiveTag}
-              periodLabel={activeCycle?.name || monthLabel}
-              onOpenCreateExpense={openCreateExpense}
-            />
-          </aside>
-        </div>
+        <DashboardHistoryTab
+          filteredTransactions={filteredTransactions}
+          displayedTransactions={displayedTransactions}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          availableTags={availableTags}
+          activeTag={activeTag}
+          onTagChange={setActiveTag}
+          onOpenCreateExpense={openCreateExpense}
+          onSelectTransaction={setSelectedTx}
+          onDeleteTransaction={handleDeleteTransaction}
+          onOpenSplitTransaction={(tx) => setSplitTx(tx)}
+          onOpenTrash={openTrash}
+          onOpenMerchantRules={openMerchantRules}
+          onOpenTagProject={setSelectedProjectTag}
+          periodLabel={activeCycle?.name || monthLabel}
+        />
       )}
 
-      {/* Вкладка 3: Капітал & Цілі (Скарбнички, Runway, Інвестиційний портфель, Анти-імпульс, Cost-per-Use та Окрема історія капіталу) */}
+      {/* Вкладка 3: Капітал & Цілі */}
       {activeTab === "wealth" && (
-        <div className="space-y-6">
-          {/* Зведена аналітика капіталу: Середньозважена доходність (%) та Прогноз річного прибутку (грн) */}
-          <CapitalYieldMetrics
-            investments={investments}
-            savingsGoals={savingsGoals}
-            rates={commercialRates}
-          />
-
-          {/* Ряд 1: Скарбнички та Інвестиційний портфель */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <SavingsGoalsCard
-              goals={savingsGoals}
-              monthlyBurnRate={totalSpent > 0 ? totalSpent : effectiveLimit}
-              rates={commercialRates}
-              onRefresh={invalidateWealth}
-            />
-            <InvestmentsCard
-              investments={investments}
-              rates={commercialRates}
-              onRefresh={invalidateWealth}
-            />
-          </div>
-
-          {/* Ряд 2: Поведінкова психологія та усвідомлені покупки */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <WishlistCard
-              items={wishlistItems}
-              savedAmount={wishlistSavedAmount}
-              onRefresh={invalidateWealth}
-              onConvertToCostPerUse={(wish) => {
-                setPrefillCostPerUse({
-                  item_name: wish.title,
-                  purchase_price: wish.estimated_price,
-                  currency: wish.currency,
-                  category_name: wish.category_name,
-                  notes: wish.notes || undefined,
-                  total_uses: 1,
-                  purchase_date: new Date().toISOString().split("T")[0],
-                });
-              }}
-            />
-            <CostPerUseCard
-              items={costPerUseItems}
-              totalMoneySaved={costPerUseSavedAmount}
-              onRefresh={invalidateWealth}
-              prefillItem={prefillCostPerUse}
-              onClearPrefill={() => setPrefillCostPerUse(null)}
-            />
-          </div>
-
-          {/* Ряд 3: Окрема історія операцій капіталу */}
-          <CapitalHistoryCard
-            transactions={capitalTransactions}
-            onSelectTransaction={setSelectedTx}
-            onAddCapital={openCreateExpense}
-            onImportInzhur={() => openImportModal("investment")}
-          />
-        </div>
+        <DashboardWealthTab
+          investments={investments}
+          savingsGoals={savingsGoals}
+          commercialRates={commercialRates}
+          totalSpent={totalSpent}
+          effectiveLimit={effectiveLimit}
+          onRefreshWealth={invalidateWealth}
+          wishlistItems={wishlistItems}
+          wishlistSavedAmount={wishlistSavedAmount}
+          costPerUseItems={costPerUseItems}
+          costPerUseSavedAmount={costPerUseSavedAmount}
+          prefillCostPerUse={prefillCostPerUse}
+          setPrefillCostPerUse={setPrefillCostPerUse}
+          capitalTransactions={capitalTransactions}
+          onSelectTransaction={setSelectedTx}
+          onAddCapital={openCreateExpense}
+          onOpenImportInvestment={() => openImportModal("investment")}
+        />
       )}
 
-      {/* Глобальні модальні вікна та шторки, винесені в окремий модуль */}
+      {/* Глобальні модальні вікна та шторки */}
       <DashboardModals
         selectedCategory={selectedCategory}
         filteredTransactions={filteredTransactions}
@@ -1232,7 +694,7 @@ export default function Dashboard() {
         onSelectTransaction={setSelectedTx}
       />
 
-      {/* Ергономічна мобільна панель дій під великий палець (суворо md:hidden) */}
+      {/* Ергономічна мобільна панель дій під великий палець */}
       <MobileBottomBar
         activeTab={activeTab}
         onTabChange={setActiveTab}

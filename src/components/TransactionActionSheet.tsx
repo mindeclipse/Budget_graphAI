@@ -1,37 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Trash2,
-  Tag as TagIcon,
   Store,
   BookmarkCheck,
   Check,
   Loader2,
   Split,
-  FileText,
-  FileCheck,
-  ExternalLink,
-  Paperclip,
-  ShieldAlert,
-  CalendarDays,
 } from "lucide-react";
 import { Transaction, TransactionReceiptMetadata } from "@/types/finance";
 import { triggerHaptic } from "@/lib/haptics";
 import { toast } from "sonner";
 import {
-  CATEGORIES,
-  CATEGORY_ICONS,
-  CATEGORY_COLORS,
-} from "@/constants/categories";
-import {
   extractTagsAndComment,
   formatInitialCommentAndTags,
   removeTagFromText,
 } from "@/lib/tag-utils";
+import { ActionSheetCategoryPicker } from "@/components/transaction-action-sheet/ActionSheetCategoryPicker";
+import { ActionSheetAmortizationSection } from "@/components/transaction-action-sheet/ActionSheetAmortizationSection";
+import { ActionSheetCommentSection } from "@/components/transaction-action-sheet/ActionSheetCommentSection";
+import { ActionSheetReceiptSection } from "@/components/transaction-action-sheet/ActionSheetReceiptSection";
 
-interface TransactionActionSheetProps {
+export interface TransactionActionSheetProps {
   transaction: Transaction | null;
   onClose: () => void;
   onUpdateCategory: (
@@ -86,8 +78,6 @@ export function TransactionActionSheet({
   // Стан прикріпленої квитанції
   const [currentReceipt, setCurrentReceipt] =
     useState<TransactionReceiptMetadata | null>(null);
-  const [isAttachingReceipt, setIsAttachingReceipt] = useState(false);
-  const receiptFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (transaction) {
@@ -123,140 +113,6 @@ export function TransactionActionSheet({
       setInitialAmortizationMonths(amortInit);
     }
   }, [transaction]);
-
-  const formatFileSize = (bytes?: number): string => {
-    if (!bytes) return "";
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
-  };
-
-  const handleViewReceipt = () => {
-    try {
-      if (!currentReceipt?.base64) {
-        toast.error("Вміст квитанції відсутній");
-        return;
-      }
-      const byteCharacters = atob(currentReceipt.base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], {
-        type: currentReceipt.mimeType || "application/pdf",
-      });
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, "_blank");
-    } catch (err: any) {
-      console.error("Помилка відкриття квитанції:", err);
-      toast.error("Не вдалося відкрити квитанцію");
-    }
-  };
-
-  const handleFileInputChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file || !transaction) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Розмір файлу перевищує 5 МБ");
-      if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
-      return;
-    }
-
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Дозволені лише PDF-файли");
-      if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
-      return;
-    }
-
-    try {
-      setIsAttachingReceipt(true);
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8 = new Uint8Array(arrayBuffer);
-      const isPdf =
-        uint8.length >= 4 &&
-        uint8[0] === 0x25 &&
-        uint8[1] === 0x50 &&
-        uint8[2] === 0x44 &&
-        uint8[3] === 0x46;
-
-      if (!isPdf) {
-        toast.error("Вміст файлу не є дійсним PDF");
-        return;
-      }
-
-      let binary = "";
-      const bytes = new Uint8Array(arrayBuffer);
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64 = btoa(binary);
-
-      const receiptPayload: TransactionReceiptMetadata = {
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: "application/pdf",
-        base64,
-        attachedAt: new Date().toISOString(),
-      };
-
-      const res = await fetch("/api/transactions", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: transaction.id,
-          metadata: {
-            receipt: receiptPayload,
-          },
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Не вдалося прикріпити квитанцію");
-      }
-
-      setCurrentReceipt(receiptPayload);
-      triggerHaptic("success");
-      toast.success("Квитанцію успішно прикріплено!");
-      onReceiptUpdated?.();
-    } catch (err: any) {
-      triggerHaptic("error");
-      toast.error(err.message || "Помилка прикріплення файлу");
-    } finally {
-      setIsAttachingReceipt(false);
-      if (receiptFileInputRef.current) receiptFileInputRef.current.value = "";
-    }
-  };
-
-  const handleDeleteReceipt = async () => {
-    if (!transaction) return;
-    try {
-      setIsAttachingReceipt(true);
-      const res = await fetch("/api/transactions", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: transaction.id,
-          metadata: {
-            receipt: null,
-          },
-        }),
-      });
-      if (!res.ok) throw new Error("Не вдалося видалити квитанцію");
-      setCurrentReceipt(null);
-      triggerHaptic("selection");
-      toast.success("Квитанцію видалено");
-      onReceiptUpdated?.();
-    } catch (err: any) {
-      toast.error(err.message || "Помилка");
-    } finally {
-      setIsAttachingReceipt(false);
-    }
-  };
 
   if (!transaction) return null;
 
@@ -396,6 +252,11 @@ export function TransactionActionSheet({
     setCurrentTags(newTags);
   };
 
+  const handleCategorySelect = (catName: string) => {
+    setSelectedCategory(catName);
+    handleSave(catName);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       {/* Клік по підкладці закриває шторку */}
@@ -486,315 +347,43 @@ export function TransactionActionSheet({
             </label>
           </div>
 
-          {/* Форс-мажор та покриття з Фінансової подушки */}
-          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3.5 transition-colors">
-            <label className="flex cursor-pointer items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5">
-                <div
-                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                    isEmergency
-                      ? "bg-amber-500/20 text-amber-400"
-                      : "bg-zinc-800 text-zinc-400"
-                  }`}
-                >
-                  <ShieldAlert size={16} />
-                </div>
-                <div className="text-xs">
-                  <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
-                    🛡️ Форс-мажор (екстрена витрата)
-                  </div>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
-                    Позначає витрату для ШІ як вимушену екстрену потребу (ліки,
-                    поломка тощо), щоб вона не вважалася споживчим
-                    марнотратством.
-                  </p>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={isEmergency}
-                onChange={(e) => {
-                  triggerHaptic("selection");
-                  setIsEmergency(e.target.checked);
-                }}
-                className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-0 focus:ring-offset-0"
-              />
-            </label>
-          </div>
-
-          {/* Розподіл витрати на кілька місяців (амортизація) */}
-          {!isEmergency && Number(transaction.amount) > 0 && (
-            <div className="space-y-2.5 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
-                  <CalendarDays size={14} className="text-indigo-400" />
-                  🗓️ Розподіл на кілька місяців (амортизація)
-                </div>
-                {amortizationMonths > 1 && (
-                  <span className="font-mono text-[11px] font-bold text-indigo-400">
-                    по ~
-                    {Math.round(
-                      Number(transaction.amount) / amortizationMonths
-                    ).toLocaleString("uk-UA")}{" "}
-                    ₴/міс
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] leading-relaxed text-zinc-400">
-                Для курсів лікування (вітаміни на 3+ міс), страховки або великих
-                покупок: вся сума списується з картки одразу, а ШІ та аналітика
-                сприймають це як планову інвестицію на кілька місяців, а не
-                разове марнотратство.
-              </p>
-              <div className="grid grid-cols-5 gap-1.5 pt-1">
-                {[1, 2, 3, 6, 12].map((m) => {
-                  const isSelected = amortizationMonths === m;
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic("selection");
-                        setAmortizationMonths(m);
-                      }}
-                      className={`rounded-xl py-1.5 text-center text-xs font-semibold transition-all active:scale-95 ${
-                        isSelected
-                          ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400"
-                          : "border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-                      }`}
-                    >
-                      {m === 1 ? "Вимкнено" : `${m} міс`}
-                    </button>
-                  );
-                })}
-              </div>
-              {amortizationMonths > 1 && (
-                <div className="rounded-lg border border-indigo-800/30 bg-indigo-950/40 px-2.5 py-1.5 text-[11px] text-indigo-300">
-                  💡 З балансу списується вся сума (
-                  <b>{Number(transaction.amount).toLocaleString("uk-UA")} ₴</b>)
-                  — гроші не повертаються віртуально. ШІ та аналітика зафіксують
-                  це як планову інвестицію на {amortizationMonths} міс (по ~
-                  {Math.round(
-                    Number(transaction.amount) / amortizationMonths
-                  ).toLocaleString("uk-UA")}{" "}
-                  ₴/міс), щоб не вважати її разовим марнотратством.
-                </div>
-              )}
-            </div>
-          )}
+          {/* Форс-мажор та амортизація */}
+          <ActionSheetAmortizationSection
+            amount={Number(transaction.amount)}
+            isEmergency={isEmergency}
+            onToggleEmergency={setIsEmergency}
+            amortizationMonths={amortizationMonths}
+            onChangeAmortization={setAmortizationMonths}
+          />
 
           {/* Вибір категорії */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label className="text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-                Категорія (натисніть для вибору)
-              </label>
-              {isSubmitting && (
-                <span className="flex items-center gap-1 text-[11px] text-zinc-500">
-                  <Loader2 size={11} className="animate-spin" /> Збереження...
-                </span>
-              )}
-            </div>
-
-            <div className="grid max-h-48 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
-              {CATEGORIES.map((catName) => {
-                const Icon = CATEGORY_ICONS[catName];
-                const color = CATEGORY_COLORS[catName] || "#71717a";
-                const isSelected = selectedCategory === catName;
-
-                return (
-                  <button
-                    key={catName}
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => {
-                      setSelectedCategory(catName);
-                      handleSave(catName);
-                    }}
-                    className={`flex items-center gap-2 rounded-xl border p-2 text-left text-xs transition-all active:scale-[0.98] ${
-                      isSelected
-                        ? "border-sky-500/50 bg-sky-500/10 font-semibold text-white shadow-xs"
-                        : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-                    }`}
-                  >
-                    {Icon && (
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
-                        style={{ backgroundColor: `${color}20`, color }}
-                      >
-                        <Icon size={12} />
-                      </span>
-                    )}
-                    <span className="truncate">{catName}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <ActionSheetCategoryPicker
+            selectedCategory={selectedCategory}
+            onSelectCategory={handleCategorySelect}
+            isSubmitting={isSubmitting}
+          />
 
           {/* Коментар та теги */}
-          <div className="border-t border-zinc-800/80 pt-4">
-            <div className="mb-2 flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-                <TagIcon size={12} className="text-zinc-500" /> Коментар та теги
-              </label>
-              <span
-                className={`text-[10px] ${
-                  commentInput.length > 450
-                    ? "font-semibold text-amber-400"
-                    : "text-zinc-500"
-                }`}
-              >
-                {commentInput.length}/500
-              </span>
-            </div>
+          <ActionSheetCommentSection
+            commentInput={commentInput}
+            currentTags={currentTags}
+            onChangeComment={handleCommentChange}
+            onRemoveTag={handleRemoveTag}
+            onOpenTagProject={(tag) => {
+              onClose();
+              onOpenTagProject?.(tag);
+            }}
+          />
 
-            <div className="relative">
-              <textarea
-                value={commentInput}
-                maxLength={500}
-                rows={2}
-                onChange={(e) => handleCommentChange(e.target.value)}
-                placeholder="Додайте опис або коментар... Слова з # стають тегами (напр: подарунок мамі #деньнародження)"
-                className="w-full resize-none rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 transition-colors focus:border-zinc-700 focus:outline-none"
-              />
-            </div>
+          {/* Блок квитанції / чека */}
+          <ActionSheetReceiptSection
+            transactionId={transaction.id}
+            currentReceipt={currentReceipt}
+            onReceiptChange={setCurrentReceipt}
+            onReceiptUpdated={onReceiptUpdated}
+          />
 
-            {/* Відображення розпізнаних тегів */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-              {currentTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-300 transition-all"
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenTagProject?.(tag);
-                    }}
-                    title={`Аналітика проєкту #${tag} за весь час`}
-                    className="transition-colors hover:text-sky-200"
-                  >
-                    #{tag}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTag(tag)}
-                    className="text-sky-400/60 transition-colors hover:text-rose-400"
-                    title={`Вилучити #${tag}`}
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-              {currentTags.length === 0 && (
-                <span className="text-[11px] text-zinc-500 italic">
-                  Тегів немає. Введіть слово з # у полі вище, щоб створити тег.
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Блок прикріпленої квитанції / чека */}
-          <div className="border-t border-zinc-800/80 pt-4">
-            <div className="mb-2 flex items-center justify-between">
-              <label className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-                <FileText size={12} className="text-zinc-500" /> Квитанція / Чек
-              </label>
-              {currentReceipt?.fileSize && (
-                <span className="text-[10px] text-zinc-500">
-                  {formatFileSize(currentReceipt.fileSize)}
-                </span>
-              )}
-            </div>
-
-            {currentReceipt ? (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3.5 transition-all">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                      <FileCheck size={18} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-white">
-                        {currentReceipt.fileName || "Квитанція.pdf"}
-                      </p>
-                      <p className="text-[10px] text-zinc-400">
-                        {currentReceipt.bankName
-                          ? `${currentReceipt.bankName} • `
-                          : ""}
-                        {currentReceipt.mimeType?.startsWith("image/")
-                          ? "Оригінал чека збережено"
-                          : "Оригінал PDF збережено"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={handleViewReceipt}
-                      className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-500 active:scale-95"
-                      title="Відкрити квитанцію / чек"
-                    >
-                      <ExternalLink size={13} />
-                      <span>Відкрити</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDeleteReceipt}
-                      disabled={isAttachingReceipt}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-rose-500/20 hover:text-rose-400"
-                      title="Видалити квитанцію"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-
-                {currentReceipt.purpose && (
-                  <p className="mt-2.5 line-clamp-2 rounded-lg bg-zinc-950/40 p-2 text-[10px] leading-relaxed text-zinc-400">
-                    {currentReceipt.purpose}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div>
-                <input
-                  ref={receiptFileInputRef}
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  className="hidden"
-                  onChange={handleFileInputChange}
-                  disabled={isAttachingReceipt}
-                />
-                <button
-                  type="button"
-                  onClick={() => receiptFileInputRef.current?.click()}
-                  disabled={isAttachingReceipt}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 py-2.5 text-xs font-medium text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-900/60 active:scale-[0.99]"
-                >
-                  {isAttachingReceipt ? (
-                    <>
-                      <Loader2
-                        size={14}
-                        className="animate-spin text-emerald-400"
-                      />
-                      <span>Прикріплення квитанції...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Paperclip size={14} className="text-zinc-500" />
-                      <span>Прикріпити квитанцію (PDF)</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Кнопка збереження змін форми (якщо змінено назву, форс-мажор або амортизацію) */}
+          {/* Кнопка збереження змін форми (якщо змінено назву, форс-мажор, амортизацію або коментар) */}
           {isDirty && (
             <div className="pt-2">
               <button
