@@ -222,7 +222,7 @@ export function TransactionsList({
         </div>
       ) : (
         <div className="max-h-[420px] [scrollbar-width:thin] space-y-1.5 overflow-y-auto pr-1.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-track]:bg-transparent">
-          {visibleTransactions.map((t: Transaction) => (
+          {visibleTransactions.map((t: Transaction, idx: number) => (
             <SwipeableTransactionCard
               key={t.id}
               transaction={t}
@@ -231,6 +231,7 @@ export function TransactionsList({
               onDelete={onDeleteTransaction}
               onSplit={onOpenSplitTransaction}
               onOpenTagProject={onOpenTagProject}
+              className={idx >= 5 ? "transaction-item-deferred" : undefined}
             />
           ))}
 

@@ -16,6 +16,7 @@ export interface SwipeableTransactionCardProps {
   onDelete?: (txId: number) => void;
   onSplit?: (tx: Transaction) => void;
   onOpenTagProject?: (tag: string) => void;
+  className?: string;
 }
 
 export function SwipeableTransactionCard({
@@ -25,6 +26,7 @@ export function SwipeableTransactionCard({
   onDelete,
   onSplit,
   onOpenTagProject,
+  className,
 }: SwipeableTransactionCardProps) {
   const [offsetX, setOffsetX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -182,7 +184,7 @@ export function SwipeableTransactionCard({
         isExiting
           ? "pointer-events-none my-0 max-h-0 py-0 opacity-0"
           : "my-1 max-h-32"
-      }`}
+      } ${className || ""}`}
     >
       {/* Підкладка дій: Свайп вправо (Редагувати / Split) */}
       <div
