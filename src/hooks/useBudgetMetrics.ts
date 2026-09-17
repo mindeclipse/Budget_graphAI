@@ -6,6 +6,7 @@ import {
   calculateCycleDaysRemaining,
   DEFAULT_BUDGET_LIMIT,
 } from "@/lib/cycle-utils";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
 
 function getPreviousMonthKey(monthKey: string): string {
   const [year, month] = monthKey.split("-").map(Number);
@@ -118,7 +119,7 @@ export function useBudgetMetrics({
     });
   }, [transactions, prevMonthKey]);
 
-  // Сума обов'язкових регулярних платежів
+  // Сума обов'язкових регулярних платежів (загальна)
   const recurringTotal = useMemo(() => {
     return recurring
       .filter((r) => r.is_active)
@@ -127,6 +128,17 @@ export function useBudgetMetrics({
         return acc + (r.currency === "USD" ? amt * usdRate : amt);
       }, 0);
   }, [recurring, usdRate]);
+
+  // Зарезервовано на ще не сплачені обов'язкові платежі (запобігає подвійному списанню вже виконаних підписок)
+  const unpaidRecurringTotal = useMemo(() => {
+    const schedule = buildUpcomingSchedule(
+      recurring,
+      budgetTransactions,
+      usdRate,
+      selectedDate
+    );
+    return schedule.metrics.remaining_this_month;
+  }, [recurring, budgetTransactions, usdRate, selectedDate]);
 
   // Фактично витрачено в межах активного вікна
   const totalSpent = useMemo(() => {
@@ -142,8 +154,10 @@ export function useBudgetMetrics({
       now
     );
 
-    const variableBudget = Math.max(0, effectiveLimit - recurringTotal);
-    const remaining = variableBudget - totalSpent;
+    const variableBudget = Math.max(0, effectiveLimit - unpaidRecurringTotal);
+    const remaining =
+      Math.round(Math.max(-effectiveLimit, variableBudget - totalSpent) * 100) /
+      100;
     const spentPercent =
       variableBudget > 0 ? (totalSpent / variableBudget) * 100 : 100;
 
@@ -166,11 +180,10 @@ export function useBudgetMetrics({
   }, [
     totalSpent,
     effectiveLimit,
-    recurringTotal,
+    unpaidRecurringTotal,
     selectedDate,
     isCurrentMonth,
     activeCycle,
-    // Залежності 'now' тут більше немає, ререндери будуть працювати коректно
   ]);
 
   // Структура витрат за категоріями
