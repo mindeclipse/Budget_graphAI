@@ -10,7 +10,12 @@ import {
   DEFAULT_BUDGET_LIMIT,
 } from "@/lib/cycle-utils";
 import { getKyivDateString } from "@/lib/behavioral-metrics";
-import { WidgetSummaryResponse } from "@/types/finance";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
+import {
+  calculateWeightedCalendarPacing,
+  isWeekendOrLeisureDay,
+} from "@/lib/weighted-pacing";
+import { WidgetSummaryResponse, Transaction } from "@/types/finance";
 
 export const dynamic = "force-dynamic";
 
@@ -83,24 +88,27 @@ export async function GET(req: NextRequest) {
     // 2. Постійні щомісячні витрати (підписки/шаблони)
     const { data: recurringItems } = await supabase
       .from("recurring_templates")
-      .select("amount, currency")
+      .select(
+        "id, title, amount, currency, day_of_month, is_active, category_name"
+      )
       .eq("is_active", true);
 
     const usdRate = await getUsdRate();
-    const recurringTotal = (recurringItems || []).reduce((sum, r) => {
-      const amt = Number(r.amount) || 0;
-      return sum + (r.currency === "USD" ? amt * usdRate : amt);
-    }, 0);
 
-    // 3. Транзакції активного циклу (з фільтром кошика .is("deleted_at", null))
+    // 3. Транзакції: витягуємо всі валідні від 15 серпня (базова лінія звичок)
+    const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+    const fetchStart =
+      cycleRange.startDate.toISOString() < habitBaselineIso
+        ? cycleRange.startDate.toISOString()
+        : habitBaselineIso;
+
     const { data: transactions, error: txError } = await supabase
       .from("transactions")
       .select(
-        "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget"
+        "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget, metadata"
       )
       .is("deleted_at", null)
-      .gte("created_at", cycleRange.startDate.toISOString())
-      .lte("created_at", cycleRange.endDate.toISOString())
+      .gte("created_at", fetchStart)
       .order("created_at", { ascending: false });
 
     if (txError) {
@@ -108,28 +116,64 @@ export async function GET(req: NextRequest) {
       throw txError;
     }
 
-    const expenseTx = (transactions || []).filter(
+    const validTx = (transactions || []).filter(
       (t) => t.type === "expense" && !t.exclude_from_budget
-    );
+    ) as unknown as Transaction[];
 
-    const totalCycleSpent = expenseTx.reduce(
+    const cycleExpenseTx = validTx.filter((t) => {
+      const time = new Date(t.created_at).getTime();
+      return time >= cycleRange.startMs && time <= cycleRange.endMs;
+    });
+
+    const totalCycleSpent = cycleExpenseTx.reduce(
       (sum, t) => sum + Number(t.amount || 0),
       0
     );
 
     const budgetLimit =
       Number(activeCycle?.budget_limit) || DEFAULT_BUDGET_LIMIT;
-    const variableBudget = Math.max(0, budgetLimit - recurringTotal);
-    const remainingBudget = Math.round(variableBudget - totalCycleSpent);
 
-    const safeDailySpend = Math.max(
-      0,
-      Math.round(remainingBudget / Math.max(1, daysRemaining))
+    // Графік підписок з виключенням вже оплачених (запобігає подвійному списанню)
+    const upcomingSchedule = buildUpcomingSchedule(
+      recurringItems || [],
+      cycleExpenseTx,
+      usdRate,
+      now
+    );
+    const unpaidRecurringTotal = upcomingSchedule.metrics.remaining_this_month;
+
+    const upcomingObligations = upcomingSchedule.upcoming.map((u) => ({
+      title: u.title,
+      amount:
+        u.currency === "USD"
+          ? Math.round(u.amount * usdRate)
+          : Number(u.amount),
+      day_of_month: u.day_of_month,
+      is_paid: u.status === "paid",
+    }));
+
+    // Зважений календарний темп за EMA (α)
+    const weightedPacing = calculateWeightedCalendarPacing(validTx, {
+      now,
+      startDate: cycleRange.startDate,
+      endDate: cycleRange.endDate,
+      totalBudgetLimit: budgetLimit,
+      currentExpenseTotal: totalCycleSpent,
+      upcomingObligations,
+    });
+
+    const isTodayWeekend = isWeekendOrLeisureDay(now.getDay());
+    const safeWeekdaySpend = weightedPacing.pacing.safeWeekdaySpend;
+    const safeWeekendSpend = weightedPacing.pacing.safeWeekendSpend;
+    const safeDailySpend = isTodayWeekend ? safeWeekendSpend : safeWeekdaySpend;
+
+    const remainingBudget = Math.round(
+      Math.max(0, budgetLimit - unpaidRecurringTotal - totalCycleSpent)
     );
 
     // 4. Розрахунок витрат за сьогодні (за київським часом Europe/Kyiv)
     const kyivTodayStr = getKyivDateString(now);
-    const todayTx = expenseTx.filter(
+    const todayTx = cycleExpenseTx.filter(
       (t) => getKyivDateString(t.created_at) === kyivTodayStr
     );
 
@@ -152,7 +196,7 @@ export async function GET(req: NextRequest) {
 
     // 6. Топ 3 категорії за цикл
     const categoryMap = new Map<string, number>();
-    for (const t of expenseTx) {
+    for (const t of cycleExpenseTx) {
       const cat = t.category_name || "Інше";
       categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(t.amount || 0));
     }
@@ -166,7 +210,7 @@ export async function GET(req: NextRequest) {
       }));
 
     // 7. Остання зафіксована покупка
-    const latestTx = expenseTx[0];
+    const latestTx = cycleExpenseTx[0];
     let lastTransaction: WidgetSummaryResponse["lastTransaction"] = null;
     if (latestTx) {
       const txDate = new Date(latestTx.created_at);
@@ -193,6 +237,10 @@ export async function GET(req: NextRequest) {
       daysRemaining,
       cycleProgressPercent,
       spendPaceStatus,
+      safeWeekdaySpend,
+      safeWeekendSpend,
+      isTodayWeekend,
+      pacingStatusLabel: weightedPacing.pacing.statusLabel,
       topCategories,
       lastTransaction,
       updatedAt: now.toISOString(),

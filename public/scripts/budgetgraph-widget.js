@@ -169,7 +169,7 @@ async function createWidget() {
 
     widget.addSpacer(2);
 
-    const subPace = widget.addText(`Норма: ${formatMoney(data.safeDailySpend)} ₴/д`);
+    const subPace = widget.addText(`Норма: ${formatMoney(data.safeDailySpend)} ₴/д${data.isTodayWeekend !== undefined ? (data.isTodayWeekend ? " (вих)" : " (буд)") : ""}`);
     subPace.font = Font.systemFont(10);
     subPace.textColor = textSecondary;
 
@@ -237,9 +237,16 @@ async function createWidget() {
 
     paceRow.addSpacer(6);
 
-    const normText = paceRow.addText(`(з ${formatMoney(data.safeDailySpend)} ₴)`);
+    const normText = paceRow.addText(`(з ${formatMoney(data.safeDailySpend)} ₴${data.isTodayWeekend !== undefined ? (data.isTodayWeekend ? " вих" : " буд") : ""})`);
     normText.font = Font.systemFont(10);
     normText.textColor = textSecondary;
+
+    if (data.safeWeekdaySpend && data.safeWeekendSpend) {
+      leftCol.addSpacer(2);
+      const splitText = leftCol.addText(`Пн-Чт: ${formatMoney(data.safeWeekdaySpend)} · Пт-Нд: ${formatMoney(data.safeWeekendSpend)}`);
+      splitText.font = Font.systemFont(9);
+      splitText.textColor = textSecondary;
+    }
 
     leftCol.addSpacer(8);
 

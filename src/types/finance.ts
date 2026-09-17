@@ -126,6 +126,10 @@ export interface WidgetSummaryResponse {
   daysRemaining: number;
   cycleProgressPercent: number;
   spendPaceStatus: "on_track" | "warning" | "exceeded";
+  safeWeekdaySpend?: number;
+  safeWeekendSpend?: number;
+  isTodayWeekend?: boolean;
+  pacingStatusLabel?: string;
   topCategories: Array<{
     name: string;
     amount: number;
