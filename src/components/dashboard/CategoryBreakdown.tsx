@@ -22,7 +22,7 @@ interface CategoryBreakdownProps {
   onDeleteCategoryBudget?: (categoryName: string) => Promise<void>;
 }
 
-export function CategoryBreakdown({
+export const CategoryBreakdown = React.memo(function CategoryBreakdown({
   categoryStats,
   categoryBudgets = {},
   onSelectCategory,
@@ -314,4 +314,4 @@ export function CategoryBreakdown({
         )}
     </div>
   );
-}
+});

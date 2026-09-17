@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, memo } from "react";
 import {
   TrendingUp,
   Settings,
@@ -33,7 +33,7 @@ interface BudgetSummaryHeaderProps {
   onOpenMerchantRules?: () => void;
 }
 
-export function BudgetSummaryHeader({
+export const BudgetSummaryHeader = memo(function BudgetSummaryHeader({
   spentWhole,
   spentCents,
   recurringTotal,
@@ -408,4 +408,4 @@ export function BudgetSummaryHeader({
       />
     </header>
   );
-}
+});

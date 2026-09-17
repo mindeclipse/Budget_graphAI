@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import {
   Plus,
@@ -22,7 +22,7 @@ interface CostPerUseCardProps {
   onClearPrefill?: () => void;
 }
 
-export function CostPerUseCard({
+export const CostPerUseCard = memo(function CostPerUseCard({
   items,
   totalMoneySaved = 0,
   onRefresh,
@@ -505,4 +505,4 @@ export function CostPerUseCard({
         )}
     </div>
   );
-}
+});

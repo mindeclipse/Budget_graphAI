@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import {
   Percent,
   Coins,
@@ -22,7 +22,7 @@ interface CapitalYieldMetricsProps {
   rates?: Partial<ExchangeRates>;
 }
 
-export function CapitalYieldMetrics({
+export const CapitalYieldMetrics = memo(function CapitalYieldMetrics({
   investments,
   savingsGoals,
   rates,
@@ -215,4 +215,4 @@ export function CapitalYieldMetrics({
       )}
     </div>
   );
-}
+});

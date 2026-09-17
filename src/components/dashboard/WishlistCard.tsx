@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import {
   Clock,
@@ -23,7 +23,7 @@ interface WishlistCardProps {
   onConvertToCostPerUse?: (item: WishlistItem) => void;
 }
 
-export function WishlistCard({
+export const WishlistCard = memo(function WishlistCard({
   items,
   savedAmount = 0,
   onRefresh,
@@ -600,4 +600,4 @@ export function WishlistCard({
         )}
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, memo } from "react";
 import { createPortal } from "react-dom";
 import {
   TrendingUp,
@@ -127,7 +127,7 @@ export function formatIsoToDisplayDate(iso?: string | null): string {
   return iso;
 }
 
-export function InvestmentsCard({
+export const InvestmentsCard = memo(function InvestmentsCard({
   investments,
   rates = { USD: 41.5, EUR: 45.3, PLN: 10.6 },
   onRefresh,
@@ -752,4 +752,4 @@ export function InvestmentsCard({
         )}
     </div>
   );
-}
+});

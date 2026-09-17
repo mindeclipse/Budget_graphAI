@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import {
   PiggyBank,
@@ -35,51 +35,73 @@ export interface CurrencyTotalInfo {
 }
 
 export interface SavingsMetrics {
+  totalSavedUahEquivalent: number;
+  totalTargetUahEquivalent: number;
+  hasAnyTarget: boolean;
+  totalPercent: number;
+  runwayMonths: string;
   currencyTotals: Record<string, CurrencyTotalInfo>;
   activeCurrencies: string[];
-  totalSavedUahEquivalent: number;
-  runwayMonths: string;
 }
 
 export function calculateSavingsMetrics(
   goals: SavingsGoal[],
-  monthlyBurnRate: number = 30000,
+  monthlyBurnRate: number = 35000,
   rates: { USD: number; EUR: number; PLN: number } = {
     USD: 41.5,
     EUR: 45.3,
     PLN: 10.6,
   }
 ): SavingsMetrics {
+  let totalSavedUahEquivalent = 0;
+  let totalTargetUahEquivalent = 0;
+  let hasAnyTarget = false;
+
   const currencyTotals: Record<string, CurrencyTotalInfo> = {};
 
-  goals.forEach((g) => {
-    const curr = (g.currency || "UAH").toUpperCase();
-    if (!currencyTotals[curr]) {
-      currencyTotals[curr] = { current: 0, target: 0, hasTarget: false };
+  goals.forEach((goal) => {
+    const cur = (goal.currency || "UAH").toUpperCase();
+    const currentAmt = Number(goal.current_amount) || 0;
+    const targetAmt = Number(goal.target_amount) || 0;
+    const hasTarget = targetAmt > 0;
+
+    if (!currencyTotals[cur]) {
+      currencyTotals[cur] = { current: 0, target: 0, hasTarget: false };
     }
-    currencyTotals[curr].current += Number(g.current_amount) || 0;
-    if (g.target_amount != null && Number(g.target_amount) > 0) {
-      currencyTotals[curr].target += Number(g.target_amount);
-      currencyTotals[curr].hasTarget = true;
+    currencyTotals[cur].current += currentAmt;
+    if (hasTarget) {
+      currencyTotals[cur].target += targetAmt;
+      currencyTotals[cur].hasTarget = true;
+      hasAnyTarget = true;
+    }
+
+    totalSavedUahEquivalent += convertToUah(currentAmt, cur, rates);
+    if (hasTarget) {
+      totalTargetUahEquivalent += convertToUah(targetAmt, cur, rates);
     }
   });
 
-  const activeCurrencies = Object.keys(currencyTotals);
+  const totalPercent =
+    hasAnyTarget && totalTargetUahEquivalent > 0
+      ? Math.min(
+          100,
+          Math.round((totalSavedUahEquivalent / totalTargetUahEquivalent) * 100)
+        )
+      : 0;
 
-  const totalSavedUahEquivalent = goals.reduce(
-    (acc, g) =>
-      acc + convertToUah(Number(g.current_amount) || 0, g.currency, rates),
-    0
-  );
-
-  const safeBurn = monthlyBurnRate > 0 ? monthlyBurnRate : 30000;
-  const runwayMonths = (totalSavedUahEquivalent / safeBurn).toFixed(1);
+  const runwayMonths =
+    monthlyBurnRate > 0
+      ? (totalSavedUahEquivalent / monthlyBurnRate).toFixed(1)
+      : "0";
 
   return {
-    currencyTotals,
-    activeCurrencies,
     totalSavedUahEquivalent,
+    totalTargetUahEquivalent,
+    hasAnyTarget,
+    totalPercent,
     runwayMonths,
+    currencyTotals,
+    activeCurrencies: Object.keys(currencyTotals),
   };
 }
 
@@ -90,7 +112,7 @@ interface SavingsGoalsCardProps {
   onRefresh: () => void | Promise<void>;
 }
 
-export function SavingsGoalsCard({
+export const SavingsGoalsCard = memo(function SavingsGoalsCard({
   goals,
   monthlyBurnRate = 35000,
   rates = { USD: 41.5, EUR: 45.3, PLN: 10.6 },
@@ -905,4 +927,4 @@ export function SavingsGoalsCard({
         )}
     </div>
   );
-}
+});

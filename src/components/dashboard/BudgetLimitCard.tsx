@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { AlertTriangle, Pencil, Check, Calendar } from "lucide-react";
 import { BudgetMetricsResult } from "@/hooks/useBudgetMetrics";
 
@@ -10,7 +10,7 @@ interface BudgetLimitCardProps {
   onSaveBudget: (newLimit: number) => void | Promise<void>;
 }
 
-export function BudgetLimitCard({
+export const BudgetLimitCard = memo(function BudgetLimitCard({
   effectiveLimit,
   budgetMetrics,
   onSaveBudget,
@@ -201,4 +201,4 @@ export function BudgetLimitCard({
       </div>
     </section>
   );
-}
+});
