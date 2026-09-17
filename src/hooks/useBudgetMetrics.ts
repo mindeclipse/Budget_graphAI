@@ -4,6 +4,7 @@ import { CATEGORY_COLORS } from "@/constants/categories";
 import {
   filterBudgetTransactions,
   calculateCycleDaysRemaining,
+  getCycleDateRange,
   DEFAULT_BUDGET_LIMIT,
 } from "@/lib/cycle-utils";
 import { buildUpcomingSchedule } from "@/lib/subscription-radar";
@@ -180,21 +181,10 @@ export function useBudgetMetrics({
         ? Math.round(remaining / daysRemaining)
         : 0;
 
+    const cycleRange = getCycleDateRange(activeCycle, selectedDate);
     const pacing = calculateWeightedCalendarPacing(transactions, {
-      startDate: activeCycle?.start_date
-        ? new Date(activeCycle.start_date)
-        : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
-      endDate: activeCycle?.end_date
-        ? new Date(activeCycle.end_date)
-        : new Date(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth() + 1,
-            0,
-            23,
-            59,
-            59,
-            999
-          ),
+      startDate: cycleRange.startDate,
+      endDate: cycleRange.endDate,
       totalBudgetLimit: effectiveLimit,
       currentExpenseTotal: totalSpent,
       upcomingObligations: upcomingSchedule.upcoming.map((u) => ({
