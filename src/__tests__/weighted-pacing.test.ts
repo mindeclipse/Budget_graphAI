@@ -92,6 +92,20 @@ describe("Weighted Calendar Pacing Engine (Step 4)", () => {
           type: "expense",
           created_at: "2026-08-23T10:00:00.000Z",
         },
+        {
+          id: 7,
+          amount: 4500,
+          type: "expense",
+          metadata: { is_emergency: true },
+          created_at: "2026-08-24T10:00:00.000Z",
+        },
+        {
+          id: 8,
+          amount: 1500,
+          type: "expense",
+          tags: ["форсмажор"],
+          created_at: "2026-08-25T10:00:00.000Z",
+        },
       ] as unknown as Transaction[];
 
       const habits = calibrateHabitsFromBaseline(txs);

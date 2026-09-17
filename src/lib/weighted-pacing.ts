@@ -207,8 +207,16 @@ export function calibrateHabitsFromBaseline(
   referenceDate: Date = new Date()
 ): CalibratedHabits {
   // 1. Фільтрація: тільки валідні витрати від базової лінії
+  // Форс-мажори та екстрені витрати виключаються з калібрування звичок,
+  // щоб випадкова аварійна подія не спотворювала коефіцієнт стилю життя (alpha).
   const validTx = transactions.filter((t) => {
     if (t.type !== "expense" || t.exclude_from_budget || t.deleted_at) {
+      return false;
+    }
+    const isEmergency =
+      Boolean(t.metadata?.is_emergency) ||
+      (Array.isArray(t.tags) && t.tags.includes("форсмажор"));
+    if (isEmergency) {
       return false;
     }
     const rawDate = t.created_at || (t as any).date;
