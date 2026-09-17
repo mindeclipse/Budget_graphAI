@@ -35,70 +35,8 @@ import { MobileBottomBar } from "@/components/dashboard/MobileBottomBar";
 import { triggerHaptic } from "@/lib/haptics";
 import { toast } from "sonner";
 
-// Dynamic Code Splitting для важких модальних вікон
-const CategoryDetailModal = dynamic(
-  () =>
-    import("@/components/CategoryDetailModal").then(
-      (m) => m.CategoryDetailModal
-    ),
-  { ssr: false }
-);
-const CreateTransactionDrawer = dynamic(
-  () =>
-    import("@/components/CreateTransactionDrawer").then(
-      (m) => m.CreateTransactionDrawer
-    ),
-  { ssr: false }
-);
-const RecurringModal = dynamic(
-  () => import("@/components/RecurringModal").then((m) => m.RecurringModal),
-  { ssr: false }
-);
-const TransactionActionSheet = dynamic(
-  () =>
-    import("@/components/TransactionActionSheet").then(
-      (m) => m.TransactionActionSheet
-    ),
-  { ssr: false }
-);
-const SplitTransactionModal = dynamic(
-  () =>
-    import("@/components/SplitTransactionModal").then(
-      (m) => m.SplitTransactionModal
-    ),
-  { ssr: false }
-);
-const NewCycleModal = dynamic(
-  () => import("@/components/NewCycleModal").then((m) => m.NewCycleModal),
-  { ssr: false }
-);
-const AIAnalysisDrawer = dynamic(
-  () => import("@/components/AIAnalysisDrawer").then((m) => m.AIAnalysisDrawer),
-  { ssr: false }
-);
-const BankStatementModal = dynamic(
-  () =>
-    import("@/components/BankStatementModal").then((m) => m.BankStatementModal),
-  { ssr: false }
-);
-const InzhurImportModal = dynamic(
-  () =>
-    import("@/components/InzhurImportModal").then((m) => m.InzhurImportModal),
-  { ssr: false }
-);
-const TrashModal = dynamic(
-  () => import("@/components/TrashModal").then((m) => m.TrashModal),
-  { ssr: false }
-);
-const MerchantRulesModal = dynamic(
-  () =>
-    import("@/components/MerchantRulesModal").then((m) => m.MerchantRulesModal),
-  { ssr: false }
-);
-const TagProjectModal = dynamic(
-  () => import("@/components/TagProjectModal").then((m) => m.TagProjectModal),
-  { ssr: false }
-);
+import { DashboardModals } from "@/components/dashboard/DashboardModals";
+import { useDashboardModals } from "@/hooks/useDashboardModals";
 
 // Пульсуючий прелоадер-скелетон для відкладеного завантаження графіків Recharts
 function ChartSkeleton({ height = "h-44 md:h-52" }: { height?: string }) {
@@ -203,6 +141,14 @@ export default function Dashboard() {
     isLoadingRadar,
     invalidateRadar,
     markRecurringPaidOptimistic,
+    cycles,
+    activeCycle: queryActiveCycle,
+    wealthData,
+    invalidateCycles,
+    invalidateWealth,
+    updateActiveCycleLimitOptimistic,
+    updateCategoryBudgetOptimistic,
+    deleteCategoryBudgetOptimistic,
   } = useFinanceQueries(isAuthenticated);
 
   // Відфільтровуємо транзакції, виключені з бюджету
@@ -215,33 +161,104 @@ export default function Dashboard() {
     "overview"
   );
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [activeCycle, setActiveCycle] = useState<BudgetCycle | null>(null);
-  const [previousCycle, setPreviousCycle] = useState<BudgetCycle | null>(null);
 
-  // Стан для розширених фінансових можливостей
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
-  const [investments, setInvestments] = useState<InvestmentAsset[]>([]);
-  const [categoryBudgets, setCategoryBudgets] = useState<
-    Record<string, number>
-  >({});
-  const [commercialRates, setCommercialRates] = useState<{
+  const activeCycle = queryActiveCycle;
+  const previousCycle = useMemo(() => {
+    if (!cycles || cycles.length === 0) return null;
+    const activeIdx = cycles.findIndex(
+      (c: BudgetCycle) => c.id === activeCycle?.id || c.is_active
+    );
+    return activeIdx !== -1 ? cycles[activeIdx + 1] || null : cycles[1] || null;
+  }, [cycles, activeCycle]);
+
+  // Стан для розширених фінансових можливостей з TanStack Query (кешовано)
+  const savingsGoals = useMemo<SavingsGoal[]>(() => {
+    return Array.isArray(wealthData?.goals) ? wealthData.goals : [];
+  }, [wealthData?.goals]);
+
+  const investments = useMemo<InvestmentAsset[]>(() => {
+    return Array.isArray(wealthData?.investments) ? wealthData.investments : [];
+  }, [wealthData?.investments]);
+
+  const categoryBudgets = useMemo<Record<string, number>>(() => {
+    return wealthData?.categoryBudgets &&
+      typeof wealthData.categoryBudgets === "object"
+      ? wealthData.categoryBudgets
+      : {};
+  }, [wealthData?.categoryBudgets]);
+
+  const commercialRates = useMemo<{
     USD: number;
     EUR: number;
     PLN: number;
-  }>({
-    USD: 41.5,
-    EUR: 45.3,
-    PLN: 10.6,
-  });
-  const [splitTx, setSplitTx] = useState<Transaction | null>(null);
+  }>(() => {
+    return (
+      wealthData?.rates || {
+        USD: 41.5,
+        EUR: 45.3,
+        PLN: 10.6,
+      }
+    );
+  }, [wealthData?.rates]);
 
   // Стан для усвідомлених покупок (Wishlist & Cost-per-Use)
-  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
-  const [wishlistSavedAmount, setWishlistSavedAmount] = useState<number>(0);
-  const [costPerUseItems, setCostPerUseItems] = useState<CostPerUseItem[]>([]);
-  const [costPerUseSavedAmount, setCostPerUseSavedAmount] = useState<number>(0);
-  const [prefillCostPerUse, setPrefillCostPerUse] =
-    useState<Partial<CostPerUseItem> | null>(null);
+  const wishlistItems = useMemo<WishlistItem[]>(() => {
+    return wealthData?.wishlist?.items || [];
+  }, [wealthData?.wishlist?.items]);
+
+  const wishlistSavedAmount = useMemo<number>(() => {
+    return wealthData?.wishlist?.metrics?.saved_amount ?? 0;
+  }, [wealthData?.wishlist?.metrics?.saved_amount]);
+
+  const costPerUseItems = useMemo<CostPerUseItem[]>(() => {
+    return wealthData?.costPerUse?.items || [];
+  }, [wealthData?.costPerUse?.items]);
+
+  const costPerUseSavedAmount = useMemo<number>(() => {
+    return wealthData?.costPerUse?.metrics?.total_money_saved ?? 0;
+  }, [wealthData?.costPerUse?.metrics?.total_money_saved]);
+
+  // Стан модальних вікон через виділений хук
+  const {
+    isCycleModalOpen,
+    openCycleModal,
+    closeCycleModal,
+    isImportModalOpen,
+    importModalType,
+    openImportModal,
+    closeImportModal,
+    isInzhurImportOpen,
+    openInzhurImport,
+    closeInzhurImport,
+    isCreateExpenseOpen,
+    openCreateExpense,
+    closeCreateExpense,
+    isTrashOpen,
+    openTrash,
+    closeTrash,
+    isMerchantRulesOpen,
+    openMerchantRules,
+    closeMerchantRules,
+    isAiDrawerOpen,
+    aiInitialPrompt,
+    openAiDrawer,
+    closeAiDrawer,
+    selectedTx,
+    setSelectedTx,
+    splitTx,
+    setSplitTx,
+    selectedCategory,
+    setSelectedCategory,
+    selectedProjectTag,
+    setSelectedProjectTag,
+    isAddingRecurring,
+    editingRecurring,
+    openAddRecurring,
+    openEditRecurring,
+    closeRecurringModal,
+    prefillCostPerUse,
+    setPrefillCostPerUse,
+  } = useDashboardModals();
 
   // 4. Оптимістичні мутації транзакцій
   const {
@@ -251,72 +268,6 @@ export default function Dashboard() {
     syncQueue,
     isSyncing,
   } = useTransactionMutations();
-
-  // Завантаження розрахункових циклів
-  const loadCycles = async () => {
-    try {
-      const res = await fetch("/api/cycles");
-      const data = await res.json();
-      if (data.activeCycle) {
-        setActiveCycle(data.activeCycle);
-      }
-      if (Array.isArray(data.cycles) && data.cycles.length > 0) {
-        const activeIdx = data.cycles.findIndex(
-          (c: BudgetCycle) => c.id === data.activeCycle?.id || c.is_active
-        );
-        const prev =
-          activeIdx !== -1
-            ? data.cycles[activeIdx + 1] || null
-            : data.cycles[1] || null;
-        setPreviousCycle(prev);
-      }
-    } catch (e) {
-      console.error("Failed to load cycles:", e);
-    }
-  };
-
-  // Завантаження скарбничок, інвестицій, лімітів категорій, курсів валют та усвідомлених покупок через єдиний батч-ендпоінт
-  const loadWealthData = async () => {
-    try {
-      const res = await fetch("/api/wealth/summary");
-      if (!res.ok) return;
-      const data = await res.json();
-
-      if (Array.isArray(data.goals)) {
-        setSavingsGoals(data.goals);
-      }
-      if (Array.isArray(data.investments)) {
-        setInvestments(data.investments);
-      }
-      if (data.categoryBudgets && typeof data.categoryBudgets === "object") {
-        setCategoryBudgets(data.categoryBudgets);
-      }
-      if (data.rates) {
-        setCommercialRates(data.rates);
-      }
-      if (data.wishlist) {
-        setWishlistItems(data.wishlist.items || []);
-        if (data.wishlist.metrics?.saved_amount !== undefined) {
-          setWishlistSavedAmount(data.wishlist.metrics.saved_amount);
-        }
-      }
-      if (data.costPerUse) {
-        setCostPerUseItems(data.costPerUse.items || []);
-        if (data.costPerUse.metrics?.total_money_saved !== undefined) {
-          setCostPerUseSavedAmount(data.costPerUse.metrics.total_money_saved);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load wealth data:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      loadCycles();
-      loadWealthData();
-    }
-  }, [isAuthenticated]);
 
   // 5. Розрахунок аналітичних показників через кастомний хук
   const {
@@ -389,14 +340,10 @@ export default function Dashboard() {
   ]);
 
   // 6. Керування AI-аналізом
-  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisResponse | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [selectedAiModel, setSelectedAiModel] =
     useState<SupportedGeminiModel>("gemini-3.5-flash");
-  const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(
-    undefined
-  );
 
   const aiFinancialContext = useMemo(() => {
     const coolingCount = wishlistItems.filter(
@@ -452,8 +399,7 @@ export default function Dashboard() {
     modelToUse = selectedAiModel,
     initialPrompt?: string
   ) => {
-    setAiInitialPrompt(initialPrompt);
-    setIsAiDrawerOpen(true);
+    openAiDrawer(initialPrompt);
 
     if (aiAnalysis && !initialPrompt) {
       return;
@@ -501,9 +447,6 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [selectedProjectTag, setSelectedProjectTag] = useState<string | null>(
-    null
-  );
 
   const availableTags = useMemo<string[]>(() => {
     const tagsSet = new Set<string>();
@@ -598,21 +541,6 @@ export default function Dashboard() {
     );
   }, [investmentTransactions, rawTransactions]);
 
-  // 8. Стан модальних вікон
-  const [isCycleModalOpen, setIsCycleModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importModalType, setImportModalType] = useState<
-    "expense" | "investment"
-  >("expense");
-  const [isInzhurImportOpen, setIsInzhurImportOpen] = useState(false);
-  const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
-  const [isTrashOpen, setIsTrashOpen] = useState(false);
-  const [isMerchantRulesOpen, setIsMerchantRulesOpen] = useState(false);
-  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [isAddingRecurring, setIsAddingRecurring] = useState(false);
-  const [editingRecurring, setEditingRecurring] =
-    useState<RecurringItem | null>(null);
   const [isExecutingRecurring, setIsExecutingRecurring] = useState<
     number | null
   >(null);
@@ -642,9 +570,7 @@ export default function Dashboard() {
   const handleSaveBudgetLimit = async (newLimit: number) => {
     if (!activeCycle?.id) return;
 
-    setActiveCycle((prev: BudgetCycle | null) =>
-      prev ? { ...prev, budget_limit: newLimit } : prev
-    );
+    updateActiveCycleLimitOptimistic(newLimit);
 
     try {
       const res = await fetch("/api/cycles", {
@@ -656,11 +582,7 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Не вдалося оновити ліміт на сервері");
     } catch (error) {
       console.error("Помилка збереження бюджету:", error);
-      if (activeCycle?.budget_limit) {
-        setActiveCycle((prev: BudgetCycle | null) =>
-          prev ? { ...prev } : null
-        );
-      }
+      invalidateCycles();
     }
   };
 
@@ -692,8 +614,8 @@ export default function Dashboard() {
       }
 
       invalidateRecurring();
-      setIsAddingRecurring(false);
-      setEditingRecurring(null);
+      invalidateRadar();
+      closeRecurringModal();
     } catch (err) {
       console.error("Помилка збереження регулярного платежу:", err);
     }
@@ -702,8 +624,8 @@ export default function Dashboard() {
   const handleDeleteRecurring = async (id: number) => {
     await fetch(`/api/recurring?id=${id}`, { method: "DELETE" });
     invalidateRecurring();
-    setIsAddingRecurring(false);
-    setEditingRecurring(null);
+    invalidateRadar();
+    closeRecurringModal();
   };
 
   const handleExecuteRecurring = async (item: RecurringItem) => {
@@ -763,7 +685,7 @@ export default function Dashboard() {
   };
 
   const handleAddDetectedFromRadar = (sub: DetectedSubscription) => {
-    setEditingRecurring({
+    openEditRecurring({
       id: 0,
       title: sub.title,
       amount: sub.amount,
@@ -772,7 +694,6 @@ export default function Dashboard() {
       day_of_month: sub.predicted_day_of_month,
       is_active: true,
     });
-    setIsAddingRecurring(true);
   };
 
   const handleDismissDetectedFromRadar = async (
@@ -860,7 +781,7 @@ export default function Dashboard() {
     categoryName: string,
     limit: number
   ) => {
-    setCategoryBudgets((prev) => ({ ...prev, [categoryName]: limit }));
+    updateCategoryBudgetOptimistic(categoryName, limit);
     try {
       await fetch("/api/category-budgets", {
         method: "POST",
@@ -872,15 +793,12 @@ export default function Dashboard() {
       });
     } catch (err) {
       console.error("Помилка збереження ліміту категорії:", err);
+      invalidateWealth();
     }
   };
 
   const handleDeleteCategoryBudget = async (categoryName: string) => {
-    setCategoryBudgets((prev) => {
-      const copy = { ...prev };
-      delete copy[categoryName];
-      return copy;
-    });
+    deleteCategoryBudgetOptimistic(categoryName);
     try {
       await fetch(
         `/api/category-budgets?category_name=${encodeURIComponent(categoryName)}`,
@@ -888,6 +806,7 @@ export default function Dashboard() {
       );
     } catch (err) {
       console.error("Помилка видалення ліміту категорії:", err);
+      invalidateWealth();
     }
   };
 
@@ -907,13 +826,15 @@ export default function Dashboard() {
 
   // Відновлення бази даних з бекапу
   const handleRestoreSuccess = async () => {
-    await Promise.all([loadCycles(), loadWealthData()]);
+    invalidateCycles();
+    invalidateWealth();
     window.location.reload();
   };
 
   // Успішний спліт транзакції
   const handleSplitSuccess = async () => {
-    await loadWealthData();
+    invalidateWealth();
+    invalidateTransactions();
     window.location.reload();
   };
 
@@ -937,9 +858,7 @@ export default function Dashboard() {
   return (
     <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:px-12">
       <Suspense fallback={null}>
-        <QuickActionsListener
-          onAddExpense={() => setIsCreateExpenseOpen(true)}
-        />
+        <QuickActionsListener onAddExpense={openCreateExpense} />
       </Suspense>
 
       {/* Офлайн банер та черга несинхронізованих транзакцій */}
@@ -958,17 +877,14 @@ export default function Dashboard() {
         spentCents={spentCents}
         recurringTotal={recurringTotal}
         transactionCount={filteredTransactions.length}
-        onOpenNewCycle={() => setIsCycleModalOpen(true)}
-        onOpenImport={() => {
-          setImportModalType("expense");
-          setIsImportModalOpen(true);
-        }}
+        onOpenNewCycle={openCycleModal}
+        onOpenImport={() => openImportModal("expense")}
         onRegisterDevice={handleRegisterDevice}
         onLogout={handleLogout}
         onExportExcel={handleExportExcel}
         onRestoreSuccess={handleRestoreSuccess}
-        onOpenTrash={() => setIsTrashOpen(true)}
-        onOpenMerchantRules={() => setIsMerchantRulesOpen(true)}
+        onOpenTrash={openTrash}
+        onOpenMerchantRules={openMerchantRules}
       />
 
       {/* 3. Картка місячного ліміту бюджету */}
@@ -1034,14 +950,8 @@ export default function Dashboard() {
               recurring={recurring}
               radarData={radarData}
               isLoading={isLoadingRadar}
-              onAddRecurring={() => {
-                setEditingRecurring(null);
-                setIsAddingRecurring(true);
-              }}
-              onEditRecurring={(item) => {
-                setEditingRecurring(item);
-                setIsAddingRecurring(true);
-              }}
+              onAddRecurring={openAddRecurring}
+              onEditRecurring={openEditRecurring}
               onExecuteRecurring={handleExecuteRecurring}
               onAddDetected={handleAddDetectedFromRadar}
               onDismissDetected={handleDismissDetectedFromRadar}
@@ -1105,12 +1015,12 @@ export default function Dashboard() {
               availableTags={availableTags}
               activeTag={activeTag}
               onTagChange={setActiveTag}
-              onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
+              onOpenCreateExpense={openCreateExpense}
               onSelectTransaction={setSelectedTx}
               onDeleteTransaction={handleDeleteTransaction}
               onOpenSplitTransaction={(tx) => setSplitTx(tx)}
-              onOpenTrash={() => setIsTrashOpen(true)}
-              onOpenMerchantRules={() => setIsMerchantRulesOpen(true)}
+              onOpenTrash={openTrash}
+              onOpenMerchantRules={openMerchantRules}
               onOpenTagProject={setSelectedProjectTag}
             />
           </section>
@@ -1125,7 +1035,7 @@ export default function Dashboard() {
               activeTag={activeTag}
               onTagChange={setActiveTag}
               periodLabel={activeCycle?.name || monthLabel}
-              onOpenCreateExpense={() => setIsCreateExpenseOpen(true)}
+              onOpenCreateExpense={openCreateExpense}
             />
           </aside>
         </div>
@@ -1147,12 +1057,12 @@ export default function Dashboard() {
               goals={savingsGoals}
               monthlyBurnRate={totalSpent > 0 ? totalSpent : effectiveLimit}
               rates={commercialRates}
-              onRefresh={loadWealthData}
+              onRefresh={invalidateWealth}
             />
             <InvestmentsCard
               investments={investments}
               rates={commercialRates}
-              onRefresh={loadWealthData}
+              onRefresh={invalidateWealth}
             />
           </div>
 
@@ -1161,7 +1071,7 @@ export default function Dashboard() {
             <WishlistCard
               items={wishlistItems}
               savedAmount={wishlistSavedAmount}
-              onRefresh={loadWealthData}
+              onRefresh={invalidateWealth}
               onConvertToCostPerUse={(wish) => {
                 setPrefillCostPerUse({
                   item_name: wish.title,
@@ -1177,7 +1087,7 @@ export default function Dashboard() {
             <CostPerUseCard
               items={costPerUseItems}
               totalMoneySaved={costPerUseSavedAmount}
-              onRefresh={loadWealthData}
+              onRefresh={invalidateWealth}
               prefillItem={prefillCostPerUse}
               onClearPrefill={() => setPrefillCostPerUse(null)}
             />
@@ -1187,156 +1097,93 @@ export default function Dashboard() {
           <CapitalHistoryCard
             transactions={capitalTransactions}
             onSelectTransaction={setSelectedTx}
-            onAddCapital={() => setIsCreateExpenseOpen(true)}
-            onImportInzhur={() => {
-              setImportModalType("investment");
-              setIsImportModalOpen(true);
-            }}
+            onAddCapital={openCreateExpense}
+            onImportInzhur={() => openImportModal("investment")}
           />
         </div>
       )}
 
-      {/* Глобальні модальні вікна та шторки (завантажуються за вимогою) */}
-      {selectedCategory && (
-        <CategoryDetailModal
-          categoryName={selectedCategory}
-          transactions={filteredTransactions}
-          onClose={() => setSelectedCategory(null)}
-          onSelectTransaction={setSelectedTx}
-        />
-      )}
-
-      {selectedProjectTag && (
-        <TagProjectModal
-          tag={selectedProjectTag}
-          transactions={transactions}
-          onClose={() => setSelectedProjectTag(null)}
-          onSelectTransaction={setSelectedTx}
-        />
-      )}
-
-      <CreateTransactionDrawer
-        isOpen={isCreateExpenseOpen}
-        onClose={() => setIsCreateExpenseOpen(false)}
+      {/* Глобальні модальні вікна та шторки, винесені в окремий модуль */}
+      <DashboardModals
+        selectedCategory={selectedCategory}
+        filteredTransactions={filteredTransactions}
+        onCloseCategory={() => setSelectedCategory(null)}
+        selectedProjectTag={selectedProjectTag}
+        transactions={transactions}
+        onCloseProjectTag={() => setSelectedProjectTag(null)}
+        isCreateExpenseOpen={isCreateExpenseOpen}
+        onCloseCreateExpense={closeCreateExpense}
+        isAddingRecurring={isAddingRecurring}
+        editingRecurring={editingRecurring}
+        onCloseRecurring={closeRecurringModal}
+        onSaveRecurring={handleSaveRecurring}
+        onDeleteRecurring={handleDeleteRecurring}
+        selectedTx={selectedTx}
+        onCloseSelectedTx={() => setSelectedTx(null)}
+        onUpdateCategory={handleUpdateCategory}
+        onUpdateTags={handleUpdateTags}
+        onDeleteTransaction={handleDeleteTransaction}
+        onOpenSplit={(tx) => setSplitTx(tx)}
+        onOpenTagProject={setSelectedProjectTag}
+        onReceiptUpdated={() => {
+          invalidateTransactions();
+          invalidateInvestmentTransactions();
+        }}
+        onUpdateTransaction={(payload) => {
+          setSelectedTx(null);
+          updateTransaction(payload);
+        }}
+        splitTx={splitTx}
+        onCloseSplit={() => setSplitTx(null)}
+        onSplitSuccess={handleSplitSuccess}
+        isCycleModalOpen={isCycleModalOpen}
+        onCloseCycleModal={closeCycleModal}
+        activeCycle={activeCycle}
+        effectiveLimit={effectiveLimit}
+        onCycleStarted={invalidateCycles}
+        isAiDrawerOpen={isAiDrawerOpen}
+        onCloseAiDrawer={closeAiDrawer}
+        aiAnalysis={aiAnalysis}
+        isAiLoading={isAiLoading}
+        selectedAiModel={selectedAiModel}
+        onAiModelChange={(model) => {
+          setSelectedAiModel(model);
+          handleRunAiAnalysis(model);
+        }}
+        onAiReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
+        aiInitialPrompt={aiInitialPrompt}
+        aiFinancialContext={aiFinancialContext}
+        isImportModalOpen={isImportModalOpen}
+        onCloseImportModal={closeImportModal}
+        onImportSuccess={() => {
+          closeImportModal();
+          invalidateTransactions();
+          invalidateInvestmentTransactions();
+          invalidateWealth();
+        }}
+        investments={investments}
+        importModalType={importModalType}
+        onInvestmentsChange={invalidateWealth}
+        isInzhurImportOpen={isInzhurImportOpen}
+        onCloseInzhurImport={closeInzhurImport}
+        onInzhurSuccess={() => {
+          invalidateTransactions();
+          invalidateInvestmentTransactions();
+          invalidateWealth();
+        }}
+        isTrashOpen={isTrashOpen}
+        onCloseTrash={closeTrash}
+        isMerchantRulesOpen={isMerchantRulesOpen}
+        onCloseMerchantRules={closeMerchantRules}
+        onSelectTransaction={setSelectedTx}
       />
-
-      {isAddingRecurring && (
-        <RecurringModal
-          isOpen={isAddingRecurring}
-          item={editingRecurring}
-          onClose={() => setIsAddingRecurring(false)}
-          onSave={handleSaveRecurring}
-          onDelete={handleDeleteRecurring}
-        />
-      )}
-
-      {selectedTx && (
-        <TransactionActionSheet
-          transaction={selectedTx}
-          onClose={() => setSelectedTx(null)}
-          onUpdateCategory={handleUpdateCategory}
-          onUpdateTags={handleUpdateTags}
-          onDelete={handleDeleteTransaction}
-          onOpenSplit={(tx) => setSplitTx(tx)}
-          onOpenTagProject={setSelectedProjectTag}
-          onReceiptUpdated={() => {
-            invalidateTransactions();
-            invalidateInvestmentTransactions();
-          }}
-          onUpdateTransaction={(payload) => {
-            setSelectedTx(null);
-            updateTransaction(payload);
-          }}
-        />
-      )}
-
-      {splitTx && (
-        <SplitTransactionModal
-          transaction={splitTx}
-          onClose={() => setSplitTx(null)}
-          onSplitSuccess={handleSplitSuccess}
-        />
-      )}
-
-      {isCycleModalOpen && (
-        <NewCycleModal
-          isOpen={isCycleModalOpen}
-          onClose={() => setIsCycleModalOpen(false)}
-          defaultLimit={
-            activeCycle?.budget_limit || effectiveLimit || FALLBACK_BUDGET_LIMIT
-          }
-          onCycleStarted={loadCycles}
-        />
-      )}
-
-      {isAiDrawerOpen && (
-        <AIAnalysisDrawer
-          isOpen={isAiDrawerOpen}
-          onClose={() => {
-            setIsAiDrawerOpen(false);
-            setAiInitialPrompt(undefined);
-          }}
-          analysis={aiAnalysis}
-          isLoading={isAiLoading}
-          selectedModel={selectedAiModel}
-          onModelChange={(model) => {
-            setSelectedAiModel(model);
-            handleRunAiAnalysis(model);
-          }}
-          onReanalyze={() => handleRunAiAnalysis(selectedAiModel)}
-          initialPrompt={aiInitialPrompt}
-          financialContext={aiFinancialContext}
-        />
-      )}
-
-      {isImportModalOpen && (
-        <BankStatementModal
-          isOpen={isImportModalOpen}
-          onClose={() => setIsImportModalOpen(false)}
-          onSuccess={() => {
-            setIsImportModalOpen(false);
-            invalidateTransactions();
-            invalidateInvestmentTransactions();
-            loadWealthData();
-          }}
-          investments={investments}
-          initialType={importModalType}
-          onInvestmentsChange={loadWealthData}
-        />
-      )}
-
-      {isInzhurImportOpen && (
-        <InzhurImportModal
-          isOpen={isInzhurImportOpen}
-          onClose={() => setIsInzhurImportOpen(false)}
-          onSuccess={() => {
-            invalidateTransactions();
-            invalidateInvestmentTransactions();
-            loadWealthData();
-          }}
-        />
-      )}
-
-      {isTrashOpen && (
-        <TrashModal
-          isOpen={isTrashOpen}
-          onClose={() => setIsTrashOpen(false)}
-        />
-      )}
-
-      {isMerchantRulesOpen && (
-        <MerchantRulesModal
-          isOpen={isMerchantRulesOpen}
-          onClose={() => setIsMerchantRulesOpen(false)}
-        />
-      )}
 
       {/* Ергономічна мобільна панель дій під великий палець (суворо md:hidden) */}
       <MobileBottomBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onAddExpense={() => setIsCreateExpenseOpen(true)}
-        onOpenAi={() => setIsAiDrawerOpen(true)}
+        onAddExpense={openCreateExpense}
+        onOpenAi={() => openAiDrawer()}
       />
     </main>
   );

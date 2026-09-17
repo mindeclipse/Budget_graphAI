@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Transaction, RecurringItem } from "@/types/finance";
+import { Transaction, RecurringItem, BudgetCycle } from "@/types/finance";
 import { SubscriptionRadarResult } from "@/lib/subscription-radar";
 
 import { PersonalCpiReport } from "@/lib/personal-cpi";
@@ -7,6 +7,11 @@ import { PersonalCpiReport } from "@/lib/personal-cpi";
 export interface DateRangeFilter {
   from?: string;
   to?: string;
+}
+
+export interface CyclesResponse {
+  activeCycle: BudgetCycle | null;
+  cycles: BudgetCycle[];
 }
 
 // Ключі для кешу
@@ -22,6 +27,7 @@ export const FINANCE_KEYS = {
   analyticsCpi: (year?: number, month?: number, from?: string, to?: string) =>
     ["analytics", "cpi", year, month, from, to] as const,
   wealthSummary: ["wealth", "summary"] as const,
+  cycles: ["cycles"] as const,
 };
 
 export function useFinanceQueries(
@@ -121,6 +127,12 @@ export function useFinanceQueries(
     refetchOnWindowFocus: false,
   });
 
+  // Запит циклів бюджету
+  const cyclesQuery = useCyclesQuery(isAuthenticated);
+
+  // Запит огляду капіталу (скарбнички, інвестиції, ліміти)
+  const wealthQuery = useWealthSummaryQuery(isAuthenticated);
+
   // Функції для ручної інвалідації кешу (скидають кеш для всіх діапазонів)
   const invalidateTransactions = () => {
     queryClient.invalidateQueries({ queryKey: ["transactions"] });
@@ -139,6 +151,60 @@ export function useFinanceQueries(
 
   const invalidateRadar = () => {
     queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.radar });
+  };
+
+  const invalidateCycles = () => {
+    queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.cycles });
+  };
+
+  const invalidateWealth = () => {
+    queryClient.invalidateQueries({ queryKey: FINANCE_KEYS.wealthSummary });
+  };
+
+  const updateActiveCycleLimitOptimistic = (newLimit: number) => {
+    queryClient.setQueryData(
+      FINANCE_KEYS.cycles,
+      (old: CyclesResponse | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          activeCycle: old.activeCycle
+            ? { ...old.activeCycle, budget_limit: newLimit }
+            : null,
+          cycles: old.cycles.map((c) =>
+            c.id === old.activeCycle?.id ? { ...c, budget_limit: newLimit } : c
+          ),
+        };
+      }
+    );
+  };
+
+  const updateCategoryBudgetOptimistic = (
+    categoryName: string,
+    limit: number
+  ) => {
+    queryClient.setQueryData(FINANCE_KEYS.wealthSummary, (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        categoryBudgets: {
+          ...(old.categoryBudgets || {}),
+          [categoryName]: limit,
+        },
+      };
+    });
+  };
+
+  const deleteCategoryBudgetOptimistic = (categoryName: string) => {
+    queryClient.setQueryData(FINANCE_KEYS.wealthSummary, (old: any) => {
+      if (!old) return old;
+      const copy = { ...(old.categoryBudgets || {}) };
+      delete copy[categoryName];
+      return {
+        ...old,
+        categoryBudgets: copy,
+      };
+    });
   };
 
   const markRecurringPaidOptimistic = (itemId: number, paidAmount: number) => {
@@ -201,11 +267,21 @@ export function useFinanceQueries(
     isLoadingPacing: false,
     radar: radarQuery.data,
     isLoadingRadar: radarQuery.isLoading,
+    cycles: cyclesQuery.data?.cycles || [],
+    activeCycle: cyclesQuery.data?.activeCycle || null,
+    isLoadingCycles: cyclesQuery.isLoading,
+    wealthData: wealthQuery.data,
+    isLoadingWealth: wealthQuery.isLoading,
     invalidateTransactions,
     invalidateInvestmentTransactions,
     invalidateRecurring,
     invalidateRadar,
+    invalidateCycles,
+    invalidateWealth,
     markRecurringPaidOptimistic,
+    updateActiveCycleLimitOptimistic,
+    updateCategoryBudgetOptimistic,
+    deleteCategoryBudgetOptimistic,
   };
 }
 
@@ -276,6 +352,25 @@ export function useWealthSummaryQuery(isAuthenticated: boolean | null) {
       const res = await fetch("/api/wealth/summary");
       if (!res.ok) throw new Error("Не вдалося завантажити фінансовий огляд");
       return await res.json();
+    },
+    enabled: Boolean(isAuthenticated),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useCyclesQuery(isAuthenticated: boolean | null) {
+  return useQuery({
+    queryKey: FINANCE_KEYS.cycles,
+    queryFn: async (): Promise<CyclesResponse> => {
+      const res = await fetch("/api/cycles");
+      if (!res.ok) throw new Error("Не вдалося завантажити розрахункові цикли");
+      const data = await res.json();
+      return {
+        activeCycle: data.activeCycle || null,
+        cycles: Array.isArray(data.cycles) ? data.cycles : [],
+      };
     },
     enabled: Boolean(isAuthenticated),
     staleTime: 5 * 60 * 1000,
