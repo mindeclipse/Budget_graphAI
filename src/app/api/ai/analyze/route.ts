@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
 Використовуй валюту ₴ (гривня). Відповідай ділово, українською мовою.
 Враховуй, що великі покупки, розраховані на кілька місяців (наприклад, курси вітамінів або річна страховка) — це планова інвестиція, а НЕ імпульсивне марнотратство чи перевищення щоденного темпу.
 Користувач у будні дні працює віддалено з дому до 17:00. Будь-які вечірні покупки після 17:00 (продукти, вечеря, аптека, побут) є природними плановими потребами забезпечення життя, а НЕ емоційною «сліпою зоною».
+Враховуй коментарі та теги до операцій (наприклад: #подарунок, #авто, #лікування). Вони розкривають контекст і цільовий характер витрат, захищаючи їх від хибного визначення як «марнотратство».
 `;
 
     const userPrompt = `
@@ -131,6 +132,22 @@ export async function POST(req: NextRequest) {
 
 Топ категорій:
 ${payload.topCategories.map((c) => `- ${c.name}: ${c.amount} ₴ (${c.percentage}%)`).join("\n")}
+${
+  payload.recentTaggedTransactions &&
+  payload.recentTaggedTransactions.length > 0
+    ? `\nКлючові операції періоду з тегами або коментарями:\n` +
+      payload.recentTaggedTransactions
+        .map((t) => {
+          let s = `- ${t.merchant}: ${t.amount} ₴ [${t.category}]`;
+          if (t.isEmergency) s += ` (🛡️ Форс-мажор)`;
+          if (t.tags && t.tags.length > 0)
+            s += ` теги: ${t.tags.map((tg) => `#${tg}`).join(", ")}`;
+          if (t.comment) s += ` коментар: "${t.comment}"`;
+          return s;
+        })
+        .join("\n")
+    : ""
+}
 `;
 
     const runGeneration = async (modelName: SupportedGeminiModel) => {

@@ -485,6 +485,11 @@ export function TagProjectModal({
                               }
                             )}
                           </p>
+                          {(t.metadata?.comment || t.metadata?.note) && (
+                            <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-zinc-400 italic sm:max-w-md">
+                              “{t.metadata.comment || t.metadata.note}”
+                            </p>
+                          )}
                         </div>
                       </div>
 

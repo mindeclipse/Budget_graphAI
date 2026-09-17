@@ -16,6 +16,14 @@ export interface AIAnalysisRequest {
     amount: number;
     percentage: number;
   }>;
+  recentTaggedTransactions?: Array<{
+    merchant: string;
+    amount: number;
+    category: string;
+    comment?: string;
+    tags?: string[];
+    isEmergency?: boolean;
+  }>;
   preferredModel?: SupportedGeminiModel;
 }
 
@@ -51,6 +59,15 @@ export interface AIChatFinancialContext {
     name: string;
     amount: number;
     percentage: number;
+  }>;
+  recentTransactions?: Array<{
+    merchant: string;
+    amount: number;
+    category: string;
+    comment?: string;
+    tags?: string[];
+    isEmergency?: boolean;
+    date: string;
   }>;
   analysisSummary?: string;
   upcomingSubscriptions?: Array<{

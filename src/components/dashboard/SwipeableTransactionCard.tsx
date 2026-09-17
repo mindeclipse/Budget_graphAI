@@ -63,6 +63,11 @@ export function SwipeableTransactionCard({
       Math.round(Number(transaction.amount) / amortMonths)
     : Number(transaction.amount);
 
+  const transactionComment =
+    (transaction.metadata?.comment as string | undefined)?.trim() ||
+    (transaction.metadata?.note as string | undefined)?.trim() ||
+    null;
+
   // Очищення стану виходу при зміні транзакції
   useEffect(() => {
     setIsExiting(false);
@@ -276,6 +281,11 @@ export function SwipeableTransactionCard({
                 minute: "2-digit",
               })}
             </p>
+            {transactionComment && (
+              <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-zinc-400 italic sm:max-w-md">
+                “{transactionComment}”
+              </p>
+            )}
             {/* Спеціальні бейджі: Покриття з подушки та Амортизація */}
             <div className="mt-1 flex flex-wrap items-center gap-1">
               {isEmergency && (

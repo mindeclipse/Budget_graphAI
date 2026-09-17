@@ -318,7 +318,16 @@ export async function PATCH(req: NextRequest) {
           currentTx?.metadata && typeof currentTx.metadata === "object"
             ? currentTx.metadata
             : {};
-        updateData.metadata = { ...existingMeta, ...metadata };
+        const mergedMeta: Record<string, any> = {
+          ...existingMeta,
+          ...metadata,
+        };
+        Object.keys(mergedMeta).forEach((k) => {
+          if (mergedMeta[k] === null) {
+            delete mergedMeta[k];
+          }
+        });
+        updateData.metadata = mergedMeta;
       }
     }
 

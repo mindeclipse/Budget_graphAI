@@ -111,6 +111,10 @@ export function useTransactionMutations() {
                     newTxData.merchant_raw ??
                     item.merchant_raw,
                   tags: newTxData.tags ?? item.tags,
+                  metadata:
+                    newTxData.metadata !== undefined
+                      ? (newTxData.metadata as any)
+                      : item.metadata,
                 }
               : item
           )

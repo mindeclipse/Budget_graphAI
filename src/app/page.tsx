@@ -378,6 +378,31 @@ export default function Dashboard() {
       savedImpulseAmount: wishlistSavedAmount,
       costPerUseCount: costPerUseItems.length,
       costPerUseTotalSaved: costPerUseSavedAmount,
+      recentTransactions: filteredTransactions
+        .filter(
+          (t) =>
+            (t.tags && t.tags.length > 0) ||
+            t.metadata?.comment ||
+            t.metadata?.note
+        )
+        .slice(0, 15)
+        .map((t) => ({
+          merchant: t.merchant_raw,
+          amount: Number(t.amount),
+          category: t.category_name,
+          tags: t.tags,
+          comment:
+            (t.metadata?.comment as string) ||
+            (t.metadata?.note as string) ||
+            undefined,
+          isEmergency: Boolean(
+            t.metadata?.is_emergency || t.tags?.includes("форсмажор")
+          ),
+          date: new Date(t.created_at).toLocaleDateString("uk-UA", {
+            day: "numeric",
+            month: "short",
+          }),
+        })),
     };
   }, [
     activeCycle?.name,
@@ -393,6 +418,7 @@ export default function Dashboard() {
     wishlistSavedAmount,
     costPerUseItems.length,
     costPerUseSavedAmount,
+    filteredTransactions,
   ]);
 
   const handleRunAiAnalysis = async (
@@ -408,6 +434,28 @@ export default function Dashboard() {
     setIsAiLoading(true);
 
     try {
+      const recentTaggedTransactions = filteredTransactions
+        .filter(
+          (t) =>
+            (t.tags && t.tags.length > 0) ||
+            t.metadata?.comment ||
+            t.metadata?.note
+        )
+        .slice(0, 10)
+        .map((t) => ({
+          merchant: t.merchant_raw,
+          amount: Number(t.amount),
+          category: t.category_name,
+          tags: t.tags,
+          comment:
+            (t.metadata?.comment as string) ||
+            (t.metadata?.note as string) ||
+            undefined,
+          isEmergency: Boolean(
+            t.metadata?.is_emergency || t.tags?.includes("форсмажор")
+          ),
+        }));
+
       const payload: AIAnalysisRequest = {
         cycleName: activeCycle?.name,
         budgetLimit: effectiveLimit,
@@ -423,6 +471,7 @@ export default function Dashboard() {
           amount: c.amount,
           percentage: c.percentage,
         })),
+        recentTaggedTransactions,
         preferredModel: modelToUse,
       };
 
@@ -459,12 +508,17 @@ export default function Dashboard() {
   const displayedTransactions = useMemo(() => {
     return filteredTransactions.filter((t) => {
       const q = deferredSearchQuery.toLowerCase().trim();
+      const comment =
+        (typeof t.metadata?.comment === "string" ? t.metadata.comment : "") ||
+        (typeof t.metadata?.note === "string" ? t.metadata.note : "");
+
       const matchesSearch =
         q === "" ||
         t.merchant_raw?.toLowerCase().includes(q) ||
         t.category_name?.toLowerCase().includes(q) ||
         String(t.amount).includes(q) ||
-        t.tags?.some((tag) => tag.toLowerCase().includes(q));
+        t.tags?.some((tag) => tag.toLowerCase().includes(q)) ||
+        comment.toLowerCase().includes(q);
 
       const matchesTag = !activeTag || (t.tags && t.tags.includes(activeTag));
 

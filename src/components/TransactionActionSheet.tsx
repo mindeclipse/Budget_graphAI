@@ -5,7 +5,6 @@ import {
   X,
   Trash2,
   Tag as TagIcon,
-  Plus,
   Store,
   BookmarkCheck,
   Check,
@@ -26,6 +25,11 @@ import {
   CATEGORY_ICONS,
   CATEGORY_COLORS,
 } from "@/constants/categories";
+import {
+  extractTagsAndComment,
+  formatInitialCommentAndTags,
+  removeTagFromText,
+} from "@/lib/tag-utils";
 
 interface TransactionActionSheetProps {
   transaction: Transaction | null;
@@ -67,7 +71,8 @@ export function TransactionActionSheet({
   const [cleanTitleInput, setCleanTitleInput] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [saveAsRule, setSaveAsRule] = useState(true);
-  const [tagInput, setTagInput] = useState("");
+  const [commentInput, setCommentInput] = useState("");
+  const [initialCommentFormatted, setInitialCommentFormatted] = useState("");
   const [currentTags, setCurrentTags] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -95,6 +100,15 @@ export function TransactionActionSheet({
         (transaction.metadata?.receipt as TransactionReceiptMetadata) || null
       );
 
+      const existingComment =
+        transaction.metadata?.comment || transaction.metadata?.note || "";
+      const formatted = formatInitialCommentAndTags(
+        existingComment,
+        transaction.tags
+      );
+      setCommentInput(formatted);
+      setInitialCommentFormatted(formatted);
+
       const emergencyInit = Boolean(
         transaction.exclude_from_budget ||
         transaction.metadata?.is_emergency ||
@@ -108,7 +122,6 @@ export function TransactionActionSheet({
       setAmortizationMonths(amortInit);
       setInitialAmortizationMonths(amortInit);
     }
-    setTagInput("");
   }, [transaction]);
 
   const formatFileSize = (bytes?: number): string => {
@@ -254,8 +267,13 @@ export function TransactionActionSheet({
   const isEmergencyModified = isEmergency !== initialIsEmergency;
   const isAmortizationModified =
     amortizationMonths !== initialAmortizationMonths;
+  const isCommentModified =
+    commentInput.trim() !== initialCommentFormatted.trim();
   const isDirty =
-    isTitleModified || isEmergencyModified || isAmortizationModified;
+    isTitleModified ||
+    isEmergencyModified ||
+    isAmortizationModified ||
+    isCommentModified;
 
   const handleSave = async (targetCategory: string = selectedCategory) => {
     if (!transaction || isSubmitting) return;
@@ -286,11 +304,20 @@ export function TransactionActionSheet({
         }
       }
 
-      let updatedTags = [...currentTags];
+      const parsed = extractTagsAndComment(commentInput);
+      let updatedTags = [...parsed.tags];
       if (isEmergency && !updatedTags.includes("форсмажор")) {
         updatedTags.push("форсмажор");
       } else if (!isEmergency && updatedTags.includes("форсмажор")) {
         updatedTags = updatedTags.filter((t) => t !== "форсмажор");
+      }
+
+      if (parsed.comment) {
+        newMetadata.comment = parsed.comment;
+        newMetadata.note = parsed.comment;
+      } else {
+        newMetadata.comment = null;
+        newMetadata.note = null;
       }
 
       if (onUpdateTransaction) {
@@ -340,28 +367,33 @@ export function TransactionActionSheet({
     }
   };
 
-  const handleAddTag = async () => {
-    const cleanTag = tagInput
-      .trim()
-      .replace(/^#/, "")
-      .replace(/[^a-zA-Z0-9а-яА-Яіїєґ_\-]/g, "")
-      .toLowerCase()
-      .slice(0, 30);
-    if (!cleanTag || currentTags.includes(cleanTag) || currentTags.length >= 30)
-      return;
-
-    triggerHaptic("selection");
-    const updated = [...currentTags, cleanTag];
-    setCurrentTags(updated);
-    setTagInput("");
-    await onUpdateTags(transaction.id, updated);
+  const handleCommentChange = (text: string) => {
+    setCommentInput(text);
+    const parsed = extractTagsAndComment(text);
+    let newTags = [...parsed.tags];
+    if (isEmergency && !newTags.includes("форсмажор")) {
+      newTags.push("форсмажор");
+    }
+    setCurrentTags(newTags);
   };
 
-  const handleRemoveTag = async (tagToRemove: string) => {
+  const handleRemoveTag = (tagToRemove: string) => {
     triggerHaptic("selection");
-    const updated = currentTags.filter((t) => t !== tagToRemove);
-    setCurrentTags(updated);
-    await onUpdateTags(transaction.id, updated);
+    if (tagToRemove === "форсмажор") {
+      setIsEmergency(false);
+    }
+    const updated = removeTagFromText(commentInput, tagToRemove);
+    setCommentInput(updated);
+    const parsed = extractTagsAndComment(updated);
+    let newTags = [...parsed.tags];
+    if (
+      isEmergency &&
+      tagToRemove !== "форсмажор" &&
+      !newTags.includes("форсмажор")
+    ) {
+      newTags.push("форсмажор");
+    }
+    setCurrentTags(newTags);
   };
 
   return (
@@ -600,17 +632,40 @@ export function TransactionActionSheet({
             </div>
           </div>
 
-          {/* Керування тегами */}
+          {/* Коментар та теги */}
           <div className="border-t border-zinc-800/80 pt-4">
-            <label className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              <TagIcon size={12} className="text-zinc-500" /> Теги події
-            </label>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                <TagIcon size={12} className="text-zinc-500" /> Коментар та теги
+              </label>
+              <span
+                className={`text-[10px] ${
+                  commentInput.length > 450
+                    ? "font-semibold text-amber-400"
+                    : "text-zinc-500"
+                }`}
+              >
+                {commentInput.length}/500
+              </span>
+            </div>
 
-            <div className="mb-2.5 flex flex-wrap gap-1.5">
+            <div className="relative">
+              <textarea
+                value={commentInput}
+                maxLength={500}
+                rows={2}
+                onChange={(e) => handleCommentChange(e.target.value)}
+                placeholder="Додайте опис або коментар... Слова з # стають тегами (напр: подарунок мамі #деньнародження)"
+                className="w-full resize-none rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 transition-colors focus:border-zinc-700 focus:outline-none"
+              />
+            </div>
+
+            {/* Відображення розпізнаних тегів */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               {currentTags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-300"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/10 px-2.5 py-1 text-xs font-medium text-sky-300 transition-all"
                 >
                   <button
                     type="button"
@@ -619,46 +674,26 @@ export function TransactionActionSheet({
                       onOpenTagProject?.(tag);
                     }}
                     title={`Аналітика проєкту #${tag} за весь час`}
-                    className="transition-colors hover:text-sky-400"
+                    className="transition-colors hover:text-sky-200"
                   >
                     #{tag}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="text-zinc-500 hover:text-rose-400"
+                    className="text-sky-400/60 transition-colors hover:text-rose-400"
+                    title={`Вилучити #${tag}`}
                   >
                     <X size={12} />
                   </button>
                 </span>
               ))}
               {currentTags.length === 0 && (
-                <span className="text-xs text-zinc-600">Тегів немає</span>
+                <span className="text-[11px] text-zinc-500 italic">
+                  Тегів немає. Введіть слово з # у полі вище, щоб створити тег.
+                </span>
               )}
             </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleAddTag();
-              }}
-              className="flex gap-2"
-            >
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                placeholder="Додати тег..."
-                className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2 text-base text-white placeholder-zinc-600 focus:border-zinc-700 focus:outline-none sm:text-xs"
-              />
-              <button
-                type="submit"
-                disabled={!tagInput.trim()}
-                className="flex items-center gap-1 rounded-xl bg-zinc-800 px-3.5 py-2 text-xs font-semibold text-white transition-all hover:bg-zinc-700 active:scale-95 disabled:opacity-40"
-              >
-                <Plus size={14} /> Додати
-              </button>
-            </form>
           </div>
 
           {/* Блок прикріпленої квитанції / чека */}
