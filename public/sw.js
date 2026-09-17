@@ -8,6 +8,11 @@ const APP_SHELL_ASSETS = [
   "/",
   "/manifest.json",
   "/favicon.ico",
+  "/apple-touch-icon.png",
+  "/icons/icon-192.png",
+  "/icons/icon-192.svg",
+  "/icons/icon-512.png",
+  "/icons/icon-512.svg",
 ];
 
 // Встановлення Service Worker: кешуємо App Shell
