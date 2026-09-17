@@ -34,6 +34,7 @@ import { CATEGORIES } from "@/constants/categories";
 vi.mock("@/lib/telegram", () => ({
   sendTelegramMessage: vi.fn().mockResolvedValue(true),
   sendTelegramPhoto: vi.fn().mockResolvedValue(true),
+  sendTelegramChatAction: vi.fn().mockResolvedValue(true),
   editTelegramMessageText: vi.fn().mockResolvedValue(true),
   answerTelegramCallbackQuery: vi.fn().mockResolvedValue(true),
   getTelegramFile: vi.fn().mockResolvedValue({
@@ -96,15 +97,19 @@ vi.mock("@/lib/supabase-admin", () => ({
         };
       }
       if (table === "transactions") {
-        return {
+        const txBuilder: any = {
           select: vi.fn().mockReturnThis(),
           is: vi.fn().mockReturnThis(),
           gte: vi.fn().mockReturnThis(),
-          lte: vi.fn().mockResolvedValue({ data: [] }),
+          lte: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           or: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
           insert: vi.fn().mockResolvedValue({ data: [], error: null }),
+          then: (resolve: any) => resolve({ data: [], error: null }),
         };
+        return txBuilder;
       }
       if (table === "recurring_templates") {
         return {
@@ -1642,6 +1647,40 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(sendTelegramPhoto).toHaveBeenCalledWith(
         expect.any(Buffer),
         expect.stringContaining("Графічний дашборд"),
+        expect.objectContaining({
+          inline_keyboard: expect.any(Array),
+        })
+      );
+    });
+
+    it("обробляє аналітичний запит природною мовою через AI асистента ('Скільки я витратив на таксі?')", async () => {
+      const { POST } = await import("@/app/api/webhooks/telegram/route");
+      const { NextRequest } = await import("next/server");
+      const { sendTelegramMessage, sendTelegramChatAction } =
+        await import("@/lib/telegram");
+      delete process.env.TELEGRAM_WEBHOOK_SECRET;
+      process.env.TELEGRAM_CHAT_ID = "280769950";
+
+      mockGenerateContent.mockResolvedValueOnce({
+        text: "На таксі цього місяця пішло <b>480 ₴</b>.",
+      });
+
+      const req = new NextRequest("http://localhost/api/webhooks/telegram", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: {
+            chat: { id: 280769950 },
+            text: "Скільки я витратив на таксі?",
+          },
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(sendTelegramChatAction).toHaveBeenCalledWith("typing");
+      expect(sendTelegramMessage).toHaveBeenCalledWith(
+        expect.stringContaining("480 ₴"),
         expect.objectContaining({
           inline_keyboard: expect.any(Array),
         })

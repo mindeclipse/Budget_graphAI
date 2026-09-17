@@ -4,6 +4,7 @@ import { timingSafeEqual } from "@/lib/security";
 import {
   sendTelegramMessage,
   sendTelegramPhoto,
+  sendTelegramChatAction,
   getTelegramFile,
   escapeHtml,
   getPersistentReplyKeyboard,
@@ -21,12 +22,14 @@ import {
   isEmergencyFundInquiry,
   isWhatIfGuideInquiry,
   parseWhatIfPurchaseQuery,
+  isFinancialInquiry,
   handleTelegramPaceCommand,
   handleTelegramCycleSummaryCommand,
   handleTelegramChartCommand,
   handleTelegramEmergencyFundCommand,
   handleTelegramWhatIfGuideCommand,
   handleTelegramWhatIfCommand,
+  handleTelegramFinancialInquiry,
 } from "@/lib/telegram-bot";
 
 export const dynamic = "force-dynamic";
@@ -385,11 +388,31 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
+      // 6. Розумні фінансові запити природною мовою через AI
+      if (isFinancialInquiry(text)) {
+        await sendTelegramChatAction("typing");
+        const { replyHtml, replyMarkup } = await handleTelegramFinancialInquiry(
+          text,
+          supabaseAdmin
+        );
+        await sendTelegramMessage(replyHtml, replyMarkup);
+        return NextResponse.json({ ok: true });
+      }
+
       const parsed = await parseNaturalLanguageExpense(text);
 
       if (!parsed) {
+        // Якщо це розгорнуте речення (від 8 символів), можливо це незвичне фінансове запитання
+        if (text.trim().length >= 8) {
+          await sendTelegramChatAction("typing");
+          const { replyHtml, replyMarkup } =
+            await handleTelegramFinancialInquiry(text, supabaseAdmin);
+          await sendTelegramMessage(replyHtml, replyMarkup);
+          return NextResponse.json({ ok: true });
+        }
+
         await sendTelegramMessage(
-          "⚠️ Не вдалося розпізнати суму або назву. Спробуйте, наприклад:\n• <code>таксі 240</code>\n• <code>Сільпо 480 продукти</code>\n• <code>вчора кафе 350</code>"
+          "⚠️ Не вдалося розпізнати суму або назву. Спробуйте, наприклад:\n• <code>таксі 240</code>\n• <code>Сільпо 480 продукти</code>\n• <code>вчора кафе 350</code>\n\nАбо запитайте асистента: <i>«Скільки пішло на продукти?»</i> чи <i>«Чи вистачить грошей до кінця місяця?»</i>"
         );
         return NextResponse.json({ ok: true });
       }

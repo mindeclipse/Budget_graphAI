@@ -66,6 +66,24 @@ export async function sendTelegramMessage(
     if (!res.ok) {
       const err = await res.text();
       console.error("Failed to send Telegram message:", err);
+      // Fallback: If Telegram cannot parse HTML entities, strip tags and send as plain text
+      if (err.includes("can't parse entities")) {
+        const plainText = text.replace(/<[^>]*>/g, "");
+        const fallbackRes = await fetch(
+          `https://api.telegram.org/bot${token}/sendMessage`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: plainText,
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+            }),
+            signal: AbortSignal.timeout(5000),
+          }
+        );
+        return fallbackRes.ok;
+      }
       return false;
     }
 
@@ -287,6 +305,33 @@ export async function sendTelegramPhoto(
     return true;
   } catch (error) {
     console.error("Network error sending Telegram photo:", error);
+    return false;
+  }
+}
+
+/**
+ * Надсилає індикатор дії (наприклад "typing" - набір тексту) у Telegram-чат
+ */
+export async function sendTelegramChatAction(
+  action: "typing" | "upload_photo" | "record_voice" = "typing"
+): Promise<boolean> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!token || !chatId) return false;
+
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/sendChatAction`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, action }),
+        signal: AbortSignal.timeout(3000),
+      }
+    );
+    return res.ok;
+  } catch {
     return false;
   }
 }

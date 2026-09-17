@@ -19,6 +19,7 @@ import {
   ROUNDUP_GOAL_NAME,
   isRoundupTransaction,
 } from "@/lib/roundup-utils";
+export { ROUNDUP_GOAL_NAME };
 import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
 import { SupportedGeminiModel } from "@/types/ai";
 import {
@@ -36,6 +37,10 @@ import { getCycleDateRange, FALLBACK_BUDGET_LIMIT } from "@/lib/cycle-utils";
 import { getUsdRate } from "@/lib/currency";
 import { buildUpcomingSchedule } from "@/lib/subscription-radar";
 import { Transaction } from "@/types/finance";
+import {
+  loadFinancialAssistantContext,
+  generateFinancialAssistantResponse,
+} from "@/lib/financial-ai-assistant";
 
 export interface ParsedTelegramExpense {
   amount: number;
@@ -1368,6 +1373,94 @@ export function parseWhatIfPurchaseQuery(
   }
 
   return null;
+}
+
+/**
+ * Перевіряє, чи є текст аналітичним запитом природною мовою до фінансового асистента
+ */
+export function isFinancialInquiry(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+
+  // 1. Ігноруємо системні команди
+  if (
+    /^\/(start|help|menu|pace|cycle|chart|cushion|fund|roundup|savings|whatif|simulator|calc)/i.test(
+      t
+    )
+  ) {
+    return false;
+  }
+
+  // 2. Ігноруємо прямі кнопки швидких дій (мають власні швидкі обробники)
+  if (
+    isPaceInquiry(t) ||
+    isCycleSummaryInquiry(t) ||
+    isChartInquiry(t) ||
+    isEmergencyFundInquiry(t) ||
+    isWhatIfGuideInquiry(t) ||
+    parseWhatIfPurchaseQuery(t) !== null
+  ) {
+    return false;
+  }
+
+  // 3. Ігноруємо явні записи витрат через Fast-Path (наприклад "кава 85", "таксі 240")
+  if (tryFastNaturalLanguageParse(t) !== null) {
+    return false;
+  }
+
+  // 4. Якщо повідомлення починається з мерчанта і суми ("Сільпо 500", "АЗС 1500 паливо"), це витрата
+  if (
+    /^[a-zа-яіїєґ0-9\s#№.'"-]{2,30}\s+\d+(?:[.,]\d+)?(?:\s+(?:грн|₴))?/i.test(t)
+  ) {
+    const words = t.split(/\s+/);
+    const hasQuestionWords =
+      /^(скільки|як|чи|які|яка|який|де|коли|чому|що|на що|покажи|підкажи|проаналізуй|статистика|звіт|топ|порадь|допоможи|розкажи)/i.test(
+        t
+      );
+    if (!hasQuestionWords && !t.includes("?")) {
+      const hasNumber = words.some((w) =>
+        /^\d+(?:[.,]\d+)?(?:грн|₴)?$/i.test(w)
+      );
+      if (hasNumber && words.length <= 4) {
+        return false;
+      }
+    }
+  }
+
+  // 5. Маркери аналітичного запитання:
+  // А. Наявність знака питання
+  if (t.includes("?")) {
+    return true;
+  }
+
+  // Б. Питальні слова або прохання аналітики на початку
+  const startsWithInquiry =
+    /^(скільки|як|чи|які|яка|який|де|коли|чому|що\s+по|на\s+що|покажи|підкажи|проаналізуй|статистика|звіт|топ|порадь|допоможи|розкажи|порівняй|перевір|на\s+скільки|яка\s+сума)/i.test(
+      t
+    );
+  if (startsWithInquiry) {
+    return true;
+  }
+
+  // В. Аналітичні фінансові патерни
+  const hasAnalyticalPattern =
+    /(?:витрат(?:и|а|ів|ами)?\s+(?:на|за|цього|минулого|останн)|найбільш(?:і|а|их|у|е)|покуп(?:ок|ки|ками)|в\s+подуш(?:ку|ці|ка)|скарбнич(?:к|ц)[а-яіїєґ]*|підписк(?:и|ок|ами)|бюджет(?:у|ом)?|вистач(?:ить|ає)|оптиміз(?:увати|ація)|економі(?:я|ти)|заощад(?:ити|ження)|грош(?:і|ей|ами))/i.test(
+      t
+    );
+
+  return hasAnalyticalPattern;
+}
+
+/**
+ * Обробник фінансового запиту природною мовою через AI
+ */
+export async function handleTelegramFinancialInquiry(
+  query: string,
+  supabaseAdmin: any,
+  now: Date = new Date()
+): Promise<{ replyHtml: string; replyMarkup: TelegramReplyMarkup }> {
+  const context = await loadFinancialAssistantContext(supabaseAdmin, now);
+  return generateFinancialAssistantResponse(query, context);
 }
 
 /**
