@@ -30,7 +30,14 @@ export async function GET() {
       .order("category_name", { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ budgets: data || [] });
+    return NextResponse.json(
+      { budgets: data || [] },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=120, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API category-budgets GET error]:", error);
     return NextResponse.json(

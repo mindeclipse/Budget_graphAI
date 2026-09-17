@@ -17,11 +17,18 @@ export async function GET() {
 
     const rates = await getCommercialRates();
 
-    return NextResponse.json({
-      success: true,
-      rates,
-      rate: rates.USD, // для зворотної сумісності з попередніми викликами
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        rates,
+        rate: rates.USD, // для зворотної сумісності з попередніми викликами
+      },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=120, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API currency/rate GET error]:", error);
     return NextResponse.json(

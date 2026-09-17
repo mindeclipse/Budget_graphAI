@@ -21,6 +21,7 @@ export const FINANCE_KEYS = {
     ["analytics", "pace", from, to] as const,
   analyticsCpi: (year?: number, month?: number, from?: string, to?: string) =>
     ["analytics", "cpi", year, month, from, to] as const,
+  wealthSummary: ["wealth", "summary"] as const,
 };
 
 export function useFinanceQueries(
@@ -263,6 +264,21 @@ export function usePersonalCpiQuery(
     },
     enabled: Boolean(isAuthenticated),
     staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useWealthSummaryQuery(isAuthenticated: boolean | null) {
+  return useQuery({
+    queryKey: FINANCE_KEYS.wealthSummary,
+    queryFn: async () => {
+      const res = await fetch("/api/wealth/summary");
+      if (!res.ok) throw new Error("Не вдалося завантажити фінансовий огляд");
+      return await res.json();
+    },
+    enabled: Boolean(isAuthenticated),
+    staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });

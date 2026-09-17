@@ -275,59 +275,35 @@ export default function Dashboard() {
     }
   };
 
-  // Завантаження скарбничок, інвестицій, лімітів категорій, курсів валют та усвідомлених покупок
+  // Завантаження скарбничок, інвестицій, лімітів категорій, курсів валют та усвідомлених покупок через єдиний батч-ендпоінт
   const loadWealthData = async () => {
     try {
-      const [
-        goalsRes,
-        investRes,
-        catBudgetsRes,
-        ratesRes,
-        wishlistRes,
-        costPerUseRes,
-      ] = await Promise.all([
-        fetch("/api/savings-goals").catch(() => null),
-        fetch("/api/investments").catch(() => null),
-        fetch("/api/category-budgets").catch(() => null),
-        fetch("/api/currency/rate").catch(() => null),
-        fetch("/api/wishlist").catch(() => null),
-        fetch("/api/cost-per-use").catch(() => null),
-      ]);
+      const res = await fetch("/api/wealth/summary");
+      if (!res.ok) return;
+      const data = await res.json();
 
-      if (goalsRes?.ok) {
-        const data = await goalsRes.json();
-        setSavingsGoals(data.goals || []);
+      if (Array.isArray(data.goals)) {
+        setSavingsGoals(data.goals);
       }
-      if (investRes?.ok) {
-        const data = await investRes.json();
-        setInvestments(data.investments || []);
+      if (Array.isArray(data.investments)) {
+        setInvestments(data.investments);
       }
-      if (catBudgetsRes?.ok) {
-        const data = await catBudgetsRes.json();
-        const map: Record<string, number> = {};
-        (data.budgets || []).forEach((b: any) => {
-          map[b.category_name] = Number(b.monthly_limit);
-        });
-        setCategoryBudgets(map);
+      if (data.categoryBudgets && typeof data.categoryBudgets === "object") {
+        setCategoryBudgets(data.categoryBudgets);
       }
-      if (ratesRes?.ok) {
-        const data = await ratesRes.json();
-        if (data.rates) {
-          setCommercialRates(data.rates);
+      if (data.rates) {
+        setCommercialRates(data.rates);
+      }
+      if (data.wishlist) {
+        setWishlistItems(data.wishlist.items || []);
+        if (data.wishlist.metrics?.saved_amount !== undefined) {
+          setWishlistSavedAmount(data.wishlist.metrics.saved_amount);
         }
       }
-      if (wishlistRes?.ok) {
-        const data = await wishlistRes.json();
-        setWishlistItems(data.items || []);
-        if (data.metrics?.saved_amount !== undefined) {
-          setWishlistSavedAmount(data.metrics.saved_amount);
-        }
-      }
-      if (costPerUseRes?.ok) {
-        const data = await costPerUseRes.json();
-        setCostPerUseItems(data.items || []);
-        if (data.metrics?.total_money_saved !== undefined) {
-          setCostPerUseSavedAmount(data.metrics.total_money_saved);
+      if (data.costPerUse) {
+        setCostPerUseItems(data.costPerUse.items || []);
+        if (data.costPerUse.metrics?.total_money_saved !== undefined) {
+          setCostPerUseSavedAmount(data.costPerUse.metrics.total_money_saved);
         }
       }
     } catch (err) {

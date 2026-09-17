@@ -139,12 +139,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. GET API запити даних (transactions, cycles, recurring, currency): Network-First з кеш fallback
+  // 3. GET API запити даних (transactions, cycles, recurring, currency, wealth): Network-First з кеш fallback
   if (
     url.pathname.startsWith("/api/transactions") ||
     url.pathname.startsWith("/api/cycles") ||
     url.pathname.startsWith("/api/recurring") ||
-    url.pathname.startsWith("/api/currency")
+    url.pathname.startsWith("/api/currency") ||
+    url.pathname.startsWith("/api/wealth")
   ) {
     event.respondWith(
       fetch(request)
