@@ -30,7 +30,9 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("wishlist_items")
-      .select("*")
+      .select(
+        "id, title, estimated_price, currency, category_name, url, notes, cooling_days, cooling_end_date, status, resolved_at, created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -54,15 +56,22 @@ export async function GET() {
       .filter((i) => i.status === "cooling" || i.status === "ready")
       .reduce((sum, i) => sum + Number(i.estimated_price || 0), 0);
 
-    return NextResponse.json({
-      items,
-      metrics: {
-        saved_amount: savedAmount,
-        cooling_count: coolingCount,
-        ready_count: readyCount,
-        pending_amount: pendingAmount,
+    return NextResponse.json(
+      {
+        items,
+        metrics: {
+          saved_amount: savedAmount,
+          cooling_count: coolingCount,
+          ready_count: readyCount,
+          pending_amount: pendingAmount,
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API wishlist GET error]:", error);
     return NextResponse.json(

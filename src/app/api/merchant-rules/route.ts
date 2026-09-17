@@ -33,7 +33,7 @@ export async function GET() {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("merchant_rules")
-      .select("*")
+      .select("id, pattern, clean_merchant, category_name, created_at")
       .order("pattern", { ascending: true });
 
     if (error) {
@@ -43,7 +43,7 @@ export async function GET() {
 
     // Забезпечуємо наявність обох полів (clean_merchant та normalized_name)
     const mappedRules = (data || []).map((r) => {
-      const title = r.clean_merchant || r.normalized_name || r.pattern;
+      const title = r.clean_merchant || r.pattern;
       return {
         ...r,
         clean_merchant: title,

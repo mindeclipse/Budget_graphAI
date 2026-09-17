@@ -193,7 +193,9 @@ export async function POST(req: Request) {
     const supabase = getSupabaseAdmin();
 
     // 5. Застосування правил мерчантів користувача
-    const { data: rules } = await supabase.from("merchant_rules").select("*");
+    const { data: rules } = await supabase
+      .from("merchant_rules")
+      .select("id, pattern, clean_merchant, normalized_name, category_name");
     if (rules && rules.length > 0) {
       const lowerRecipient = receipt.recipient.toLowerCase();
       const lowerPurpose = receipt.purpose.toLowerCase();

@@ -26,7 +26,7 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("category_budgets")
-      .select("*")
+      .select("id, category_name, monthly_limit, created_at")
       .order("category_name", { ascending: true });
 
     if (error) throw error;

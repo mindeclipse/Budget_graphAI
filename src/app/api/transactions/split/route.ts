@@ -39,7 +39,9 @@ export async function POST(req: Request) {
     // 1. Отримуємо батьківську транзакцію
     const { data: parentTx, error: fetchErr } = await supabase
       .from("transactions")
-      .select("*")
+      .select(
+        "id, amount, currency, merchant_raw, category_name, source, type, created_at, tags, exclude_from_budget"
+      )
       .eq("id", parent_transaction_id)
       .single();
 

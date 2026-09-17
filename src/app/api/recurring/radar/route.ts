@@ -89,7 +89,9 @@ export async function GET(req: NextRequest) {
     // 2. Отримуємо всі наявні шаблони постійних витрат
     const { data: rawTemplates, error: tmplError } = await supabaseAdmin
       .from("recurring_templates")
-      .select("*")
+      .select(
+        "id, title, amount, currency, category_name, day_of_month, is_active, created_at"
+      )
       .order("day_of_month", { ascending: true });
 
     if (tmplError) throw tmplError;
@@ -100,7 +102,9 @@ export async function GET(req: NextRequest) {
     // 3. Визначаємо межі активного зарплатного циклу або календарного місяця
     const { data: activeCycle } = await supabaseAdmin
       .from("budget_cycles")
-      .select("*")
+      .select(
+        "id, name, start_date, end_date, budget_limit, is_active, created_at"
+      )
       .eq("is_active", true)
       .maybeSingle();
 

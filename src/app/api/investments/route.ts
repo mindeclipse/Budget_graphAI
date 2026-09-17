@@ -29,11 +29,20 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("investments")
-      .select("*")
+      .select(
+        "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, created_at"
+      )
       .order("id", { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ investments: data || [] });
+    return NextResponse.json(
+      { investments: data || [] },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API investments GET error]:", error);
     return NextResponse.json(

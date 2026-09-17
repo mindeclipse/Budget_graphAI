@@ -72,7 +72,9 @@ export async function GET(req: NextRequest) {
 
     const { data: templates, error: templatesError } = await supabaseAdmin
       .from("recurring_templates")
-      .select("*")
+      .select(
+        "id, title, amount, currency, category_name, day_of_month, is_active"
+      )
       .eq("is_active", true)
       .eq("day_of_month", currentDay);
 

@@ -33,11 +33,20 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("savings_goals")
-      .select("*")
+      .select(
+        "id, name, current_amount, target_amount, currency, target_date, created_at"
+      )
       .order("id", { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ goals: data || [] });
+    return NextResponse.json(
+      { goals: data || [] },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API savings-goals GET error]:", error);
     return NextResponse.json(

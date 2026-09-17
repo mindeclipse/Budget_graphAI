@@ -30,7 +30,9 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("cost_per_use_items")
-      .select("*")
+      .select(
+        "id, item_name, category_name, purchase_price, currency, purchase_date, total_uses, benchmark_cost_per_use, target_cost_per_use, notes, last_used_at, created_at"
+      )
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -66,14 +68,21 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({
-      items,
-      metrics: {
-        total_tracked_assets: items.length,
-        total_invested: totalInvested,
-        total_money_saved: Math.round(totalMoneySaved),
+    return NextResponse.json(
+      {
+        items,
+        metrics: {
+          total_tracked_assets: items.length,
+          total_invested: totalInvested,
+          total_money_saved: Math.round(totalMoneySaved),
+        },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API cost-per-use GET error]:", error);
     return NextResponse.json(

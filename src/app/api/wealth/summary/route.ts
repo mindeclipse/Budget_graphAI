@@ -38,15 +38,19 @@ export async function GET() {
     ] = await Promise.all([
       supabaseAdmin
         .from("savings_goals")
-        .select("*")
+        .select(
+          "id, name, current_amount, target_amount, currency, target_date, created_at"
+        )
         .order("id", { ascending: true }),
       supabaseAdmin
         .from("investments")
-        .select("*")
+        .select(
+          "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, created_at"
+        )
         .order("id", { ascending: true }),
       supabaseAdmin
         .from("category_budgets")
-        .select("*")
+        .select("id, category_name, monthly_limit, created_at")
         .order("category_name", { ascending: true }),
       getCommercialRates().catch(() => ({
         USD: 41.5,
@@ -57,11 +61,15 @@ export async function GET() {
       })),
       supabaseAdmin
         .from("wishlist_items")
-        .select("*")
+        .select(
+          "id, title, estimated_price, currency, category_name, url, notes, cooling_days, cooling_end_date, status, resolved_at, created_at"
+        )
         .order("created_at", { ascending: false }),
       supabaseAdmin
         .from("cost_per_use_items")
-        .select("*")
+        .select(
+          "id, item_name, category_name, purchase_price, currency, purchase_date, total_uses, benchmark_cost_per_use, target_cost_per_use, notes, last_used_at, created_at"
+        )
         .order("created_at", { ascending: false }),
     ]);
 

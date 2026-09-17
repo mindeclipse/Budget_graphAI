@@ -50,7 +50,9 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     const { data: goal } = await supabase
       .from("savings_goals")
-      .select("*")
+      .select(
+        "id, name, current_amount, target_amount, currency, target_date, created_at"
+      )
       .ilike("name", `%${ROUNDUP_GOAL_NAME}%`)
       .maybeSingle();
 

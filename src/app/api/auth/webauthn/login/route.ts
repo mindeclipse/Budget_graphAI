@@ -137,7 +137,7 @@ export async function POST(req: Request) {
     expectedChallenge = rawChallengeCookie;
     const { data: fetchCredential, error: fetchError } = await supabase
       .from("webauthn_credentials")
-      .select("*")
+      .select("id, transports, public_key, counter")
       .eq("id", body.id)
       .maybeSingle();
 
