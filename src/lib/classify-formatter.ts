@@ -1,5 +1,16 @@
-import { getCycleDateRange, DEFAULT_BUDGET_LIMIT } from "@/lib/cycle-utils";
+import {
+  getCycleDateRange,
+  calculateCycleDaysRemaining,
+  DEFAULT_BUDGET_LIMIT,
+} from "@/lib/cycle-utils";
 import { getUsdRate } from "@/lib/currency";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
+import {
+  calculateWeightedCalendarPacing,
+  isWeekendOrLeisureDay,
+  UpcomingObligation,
+} from "@/lib/weighted-pacing";
+import { Transaction } from "@/types/finance";
 
 export interface DailyBudgetInfo {
   todayRemaining: number;
@@ -8,6 +19,9 @@ export interface DailyBudgetInfo {
   cycleRemaining: number;
   daysRemaining: number;
   recurringTotal?: number;
+  safeWeekdaySpend?: number;
+  safeWeekendSpend?: number;
+  isTodayWeekend?: boolean;
 }
 
 /**
@@ -82,56 +96,74 @@ export async function computeSafeDailyBudget(
       : customBudgetLimit || DEFAULT_BUDGET_LIMIT;
 
     const range = getCycleDateRange(activeCycle, now);
-    const cycleStart = range.startDate;
-    const cycleEnd = range.endDate;
+    const daysRemaining = calculateCycleDaysRemaining(activeCycle, now, now);
 
-    const todayStr = getKyivDateString(now);
-    const cycleEndStr = getKyivDateString(cycleEnd);
-
-    // Розрахунок кількості календарних днів від сьогодні (включно) до кінця циклу
-    const dToday = new Date(todayStr + "T00:00:00Z");
-    const dEnd = new Date(cycleEndStr + "T00:00:00Z");
-    const msDiff = dEnd.getTime() - dToday.getTime();
-    const daysRemaining = Math.max(1, Math.round(msDiff / 86400000) + 1);
-
-    // 2. Постійні витрати (шаблони обов'язкових платежів: оренда, підписки)
+    // 2. Постійні щомісячні витрати (підписки/шаблони)
     const { data: recurringItems } = await supabaseAdmin
       .from("recurring_templates")
-      .select("amount, currency, is_active")
+      .select(
+        "id, title, amount, currency, day_of_month, is_active, category_name"
+      )
       .eq("is_active", true);
 
     const usdRate = await getUsdRate();
-    const recurringTotal = (recurringItems || []).reduce(
-      (sum: number, r: any) => {
-        const amt = Number(r.amount) || 0;
-        return sum + (r.currency === "USD" ? amt * usdRate : amt);
-      },
+
+    // 3. Транзакції активного циклу + базова лінія для аналізу звичок (з 15 серпня)
+    const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+    const fetchStart =
+      range.startDate.toISOString() < habitBaselineIso
+        ? range.startDate.toISOString()
+        : habitBaselineIso;
+
+    const { data: periodTx } = await supabaseAdmin
+      .from("transactions")
+      .select(
+        "id, amount, currency, type, source, exclude_from_budget, created_at, merchant_raw, category_name, metadata"
+      )
+      .gte("created_at", fetchStart)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
+
+    const validTx = ((periodTx || []) as unknown as Transaction[]).filter(
+      (t) => t.type === "expense" && !t.exclude_from_budget
+    );
+
+    const cycleExpenseTx = validTx.filter((t) => {
+      const time = new Date(t.created_at).getTime();
+      return time >= range.startMs && time <= range.endMs;
+    });
+
+    const totalCycleSpent = cycleExpenseTx.reduce(
+      (s, t) => s + Number(t.amount || 0),
       0
     );
 
-    // Змінний бюджет на щоденні споживчі витрати (їжа, кафе, авто, покупки тощо)
-    const variableBudget = Math.max(0, budgetLimit - recurringTotal);
-
-    // 3. Витрати за цикл (тільки споживчі витрати; виключаємо recurring-платежі щоб уникнути подвійного списання)
-    const { data: periodTx } = await supabaseAdmin
-      .from("transactions")
-      .select("amount, type, source, exclude_from_budget, created_at")
-      .gte("created_at", cycleStart.toISOString())
-      .lte("created_at", cycleEnd.toISOString())
-      .is("deleted_at", null);
-
-    const variableExpenses = (periodTx || []).filter(
-      (t: any) =>
-        t.type === "expense" &&
-        !t.exclude_from_budget &&
-        t.source !== "recurring"
+    // 4. Графік підписок з виключенням вже оплачених (запобігає подвійному списанню)
+    const upcomingSchedule = buildUpcomingSchedule(
+      recurringItems || [],
+      cycleExpenseTx,
+      usdRate,
+      now
     );
+    const unpaidRecurringTotal = upcomingSchedule.metrics.remaining_this_month;
 
-    // Розділяємо витрати: зроблені до початку сьогоднішнього дня vs витрачені сьогодні
+    const upcomingObligations: UpcomingObligation[] =
+      upcomingSchedule.upcoming.map((u) => ({
+        title: u.title,
+        amount:
+          u.currency === "USD"
+            ? Math.round(u.amount * usdRate)
+            : Number(u.amount),
+        day_of_month: u.day_of_month,
+        is_paid: u.status === "paid",
+      }));
+
+    // 5. Розділяємо витрати: зроблені до початку сьогоднішнього дня vs витрачені сьогодні
+    const todayStr = getKyivDateString(now);
     let spentBeforeToday = 0;
     let spentToday = 0;
 
-    for (const t of variableExpenses) {
+    for (const t of cycleExpenseTx) {
       const amt = Number(t.amount || 0);
       const txDayStr = getKyivDateString(t.created_at);
       if (txDayStr < todayStr) {
@@ -141,21 +173,27 @@ export async function computeSafeDailyBudget(
       }
     }
 
-    // Залишок змінного бюджету на початок поточного дня
-    const budgetAtStartOfDay = variableBudget - spentBeforeToday;
+    // 6. Розрахунок зваженого календарного темпу на початок поточного дня
+    const weightedPacing = calculateWeightedCalendarPacing(validTx, {
+      now,
+      startDate: range.startDate,
+      endDate: range.endDate,
+      totalBudgetLimit: budgetLimit,
+      currentExpenseTotal: spentBeforeToday,
+      upcomingObligations,
+    });
 
-    // Денний таргет (ліміт) на сьогодні
-    const todayTarget =
-      budgetAtStartOfDay > 0 && daysRemaining > 0
-        ? Math.round(budgetAtStartOfDay / daysRemaining)
-        : 0;
+    const isTodayWeekend = isWeekendOrLeisureDay(now.getDay());
+    const safeWeekdaySpend = weightedPacing.pacing.safeWeekdaySpend;
+    const safeWeekendSpend = weightedPacing.pacing.safeWeekendSpend;
+    const todayTarget = isTodayWeekend ? safeWeekendSpend : safeWeekdaySpend;
 
     // Реальний залишок на СЬОГОДНІ: зменшується строго 1:1 на кожну гривню витрати
     const todayRemaining = Math.round(todayTarget - spentToday);
 
-    // Загальний залишок змінного бюджету до кінця активного циклу
+    // Загальний залишок вільного бюджету до кінця активного циклу
     const cycleRemaining = Math.round(
-      variableBudget - (spentBeforeToday + spentToday)
+      Math.max(0, budgetLimit - unpaidRecurringTotal - totalCycleSpent)
     );
 
     return {
@@ -164,7 +202,10 @@ export async function computeSafeDailyBudget(
       todaySpent: Math.round(spentToday * 100) / 100,
       cycleRemaining,
       daysRemaining,
-      recurringTotal: Math.round(recurringTotal),
+      recurringTotal: Math.round(unpaidRecurringTotal),
+      safeWeekdaySpend,
+      safeWeekendSpend,
+      isTodayWeekend,
     };
   } catch (err) {
     console.error("Помилка розрахунку safeDailyRemaining у classify:", err);

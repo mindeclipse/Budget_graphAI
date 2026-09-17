@@ -22,6 +22,13 @@ import {
   BehavioralCoachAdvice,
   BehavioralMetrics,
 } from "@/types/ai";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
+import {
+  calculateWeightedCalendarPacing,
+  isWeekendOrLeisureDay,
+  UpcomingObligation,
+} from "@/lib/weighted-pacing";
+import { Transaction } from "@/types/finance";
 
 function getAppUrl(): string {
   return (
@@ -251,36 +258,88 @@ export async function generateWeeklyDigest(options?: {
   let daysRemaining = 0;
   let remainingBudget = 0;
   let safeDailySpend = 0;
+  let safeWeekdaySpend = 0;
+  let safeWeekendSpend = 0;
 
   if (activeCycle) {
     const cycleRange = getCycleDateRange(activeCycle, now);
     daysRemaining = calculateCycleDaysRemaining(activeCycle, now, now);
 
-    const { data: cycleTx } = await supabase
-      .from("transactions")
-      .select("amount, type, exclude_from_budget")
-      .is("deleted_at", null)
-      .gte("created_at", cycleRange.startDate.toISOString());
+    const habitBaselineIso = "2026-08-15T00:00:00.000Z";
+    const fetchStart =
+      cycleRange.startDate.toISOString() < habitBaselineIso
+        ? cycleRange.startDate.toISOString()
+        : habitBaselineIso;
 
-    const totalCycleSpent = (cycleTx || [])
-      .filter((t) => t.type === "expense" && !t.exclude_from_budget)
-      .reduce((s, t) => s + Number(t.amount || 0), 0);
+    const { data: allTxs } = await supabase
+      .from("transactions")
+      .select(
+        "id, amount, currency, merchant_raw, category_name, source, type, created_at, exclude_from_budget, metadata"
+      )
+      .is("deleted_at", null)
+      .gte("created_at", fetchStart);
+
+    const validTxs = ((allTxs || []) as unknown as Transaction[]).filter(
+      (t) => t.type === "expense" && !t.exclude_from_budget
+    );
+
+    const cycleExpenseTx = validTxs.filter((t) => {
+      const time = new Date(t.created_at).getTime();
+      return time >= cycleRange.startMs && time <= cycleRange.endMs;
+    });
+
+    const totalCycleSpent = cycleExpenseTx.reduce(
+      (s, t) => s + Number(t.amount || 0),
+      0
+    );
 
     const { data: recurringItems } = await supabase
       .from("recurring_templates")
-      .select("amount, currency")
+      .select(
+        "id, title, amount, currency, day_of_month, is_active, category_name"
+      )
       .eq("is_active", true);
 
     const usdRate = await getUsdRate();
-    const recurringTotal = (recurringItems || []).reduce((sum, r) => {
-      const amt = Number(r.amount) || 0;
-      return sum + (r.currency === "USD" ? amt * usdRate : amt);
-    }, 0);
+
+    const upcomingSchedule = buildUpcomingSchedule(
+      recurringItems || [],
+      cycleExpenseTx,
+      usdRate,
+      now
+    );
+    const unpaidRecurringTotal = upcomingSchedule.metrics.remaining_this_month;
+
+    const upcomingObligations: UpcomingObligation[] =
+      upcomingSchedule.upcoming.map((u) => ({
+        title: u.title,
+        amount:
+          u.currency === "USD"
+            ? Math.round(u.amount * usdRate)
+            : Number(u.amount),
+        day_of_month: u.day_of_month,
+        is_paid: u.status === "paid",
+      }));
 
     const limit = Number(activeCycle.budget_limit) || DEFAULT_BUDGET_LIMIT;
-    const variableBudget = Math.max(0, limit - recurringTotal);
-    remainingBudget = variableBudget - totalCycleSpent;
-    safeDailySpend = Math.max(0, Math.round(remainingBudget / daysRemaining));
+    remainingBudget = Math.max(
+      0,
+      Math.round(limit - unpaidRecurringTotal - totalCycleSpent)
+    );
+
+    const weightedPacing = calculateWeightedCalendarPacing(validTxs, {
+      startDate: cycleRange.startDate,
+      endDate: cycleRange.endDate,
+      totalBudgetLimit: limit,
+      currentExpenseTotal: totalCycleSpent,
+      upcomingObligations,
+      now,
+    });
+
+    safeWeekdaySpend = weightedPacing.pacing.safeWeekdaySpend;
+    safeWeekendSpend = weightedPacing.pacing.safeWeekendSpend;
+    const isTodayWeekend = isWeekendOrLeisureDay(now.getDay());
+    safeDailySpend = isTodayWeekend ? safeWeekendSpend : safeWeekdaySpend;
   }
 
   // 7. Поведінковий AI-коуч від Gemini (Structured Outputs & High-Availability Failover)
@@ -382,7 +441,7 @@ ${emergencyTxs
 • Капітал за 7 днів:
   - Інвестовано: ${formatAmount(totalInvestedThisWeek)} ₴
   - Заощаджено у подушку: +${formatAmount(totalSavedThisWeek)} ₴
-${activeCycle ? `• Стан активного циклу: залишилось ${daysRemaining} дн., вільний операційний залишок ${formatAmount(remainingBudget)} ₴, безпечний щоденний темп ${formatAmount(safeDailySpend)} ₴/день.` : ""}
+${activeCycle ? `• Стан активного циклу: залишилось ${daysRemaining} дн., вільний операційний залишок ${formatAmount(remainingBudget)} ₴, зважений щоденний темп: ${formatAmount(safeWeekdaySpend)} ₴/день у будні, ${formatAmount(safeWeekendSpend)} ₴/день у вихідні (зважування EMA α).` : ""}
 
 Сформуй JSON за наданою схемою.
 `;
@@ -512,7 +571,7 @@ ${activeCycle ? `• Стан активного циклу: залишилос�
       `• Залишилось: <b>${formatAmount(remainingBudget)} ₴</b> (на ${daysRemaining} дн.)`
     );
     lines.push(
-      `• Безпечний темп: <b>${formatAmount(safeDailySpend)} ₴/день</b>`
+      `• Безпечний темп: <b>${formatAmount(safeWeekdaySpend)} ₴</b> (будні) · <b>${formatAmount(safeWeekendSpend)} ₴</b> (вихідні)`
     );
   }
 
@@ -631,15 +690,14 @@ export async function generateCycleSummary(
   }
 
   // 3. Межі дат циклу
-  const startDateIso = new Date(cycle.start_date).toISOString();
-  const endDateIso = cycle.end_date
-    ? new Date(cycle.end_date).toISOString()
-    : now.toISOString();
+  const cycleRange = getCycleDateRange(cycle, now);
+  const startDateIso = cycleRange.startDate.toISOString();
+  const endDateIso = cycleRange.endDate.toISOString();
 
   const cycleDurationDays = Math.max(
     1,
     Math.round(
-      (new Date(endDateIso).getTime() - new Date(startDateIso).getTime()) /
+      (cycleRange.endDate.getTime() - cycleRange.startDate.getTime()) /
         (1000 * 60 * 60 * 24)
     )
   );
@@ -694,7 +752,7 @@ export async function generateCycleSummary(
     0
   );
 
-  const budgetLimit = Number(cycle.budget_limit) || 35000;
+  const budgetLimit = Number(cycle.budget_limit) || DEFAULT_BUDGET_LIMIT;
   const savedAmount = budgetLimit - totalSpent;
   const isSaved = savedAmount >= 0;
   const savedPercent =
