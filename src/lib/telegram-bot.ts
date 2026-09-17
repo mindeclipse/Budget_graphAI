@@ -474,8 +474,8 @@ export async function parseMultimodalReceipt(
 
   const candidateModels: SupportedGeminiModel[] = [
     "gemini-3.5-flash",
-    "gemini-3.7-flash",
     "gemini-3.5-flash-lite",
+    "gemini-3.7-flash",
   ];
 
   let rawAiText = "";

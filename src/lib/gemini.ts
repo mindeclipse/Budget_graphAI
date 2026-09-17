@@ -23,14 +23,15 @@ export function getGeminiClient(): GoogleGenAI {
  * Стандартизовані версії моделей Gemini, рекомендовані для проєкту
  */
 export const GEMINI_MODELS = {
-  FAST: "gemini-3.5-flash-lite" as const,
-  BALANCED: "gemini-3.5-flash-lite" as const, // 500 RPD & 15 RPM to protect 20 RPD tier
-  REASONING: "gemini-3.7-flash" as const,
-  CLASSIFICATION: "gemini-3.5-flash-lite" as const,
+  FAST: "gemini-3.5-flash-lite" as const, // 500 RPD, 15 RPM - миттєвий JSON
+  CLASSIFICATION: "gemini-3.5-flash-lite" as const, // 500 RPD - високочастотна категоризація витрат
+  BALANCED: "gemini-3.5-flash" as const, // 20 RPD - багата мова та фінансові поради для асистента
+  REASONING: "gemini-3.7-flash" as const, // 20 RPD - глибокий щотижневий коучинг та поведінковий аналіз
 };
 
 /**
- * Карта резервних моделей на випадок перевантаження або недоступності основної
+ * Карта резервних моделей: якщо якісна модель (20 RPD) досягає ліміту,
+ * запит миттєво підхоплює Flash Lite (500 RPD) без помилки для користувача.
  */
 export const MODEL_FALLBACK_MAP: Record<
   SupportedGeminiModel,
@@ -42,11 +43,13 @@ export const MODEL_FALLBACK_MAP: Record<
 };
 
 /**
- * Повний пріоритетний каскад моделей для безвідмовної роботи чату (High-Availability Failover)
- * gemini-3.5-flash-lite має 500 RPD та 15 RPM, захищаючи вузькі ліміти (20 RPD) 3.5 Flash та 3.7 Flash
+ * Пріоритетний каскад моделей для консультацій та чату:
+ * 1. gemini-3.5-flash (максимальна глибина та природна мова)
+ * 2. gemini-3.5-flash-lite (страховка на 500 RPD, якщо денний ліміт 20 RPD вичерпається)
+ * 3. gemini-3.7-flash (глибокий резерв)
  */
 export const GEMINI_FALLBACK_CHAIN: SupportedGeminiModel[] = [
-  "gemini-3.5-flash-lite",
   "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
   "gemini-3.7-flash",
 ];

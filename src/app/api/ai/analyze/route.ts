@@ -107,9 +107,9 @@ export async function POST(req: NextRequest) {
 
     const payload: AIAnalysisRequest = await req.json();
     const targetModel: SupportedGeminiModel =
-      payload.preferredModel || GEMINI_MODELS.FAST;
+      payload.preferredModel || GEMINI_MODELS.BALANCED;
     const fallbackModel: SupportedGeminiModel =
-      MODEL_FALLBACK_MAP[targetModel] || GEMINI_MODELS.BALANCED;
+      MODEL_FALLBACK_MAP[targetModel] || GEMINI_MODELS.FAST;
 
     const systemInstruction = `
 Ти — фінансовий аналітик. Аналізуй поточні витрати раціонально, спираючись на цифри.

@@ -286,10 +286,9 @@ export async function generateWeeklyDigest(options?: {
   // 7. Поведінковий AI-коуч від Gemini (Structured Outputs & High-Availability Failover)
   let coachAdvice: BehavioralCoachAdvice | null = null;
   const candidateModels: SupportedGeminiModel[] = [
-    GEMINI_MODELS.BALANCED || "gemini-3.5-flash",
-    ...GEMINI_FALLBACK_CHAIN.filter(
-      (m) => m !== (GEMINI_MODELS.BALANCED || "gemini-3.5-flash")
-    ),
+    GEMINI_MODELS.REASONING, // gemini-3.7-flash (глибокі міркування для тижневого звіту)
+    GEMINI_MODELS.BALANCED, // gemini-3.5-flash (високоякісний резерв)
+    GEMINI_MODELS.FAST, // gemini-3.5-flash-lite (страховка 500 RPD)
   ];
 
   const behavioralResponseSchema = {

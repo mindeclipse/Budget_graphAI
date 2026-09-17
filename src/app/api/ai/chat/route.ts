@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifySessionToken } from "@/lib/session";
-import { getGeminiClient, GEMINI_FALLBACK_CHAIN } from "@/lib/gemini";
+import {
+  getGeminiClient,
+  GEMINI_FALLBACK_CHAIN,
+  GEMINI_MODELS,
+} from "@/lib/gemini";
 import {
   AIChatRequest,
   AIChatResponse,
@@ -113,9 +117,9 @@ ${
     }));
 
     // 4. Безвідмовний мультимодельний Fallback-каскад (Zero Downtime)
-    // gemini-3.5-flash-lite має 500 RPD та 15 RPM, захищаючи обмежені квоти (20 RPD) моделей 3.5 та 3.7
+    // Первинна: якісна gemini-3.5-flash. Фолбек: gemini-3.5-flash-lite (500 RPD) для захисту від переліміту
     const targetModel: SupportedGeminiModel =
-      preferredModel || "gemini-3.5-flash-lite";
+      preferredModel || GEMINI_MODELS.BALANCED;
     const candidateModels: SupportedGeminiModel[] = [
       targetModel,
       ...GEMINI_FALLBACK_CHAIN.filter((m) => m !== targetModel),

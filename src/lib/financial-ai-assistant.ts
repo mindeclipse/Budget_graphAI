@@ -399,9 +399,9 @@ ${JSON.stringify(recentTransactions)}
   const ai = getGeminiClient();
 
   const candidateModels: SupportedGeminiModel[] = [
-    "gemini-3.5-flash-lite", // 500 RPD & 15 RPM
-    "gemini-3.5-flash", // 20 RPD fallback
-    "gemini-3.7-flash", // 20 RPD fallback
+    "gemini-3.5-flash", // Первинна: багата мова та якісні фінансові поради
+    "gemini-3.5-flash-lite", // Безвідмовна страховка (500 RPD), якщо вичерпано 20 RPD
+    "gemini-3.7-flash", // Резерв
   ];
 
   let rawAiText = "";
