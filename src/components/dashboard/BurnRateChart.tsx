@@ -560,7 +560,11 @@ export function BurnRateChart({
               strokeDasharray="4 4"
               strokeOpacity={0.4}
               label={{
-                value: `Ліміт ${(budgetLimit / 1000).toFixed(0)}k`,
+                value: `Ліміт ${
+                  budgetLimit % 1000 === 0
+                    ? budgetLimit / 1000
+                    : Number((budgetLimit / 1000).toFixed(1))
+                }k`,
                 fill: "#f43f5e",
                 fontSize: 10,
                 position: "insideTopRight",
