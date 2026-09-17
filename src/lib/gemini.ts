@@ -24,9 +24,9 @@ export function getGeminiClient(): GoogleGenAI {
  */
 export const GEMINI_MODELS = {
   FAST: "gemini-3.5-flash-lite" as const,
-  BALANCED: "gemini-3.5-flash" as const,
+  BALANCED: "gemini-3.5-flash-lite" as const, // 500 RPD & 15 RPM to protect 20 RPD tier
   REASONING: "gemini-3.7-flash" as const,
-  CLASSIFICATION: "gemini-3.5-flash" as const,
+  CLASSIFICATION: "gemini-3.5-flash-lite" as const,
 };
 
 /**
@@ -38,14 +38,15 @@ export const MODEL_FALLBACK_MAP: Record<
 > = {
   "gemini-3.5-flash-lite": "gemini-3.5-flash",
   "gemini-3.5-flash": "gemini-3.7-flash",
-  "gemini-3.7-flash": "gemini-3.5-flash",
+  "gemini-3.7-flash": "gemini-3.5-flash-lite",
 };
 
 /**
  * Повний пріоритетний каскад моделей для безвідмовної роботи чату (High-Availability Failover)
+ * gemini-3.5-flash-lite має 500 RPD та 15 RPM, захищаючи вузькі ліміти (20 RPD) 3.5 Flash та 3.7 Flash
  */
 export const GEMINI_FALLBACK_CHAIN: SupportedGeminiModel[] = [
-  "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
+  "gemini-3.5-flash",
   "gemini-3.7-flash",
 ];

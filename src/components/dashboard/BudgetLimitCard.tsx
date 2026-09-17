@@ -151,12 +151,35 @@ export function BudgetLimitCard({
         </div>
 
         <div>
-          <p className="mb-0.5 text-zinc-500">Безпечно на день</p>
+          <div className="mb-0.5 flex items-center gap-1.5">
+            <p className="text-zinc-500">Безпечно на день</p>
+            {budgetMetrics.isCurrentMonth &&
+              budgetMetrics.safeWeekdaySpend !== undefined &&
+              budgetMetrics.safeWeekdaySpend > 0 && (
+                <span className="text-[10px] font-medium text-zinc-400">
+                  ({budgetMetrics.isTodayWeekend ? "вихідний" : "будень"})
+                </span>
+              )}
+          </div>
           <p className="text-sm font-bold tabular-nums">
             {budgetMetrics.isCurrentMonth
               ? `~ ${Math.round(budgetMetrics.safeDailySpend).toLocaleString("uk-UA")} ₴/д`
               : "Період минув"}
           </p>
+          {budgetMetrics.isCurrentMonth &&
+            budgetMetrics.safeWeekdaySpend > 0 && (
+              <p className="mt-0.5 font-mono text-[10px] text-zinc-400">
+                Будні:{" "}
+                {Math.round(budgetMetrics.safeWeekdaySpend).toLocaleString(
+                  "uk-UA"
+                )}{" "}
+                ₴ · Вихідні:{" "}
+                {Math.round(budgetMetrics.safeWeekendSpend).toLocaleString(
+                  "uk-UA"
+                )}{" "}
+                ₴
+              </p>
+            )}
         </div>
 
         <div className="col-span-2 flex items-center gap-1.5 text-zinc-400 sm:col-span-1">

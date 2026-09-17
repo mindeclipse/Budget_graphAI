@@ -7,6 +7,10 @@ import {
   DEFAULT_BUDGET_LIMIT,
 } from "@/lib/cycle-utils";
 import { buildUpcomingSchedule } from "@/lib/subscription-radar";
+import {
+  calculateWeightedCalendarPacing,
+  isWeekendOrLeisureDay,
+} from "@/lib/weighted-pacing";
 
 function getPreviousMonthKey(monthKey: string): string {
   const [year, month] = monthKey.split("-").map(Number);
@@ -45,6 +49,13 @@ export interface BudgetMetricsResult {
   spentPercent: number;
   exactPercent: number;
   safeDailySpend: number;
+  flatDailySpend: number;
+  safeWeekdaySpend: number;
+  safeWeekendSpend: number;
+  isTodayWeekend: boolean;
+  pacingStatus: string;
+  pacingAdvice: string;
+  pacingAlpha: number;
   daysRemaining: number;
   barColor: string;
 }
@@ -129,23 +140,26 @@ export function useBudgetMetrics({
       }, 0);
   }, [recurring, usdRate]);
 
-  // Зарезервовано на ще не сплачені обов'язкові платежі (запобігає подвійному списанню вже виконаних підписок)
-  const unpaidRecurringTotal = useMemo(() => {
-    const schedule = buildUpcomingSchedule(
+  // Графік та сума ще не сплачених обов'язкових платежів (запобігає подвійному списанню вже виконаних підписок)
+  const upcomingSchedule = useMemo(() => {
+    return buildUpcomingSchedule(
       recurring,
       budgetTransactions,
       usdRate,
       selectedDate
     );
-    return schedule.metrics.remaining_this_month;
   }, [recurring, budgetTransactions, usdRate, selectedDate]);
+
+  const unpaidRecurringTotal = useMemo(() => {
+    return upcomingSchedule.metrics.remaining_this_month;
+  }, [upcomingSchedule]);
 
   // Фактично витрачено в межах активного вікна
   const totalSpent = useMemo(() => {
     return budgetTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
   }, [budgetTransactions]);
 
-  // ✅ Оптимізація: Розрахунок метрик прогресу. 'now' створюється ТІЛЬКИ всередині розрахунку.
+  // ✅ Оптимізація: Розрахунок зважених метрик темпу (EMA-калібрування звичок та розподіл будні/вихідні)
   const budgetMetrics = useMemo<BudgetMetricsResult>(() => {
     const now = new Date();
     const daysRemaining = calculateCycleDaysRemaining(
@@ -161,8 +175,44 @@ export function useBudgetMetrics({
     const spentPercent =
       variableBudget > 0 ? (totalSpent / variableBudget) * 100 : 100;
 
-    const safeDailySpend =
-      daysRemaining > 0 && remaining > 0 ? remaining / daysRemaining : 0;
+    const flatDailySpend =
+      daysRemaining > 0 && remaining > 0
+        ? Math.round(remaining / daysRemaining)
+        : 0;
+
+    const pacing = calculateWeightedCalendarPacing(transactions, {
+      startDate: activeCycle?.start_date
+        ? new Date(activeCycle.start_date)
+        : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
+      endDate: activeCycle?.end_date
+        ? new Date(activeCycle.end_date)
+        : new Date(
+            selectedDate.getFullYear(),
+            selectedDate.getMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999
+          ),
+      totalBudgetLimit: effectiveLimit,
+      currentExpenseTotal: totalSpent,
+      upcomingObligations: upcomingSchedule.upcoming.map((u) => ({
+        title: u.title,
+        amount:
+          u.currency === "USD"
+            ? Math.round(u.amount * usdRate)
+            : Number(u.amount),
+        day_of_month: u.day_of_month,
+        is_paid: u.status === "paid",
+      })),
+      now,
+    });
+
+    const isTodayWeekend = isWeekendOrLeisureDay(now.getDay());
+    const safeWeekdaySpend = pacing.pacing.safeWeekdaySpend || flatDailySpend;
+    const safeWeekendSpend = pacing.pacing.safeWeekendSpend || flatDailySpend;
+    const todaySafeSpend = isTodayWeekend ? safeWeekendSpend : safeWeekdaySpend;
 
     let barColor = "#10B981";
     if (spentPercent > 90) barColor = "#EF4444";
@@ -173,7 +223,16 @@ export function useBudgetMetrics({
       remaining,
       spentPercent: Math.min(100, spentPercent),
       exactPercent: spentPercent,
-      safeDailySpend,
+      safeDailySpend: remaining > 0 && daysRemaining > 0 ? todaySafeSpend : 0,
+      flatDailySpend,
+      safeWeekdaySpend:
+        remaining > 0 && daysRemaining > 0 ? safeWeekdaySpend : 0,
+      safeWeekendSpend:
+        remaining > 0 && daysRemaining > 0 ? safeWeekendSpend : 0,
+      isTodayWeekend,
+      pacingStatus: pacing.pacing.statusLabel,
+      pacingAdvice: pacing.pacing.advice,
+      pacingAlpha: pacing.habits.emaWeekendToWeekdayRatio,
       daysRemaining,
       barColor,
     };
@@ -181,9 +240,12 @@ export function useBudgetMetrics({
     totalSpent,
     effectiveLimit,
     unpaidRecurringTotal,
+    upcomingSchedule,
+    transactions,
     selectedDate,
     isCurrentMonth,
     activeCycle,
+    usdRate,
   ]);
 
   // Структура витрат за категоріями
