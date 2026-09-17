@@ -30,7 +30,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from("recurring_templates")
       .select(
-        "id, name, amount, category, day_of_month, is_active, type, description, created_at"
+        "id, title, amount, currency, category_name, day_of_month, is_active, created_at"
       )
       .order("day_of_month", { ascending: true });
 
