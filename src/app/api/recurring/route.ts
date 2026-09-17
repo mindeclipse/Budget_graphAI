@@ -29,11 +29,20 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { data, error } = await supabaseAdmin
       .from("recurring_templates")
-      .select("*")
+      .select(
+        "id, name, amount, category, day_of_month, is_active, type, description, created_at"
+      )
       .order("day_of_month", { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json({ items: data || [] });
+    return NextResponse.json(
+      { items: data || [] },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error: any) {
     console.error("[API recurring GET error]:", error);
     return NextResponse.json(

@@ -51,7 +51,14 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ rules: mappedRules });
+    return NextResponse.json(
+      { rules: mappedRules },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("Merchant rules GET error:", err);
     return NextResponse.json(

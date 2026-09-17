@@ -28,7 +28,9 @@ export async function GET() {
 
     const { data: cycles, error } = await supabase
       .from("budget_cycles")
-      .select("*")
+      .select(
+        "id, name, budget_limit, start_date, end_date, is_active, created_at"
+      )
       .order("start_date", { ascending: false });
 
     if (error) {
@@ -38,7 +40,14 @@ export async function GET() {
 
     const activeCycle = cycles?.find((c) => c.is_active) || null;
 
-    return NextResponse.json({ activeCycle, cycles: cycles || [] });
+    return NextResponse.json(
+      { activeCycle, cycles: cycles || [] },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("[API cycles GET error]:", err);
     return NextResponse.json(
