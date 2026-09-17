@@ -724,7 +724,9 @@ export function TransactionActionSheet({
                         {currentReceipt.bankName
                           ? `${currentReceipt.bankName} • `
                           : ""}
-                        Оригінал PDF збережено
+                        {currentReceipt.mimeType?.startsWith("image/")
+                          ? "Оригінал чека збережено"
+                          : "Оригінал PDF збережено"}
                       </p>
                     </div>
                   </div>
@@ -734,7 +736,7 @@ export function TransactionActionSheet({
                       type="button"
                       onClick={handleViewReceipt}
                       className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-500 active:scale-95"
-                      title="Відкрити PDF-квитанцію"
+                      title="Відкрити квитанцію / чек"
                     >
                       <ExternalLink size={13} />
                       <span>Відкрити</span>

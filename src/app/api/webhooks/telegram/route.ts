@@ -34,6 +34,7 @@ import {
 } from "@/lib/telegram-bot";
 import { CategoryType } from "@/constants/categories";
 import { extractTagsAndComment } from "@/lib/tag-utils";
+import { TransactionReceiptMetadata } from "@/types/finance";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -189,6 +190,16 @@ export async function POST(req: NextRequest) {
       const finalCategory =
         captionCategory || category || receipt.suggested_category;
 
+      const receiptPayload: TransactionReceiptMetadata = {
+        fileName: downloaded.fileName || "Чек.jpg",
+        fileSize: downloaded.buffer.length,
+        mimeType: "image/jpeg",
+        base64: downloaded.buffer.toString("base64"),
+        attachedAt: new Date().toISOString(),
+        bankName: receipt.bankName,
+        purpose: receipt.purpose,
+      };
+
       const { transaction, dailyBudget, roundupResult } =
         await recordTelegramTransaction(supabaseAdmin, {
           amount: receipt.amount,
@@ -204,6 +215,7 @@ export async function POST(req: NextRequest) {
             receipt_items: receipt.items || [],
             comment: captionComment,
             note: captionComment,
+            receipt: receiptPayload,
           },
         });
 
@@ -282,6 +294,16 @@ export async function POST(req: NextRequest) {
       const finalCategory =
         captionCategory || category || receipt.suggested_category;
 
+      const receiptPayload: TransactionReceiptMetadata = {
+        fileName: doc.file_name || (isPdf ? "Квитанція.pdf" : "Чек.jpg"),
+        fileSize: downloaded.buffer.length,
+        mimeType: actualMime,
+        base64: downloaded.buffer.toString("base64"),
+        attachedAt: new Date().toISOString(),
+        bankName: receipt.bankName,
+        purpose: receipt.purpose,
+      };
+
       const { transaction, dailyBudget, roundupResult } =
         await recordTelegramTransaction(supabaseAdmin, {
           amount: receipt.amount,
@@ -297,6 +319,7 @@ export async function POST(req: NextRequest) {
             receipt_items: receipt.items || [],
             comment: captionComment,
             note: captionComment,
+            receipt: receiptPayload,
           },
         });
 

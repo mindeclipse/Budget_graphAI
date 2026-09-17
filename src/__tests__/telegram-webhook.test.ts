@@ -20,6 +20,8 @@ import {
   tryFastNaturalLanguageParse,
   formatKyivDate,
   renderProgressBar,
+  getKyivTimezoneOffset,
+  normalizeKyivReceiptDate,
   handleTelegramCycleSummaryCommand,
   handleTelegramEmergencyFundCommand,
   handleTelegramWhatIfGuideCommand,
@@ -60,6 +62,8 @@ vi.mock("@/lib/telegram", () => ({
 }));
 
 // Mock @/lib/supabase-admin
+let lastInsertedTransaction: any = null;
+
 vi.mock("@/lib/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
     from: vi.fn((table: string) => {
@@ -106,7 +110,33 @@ vi.mock("@/lib/supabase-admin", () => ({
           or: vi.fn().mockReturnThis(),
           order: vi.fn().mockReturnThis(),
           limit: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockResolvedValue({ data: [], error: null }),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: 101,
+              amount: 100,
+              merchant_raw: "Тест",
+              category_name: "Інше",
+              type: "expense",
+              currency: "UAH",
+              created_at: new Date().toISOString(),
+            },
+            error: null,
+          }),
+          insert: vi.fn((data: any) => {
+            lastInsertedTransaction = data;
+            return {
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 101,
+                    ...data,
+                    created_at: data.created_at || new Date().toISOString(),
+                  },
+                  error: null,
+                }),
+              }),
+            };
+          }),
           then: (resolve: any) => resolve({ data: [], error: null }),
         };
         return txBuilder;
@@ -163,6 +193,7 @@ vi.mock("@/lib/classify-formatter", () => ({
     cycleRemaining: 15000,
     daysRemaining: 15,
   }),
+  getKyivDateString: vi.fn(() => "2026-09-17"),
 }));
 
 describe("Telegram Bot Utilities & Logic", () => {
@@ -893,6 +924,79 @@ describe("Telegram Bot Utilities & Logic", () => {
             }),
           ]),
         })
+      );
+    });
+
+    it("витягує bankName та purpose з банківської квитанції", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify({
+          amount: 2200,
+          currency: "UAH",
+          merchant: "Хваль Юрій Віталійович",
+          date: "2026-09-17T14:55:00.000Z",
+          bankName: "ПриватБанк",
+          purpose: "Переказ власних коштів",
+          type: "expense",
+          suggested_category: "Інше",
+        }),
+      });
+
+      const fakeBuffer = Buffer.from("fake-pdf-bytes");
+      const receipt = await parseMultimodalReceipt(
+        fakeBuffer,
+        "application/pdf"
+      );
+
+      expect(receipt).toBeDefined();
+      expect(receipt?.bankName).toBe("ПриватБанк");
+      expect(receipt?.purpose).toBe("Переказ власних коштів");
+      expect(receipt?.merchant).toBe("Хваль Юрій Віталійович");
+      // Перевіряємо, що дата скоригована під київський час (UTC+3 влітку: 14:55 - 3h = 11:55 UTC)
+      expect(receipt?.date).toBe("2026-09-17T11:55:00.000Z");
+    });
+  });
+
+  describe("normalizeKyivReceiptDate & getKyivTimezoneOffset", () => {
+    it("визначає коректний зсув часового поясу Києва для літа (+03:00) та зими (+02:00)", () => {
+      expect(getKyivTimezoneOffset(2026, 9, 17, 14, 55)).toBe("+03:00");
+      expect(getKyivTimezoneOffset(2026, 1, 15, 14, 55)).toBe("+02:00");
+    });
+
+    it("нормалізує дату з ISO формату із закінченням Z, зберігаючи київський час 14:55", () => {
+      const normalized = normalizeKyivReceiptDate("2026-09-17T14:55:00.000Z");
+      expect(normalized).toBe("2026-09-17T11:55:00.000Z");
+
+      const formatted = new Intl.DateTimeFormat("uk-UA", {
+        timeZone: "Europe/Kyiv",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(normalized));
+      expect(formatted).toBe("14:55");
+    });
+
+    it("нормалізує український формат дати DD/MM/YYYY HH:MM", () => {
+      const normalized = normalizeKyivReceiptDate("17/09/2026 14:55");
+      expect(normalized).toBe("2026-09-17T11:55:00.000Z");
+
+      const formatted = new Intl.DateTimeFormat("uk-UA", {
+        timeZone: "Europe/Kyiv",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(normalized));
+      expect(formatted).toBe("14:55");
+    });
+
+    it("нормалізує український формат дати з крапками DD.MM.YYYY HH:MM", () => {
+      const normalized = normalizeKyivReceiptDate("17.09.2026 14:55");
+      expect(normalized).toBe("2026-09-17T11:55:00.000Z");
+    });
+
+    it("повертає referenceDate, якщо рядок дати порожній або некоректний", () => {
+      const ref = new Date("2026-09-17T10:00:00.000Z");
+      expect(normalizeKyivReceiptDate("", ref)).toBe(ref.toISOString());
+      expect(normalizeKyivReceiptDate(undefined, ref)).toBe(ref.toISOString());
+      expect(normalizeKyivReceiptDate("невалідна дата", ref)).toBe(
+        ref.toISOString()
       );
     });
   });
@@ -1763,6 +1867,71 @@ describe("Telegram Bot Utilities & Logic", () => {
         expect.objectContaining({
           inline_keyboard: expect.any(Array),
         })
+      );
+    });
+
+    it("зберігає прикріплену PDF-квитанцію у metadata.receipt та нормалізує час чеку", async () => {
+      const { POST } = await import("@/app/api/webhooks/telegram/route");
+      const { NextRequest } = await import("next/server");
+      const { sendTelegramMessage } = await import("@/lib/telegram");
+      delete process.env.TELEGRAM_WEBHOOK_SECRET;
+      process.env.TELEGRAM_CHAT_ID = "280769950";
+
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify({
+          amount: 2200,
+          currency: "UAH",
+          merchant: "Хваль Юрій Віталійович",
+          date: "2026-09-17T14:55:00.000Z",
+          bankName: "ПриватБанк",
+          purpose: "Переказ власних коштів",
+          type: "expense",
+          suggested_category: "Інше",
+        }),
+      });
+
+      const req = new NextRequest("http://localhost/api/webhooks/telegram", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: {
+            chat: { id: 280769950 },
+            document: {
+              file_id: "doc_123",
+              file_name: "privat24_receipt.pdf",
+              mime_type: "application/pdf",
+            },
+          },
+        }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.ok).toBe(true);
+
+      expect(sendTelegramMessage).toHaveBeenCalledWith(
+        expect.stringContaining("Хваль Юрій Віталійович"),
+        expect.anything()
+      );
+
+      expect(lastInsertedTransaction).toBeDefined();
+      expect(lastInsertedTransaction.created_at).toBe(
+        "2026-09-17T11:55:00.000Z"
+      );
+      expect(lastInsertedTransaction.metadata?.receipt).toBeDefined();
+      expect(lastInsertedTransaction.metadata.receipt.fileName).toBe(
+        "privat24_receipt.pdf"
+      );
+      expect(lastInsertedTransaction.metadata.receipt.mimeType).toBe(
+        "application/pdf"
+      );
+      expect(lastInsertedTransaction.metadata.receipt.base64).toBeDefined();
+      expect(lastInsertedTransaction.metadata.receipt.bankName).toBe(
+        "ПриватБанк"
+      );
+      expect(lastInsertedTransaction.metadata.receipt.purpose).toBe(
+        "Переказ власних коштів"
       );
     });
   });

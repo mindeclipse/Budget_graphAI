@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Trash2, SlidersHorizontal, Split, HelpCircle } from "lucide-react";
+import {
+  Trash2,
+  SlidersHorizontal,
+  Split,
+  HelpCircle,
+  Paperclip,
+} from "lucide-react";
 import { Transaction } from "@/types/finance";
 import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/constants/categories";
 import { triggerHaptic } from "@/lib/haptics";
@@ -270,17 +276,27 @@ export function SwipeableTransactionCard({
             <p className="truncate text-sm font-semibold text-zinc-100 transition-colors group-hover:text-white">
               {transaction.merchant_raw}
             </p>
-            <p className="truncate text-xs text-zinc-500">
-              {transaction.category_name} •{" "}
-              {new Date(transaction.created_at).toLocaleDateString([], {
-                day: "numeric",
-                month: "short",
-              })}{" "}
-              {new Date(transaction.created_at).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
+            <div className="flex items-center gap-1.5 truncate text-xs text-zinc-500">
+              <span className="truncate">
+                {transaction.category_name} •{" "}
+                {new Date(transaction.created_at).toLocaleDateString([], {
+                  day: "numeric",
+                  month: "short",
+                })}{" "}
+                {new Date(transaction.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+              {Boolean(transaction.metadata?.receipt) && (
+                <span
+                  className="inline-flex shrink-0 items-center text-emerald-400"
+                  title="Долучено оригінал чека / квитанції"
+                >
+                  <Paperclip size={11} />
+                </span>
+              )}
+            </div>
             {transactionComment && (
               <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-zinc-400 italic sm:max-w-md">
                 “{transactionComment}”
