@@ -182,6 +182,18 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(normalizeCategory("")).toBe("Інше");
       expect(normalizeCategory(undefined)).toBe("Інше");
     });
+
+    it("розпізнає поширені синоніми та розмовні назви категорій", () => {
+      expect(normalizeCategory("розваги")).toBe("Розваги та хобі");
+      expect(normalizeCategory("хобі")).toBe("Розваги та хобі");
+      expect(normalizeCategory("кафе")).toBe("Кафе та ресторани");
+      expect(normalizeCategory("аптека")).toBe("Здоров'я та догляд");
+      expect(normalizeCategory("комуналка")).toBe("Оренда та комуналка");
+      expect(normalizeCategory("підписки")).toBe("Підписки та сервіси");
+      expect(normalizeCategory("книги")).toBe("Освіта та книги");
+      expect(normalizeCategory("таксі")).toBe("Транспорт");
+      expect(normalizeCategory("пальне")).toBe("Авто");
+    });
   });
 
   describe("cleanJsonOutput", () => {
@@ -815,6 +827,73 @@ describe("Telegram Bot Utilities & Logic", () => {
       expect(receipt?.hasMultipleCategories).toBe(true);
       expect(receipt?.items).toHaveLength(3);
       expect(receipt?.items?.[2].suggested_category).toBe("Куріння");
+    });
+
+    it("перемикається на резервну модель, якщо первинна впала з помилкою або повернула невалідний JSON", async () => {
+      mockGenerateContent.mockRejectedValueOnce(
+        new Error("503 Service Unavailable")
+      );
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify({
+          amount: 2200,
+          currency: "UAH",
+          merchant: "PJSC BANK ALLIANCE / Переказ власних коштів",
+          type: "expense",
+          suggested_category: "Розваги та хобі",
+        }),
+      });
+
+      const fakeBuffer = Buffer.from("fake-pdf-bytes");
+      const receipt = await parseMultimodalReceipt(
+        fakeBuffer,
+        "application/pdf",
+        new Date(),
+        "розваги"
+      );
+
+      expect(receipt).toBeDefined();
+      expect(receipt?.amount).toBe(2200);
+      expect(receipt?.merchant).toBe(
+        "PJSC BANK ALLIANCE / Переказ власних коштів"
+      );
+      expect(receipt?.suggested_category).toBe("Розваги та хобі");
+    });
+
+    it("враховує підпис (caption) користувача для уточнення контексту чеку", async () => {
+      mockGenerateContent.mockResolvedValueOnce({
+        text: JSON.stringify({
+          amount: 1500,
+          currency: "UAH",
+          merchant: "Боулінг Клуб",
+          type: "expense",
+          suggested_category: "Розваги та хобі",
+        }),
+      });
+
+      const fakeBuffer = Buffer.from("fake-pdf-bytes");
+      const receipt = await parseMultimodalReceipt(
+        fakeBuffer,
+        "application/pdf",
+        new Date(),
+        "розваги з друзями"
+      );
+
+      expect(receipt).toBeDefined();
+      expect(receipt?.amount).toBe(1500);
+      expect(receipt?.suggested_category).toBe("Розваги та хобі");
+      expect(mockGenerateContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contents: expect.arrayContaining([
+            expect.objectContaining({
+              parts: expect.arrayContaining([
+                expect.objectContaining({
+                  text: expect.stringContaining("розваги з друзями"),
+                }),
+              ]),
+            }),
+          ]),
+        })
+      );
     });
   });
 

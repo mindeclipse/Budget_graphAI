@@ -313,7 +313,8 @@ export async function sendTelegramPhoto(
  * Надсилає індикатор дії (наприклад "typing" - набір тексту) у Telegram-чат
  */
 export async function sendTelegramChatAction(
-  action: "typing" | "upload_photo" | "record_voice" = "typing"
+  action:
+    "typing" | "upload_photo" | "record_voice" | "upload_document" = "typing"
 ): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;

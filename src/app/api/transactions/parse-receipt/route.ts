@@ -129,6 +129,9 @@ export async function POST(req: Request) {
             ],
           },
         ],
+        config: {
+          responseMimeType: "application/json",
+        },
       });
       rawAiText = aiResponse.text || "";
     } catch (aiErr: any) {
@@ -152,6 +155,9 @@ export async function POST(req: Request) {
             ],
           },
         ],
+        config: {
+          responseMimeType: "application/json",
+        },
       });
       rawAiText = fallbackResponse.text || "";
     }

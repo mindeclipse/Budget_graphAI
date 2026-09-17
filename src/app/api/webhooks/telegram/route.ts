@@ -30,9 +30,13 @@ import {
   handleTelegramWhatIfGuideCommand,
   handleTelegramWhatIfCommand,
   handleTelegramFinancialInquiry,
+  normalizeCategory,
 } from "@/lib/telegram-bot";
+import { CategoryType } from "@/constants/categories";
+import { extractTagsAndComment } from "@/lib/tag-utils";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Валідація секретного токена вебхука від Telegram
 function validateTelegramSecret(req: NextRequest): boolean {
@@ -136,6 +140,7 @@ export async function POST(req: NextRequest) {
 
     // Б. Обробка фотографій (скріншоти електронних фіскальних чеків)
     if (Array.isArray(message.photo) && message.photo.length > 0) {
+      await sendTelegramChatAction("upload_photo");
       const bestPhoto = message.photo[message.photo.length - 1];
       const downloaded = await getTelegramFile(bestPhoto.file_id);
 
@@ -146,9 +151,26 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
+      const caption = (message.caption || "").trim();
+      let captionCategory: CategoryType | null = null;
+      let captionComment: string | undefined = undefined;
+      let captionTags: string[] = [];
+
+      if (caption) {
+        const parsedCaption = extractTagsAndComment(caption);
+        captionTags = parsedCaption.tags;
+        captionComment = parsedCaption.comment || undefined;
+        const normalized = normalizeCategory(parsedCaption.comment || caption);
+        if (normalized !== "Інше") {
+          captionCategory = normalized;
+        }
+      }
+
       const receipt = await parseMultimodalReceipt(
         downloaded.buffer,
-        "image/jpeg"
+        "image/jpeg",
+        new Date(),
+        caption
       );
 
       if (!receipt) {
@@ -164,7 +186,8 @@ export async function POST(req: NextRequest) {
         supabaseAdmin
       );
 
-      const finalCategory = category || receipt.suggested_category;
+      const finalCategory =
+        captionCategory || category || receipt.suggested_category;
 
       const { transaction, dailyBudget, roundupResult } =
         await recordTelegramTransaction(supabaseAdmin, {
@@ -174,10 +197,13 @@ export async function POST(req: NextRequest) {
           category: finalCategory,
           type: receipt.type,
           date: receipt.date,
+          tags: captionTags.length > 0 ? captionTags : undefined,
           metadata: {
             source_type: "photo_receipt",
             file_name: downloaded.fileName,
             receipt_items: receipt.items || [],
+            comment: captionComment,
+            note: captionComment,
           },
         });
 
@@ -194,6 +220,7 @@ export async function POST(req: NextRequest) {
 
     // В. Обробка документів (PDF-квитанції або зображення без стиснення)
     if (message.document) {
+      await sendTelegramChatAction("upload_document");
       const doc = message.document;
       const mimeType = (doc.mime_type || "").toLowerCase();
       const fileName = (doc.file_name || "").toLowerCase();
@@ -217,10 +244,27 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
+      const caption = (message.caption || "").trim();
+      let captionCategory: CategoryType | null = null;
+      let captionComment: string | undefined = undefined;
+      let captionTags: string[] = [];
+
+      if (caption) {
+        const parsedCaption = extractTagsAndComment(caption);
+        captionTags = parsedCaption.tags;
+        captionComment = parsedCaption.comment || undefined;
+        const normalized = normalizeCategory(parsedCaption.comment || caption);
+        if (normalized !== "Інше") {
+          captionCategory = normalized;
+        }
+      }
+
       const actualMime = isPdf ? "application/pdf" : mimeType || "image/jpeg";
       const receipt = await parseMultimodalReceipt(
         downloaded.buffer,
-        actualMime
+        actualMime,
+        new Date(),
+        caption
       );
 
       if (!receipt) {
@@ -235,7 +279,8 @@ export async function POST(req: NextRequest) {
         supabaseAdmin
       );
 
-      const finalCategory = category || receipt.suggested_category;
+      const finalCategory =
+        captionCategory || category || receipt.suggested_category;
 
       const { transaction, dailyBudget, roundupResult } =
         await recordTelegramTransaction(supabaseAdmin, {
@@ -245,10 +290,13 @@ export async function POST(req: NextRequest) {
           category: finalCategory,
           type: receipt.type,
           date: receipt.date,
+          tags: captionTags.length > 0 ? captionTags : undefined,
           metadata: {
             source_type: "document_receipt",
             file_name: doc.file_name,
             receipt_items: receipt.items || [],
+            comment: captionComment,
+            note: captionComment,
           },
         });
 
