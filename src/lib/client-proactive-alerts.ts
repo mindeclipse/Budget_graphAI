@@ -137,3 +137,70 @@ export function generateProactiveAlerts(
 
   return alerts;
 }
+
+export interface DynamicPromptsInput {
+  remaining?: number;
+  safeDailySpend?: number;
+  daysRemaining?: number;
+  exactPercent?: number;
+  status?: "healthy" | "warning" | "danger";
+  topCategoryName?: string;
+  upcomingSubscription?: {
+    title: string;
+    amount?: number;
+    currency?: string;
+    daysRemaining?: number;
+  };
+  wishlistCount?: number;
+}
+
+/**
+ * Генерує динамічні, ситуативні запитання до радника на основі актуальних метрик бюджету
+ */
+export function generateDynamicQuickPrompts(
+  input: DynamicPromptsInput
+): string[] {
+  const prompts: string[] = [];
+
+  // 1. Статус бюджету та темп спалювання
+  const isDanger =
+    input.status === "danger" ||
+    (input.remaining !== undefined && input.remaining <= 0) ||
+    (input.safeDailySpend !== undefined && input.safeDailySpend < 200);
+
+  if (isDanger) {
+    prompts.push("Як дожити до кінця циклу без дефіциту?");
+  } else {
+    prompts.push("Чи вкладаюсь я в бюджет?");
+  }
+
+  // 2. Найближча підписка (якщо списання відбудеться протягом 7 днів)
+  if (
+    input.upcomingSubscription &&
+    input.upcomingSubscription.daysRemaining !== undefined &&
+    input.upcomingSubscription.daysRemaining <= 7
+  ) {
+    const sub = input.upcomingSubscription;
+    const curr =
+      sub.currency === "USD" ? "$" : sub.currency === "EUR" ? "€" : "₴";
+    prompts.push(
+      `Чи вистачить коштів на ${sub.title}${sub.amount ? ` (${sub.amount} ${curr})` : ""}?`
+    );
+  } else if (input.safeDailySpend && input.safeDailySpend > 0) {
+    prompts.push("Скільки можу витратити на вихідних?");
+  }
+
+  // 3. Оптимізація найбільшої статті витрат
+  if (input.topCategoryName) {
+    prompts.push(`Як оптимізувати категорію "${input.topCategoryName}"?`);
+  } else {
+    prompts.push("Як оптимізувати найбільшу категорію?");
+  }
+
+  // 4. Усвідомлені покупки з вішліста
+  if (input.wishlistCount && input.wishlistCount > 0 && prompts.length < 4) {
+    prompts.push("Чи можу дозволити покупку з вішліста?");
+  }
+
+  return prompts.slice(0, 4);
+}

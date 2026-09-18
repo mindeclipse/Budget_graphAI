@@ -178,6 +178,8 @@ export async function POST(req: Request) {
         ],
         config: {
           responseMimeType: "application/json",
+          maxOutputTokens: 4096,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
       rawAiText = aiResponse.text || "";
@@ -204,6 +206,7 @@ export async function POST(req: Request) {
         ],
         config: {
           responseMimeType: "application/json",
+          maxOutputTokens: 4096,
         },
       });
       rawAiText = fallbackResponse.text || "";

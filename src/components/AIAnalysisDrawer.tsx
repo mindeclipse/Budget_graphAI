@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { X, Sparkles } from "lucide-react";
 import { ChatMessage } from "@/types/ai";
+import { generateDynamicQuickPrompts } from "@/lib/client-proactive-alerts";
 import {
   AIAnalysisDrawerProps,
   ModelSelector,
@@ -12,12 +13,6 @@ import {
 } from "./ai-drawer";
 
 export type { AIAnalysisDrawerProps } from "./ai-drawer";
-
-const QUICK_QUESTIONS = [
-  "Чи вкладаюсь я в бюджет?",
-  "Скільки можу витратити на вихідних?",
-  "Як оптимізувати найбільшу категорію?",
-];
 
 export function AIAnalysisDrawer({
   isOpen,
@@ -34,6 +29,26 @@ export function AIAnalysisDrawer({
   const [chatInput, setChatInput] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const lastSentPromptRef = useRef<string | null>(null);
+
+  const dynamicQuickQuestions = useMemo(() => {
+    const upcomingSub = financialContext?.upcomingSubscriptions?.[0];
+    return generateDynamicQuickPrompts({
+      remaining: financialContext?.remaining,
+      safeDailySpend: financialContext?.safeDailySpend,
+      daysRemaining: financialContext?.daysRemaining,
+      topCategoryName: financialContext?.topCategories?.[0]?.name,
+      upcomingSubscription: upcomingSub
+        ? {
+            title: upcomingSub.title,
+            amount: upcomingSub.amount,
+            currency: upcomingSub.currency,
+            daysRemaining: upcomingSub.daysRemaining,
+          }
+        : undefined,
+      wishlistCount: financialContext?.wishlistCount,
+    });
+  }, [financialContext]);
 
   // Клавіша Escape для закриття
   useEffect(() => {
@@ -119,10 +134,14 @@ export function AIAnalysisDrawer({
     }
   };
 
-  // Якщо передано initialPrompt (наприклад з картки або чіпсу) — автоматично відправляємо його
+  // Якщо передано initialPrompt (наприклад з картки або чіпсу) — автоматично відправляємо його (без дублювання)
   useEffect(() => {
     if (isOpen && initialPrompt && initialPrompt.trim()) {
-      handleSendMessage(initialPrompt.trim());
+      const trimmed = initialPrompt.trim();
+      if (lastSentPromptRef.current !== trimmed) {
+        lastSentPromptRef.current = trimmed;
+        handleSendMessage(trimmed);
+      }
     }
   }, [isOpen, initialPrompt]);
 
@@ -186,7 +205,7 @@ export function AIAnalysisDrawer({
             messages={messages}
             isSendingChat={isSendingChat}
             chatEndRef={chatEndRef}
-            quickQuestions={QUICK_QUESTIONS}
+            quickQuestions={dynamicQuickQuestions}
             onSelectQuickQuestion={handleSendMessage}
           />
         </div>

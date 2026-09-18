@@ -65,6 +65,19 @@ export async function parseMultimodalReceipt(
 
   for (const model of candidateModels) {
     try {
+      const config: Record<string, any> = {
+        systemInstruction,
+        temperature: 0.1,
+        maxOutputTokens: 4096,
+        responseMimeType: "application/json",
+      };
+
+      if (!model.includes("lite")) {
+        config.thinkingConfig = {
+          thinkingBudget: 0,
+        };
+      }
+
       const response = await ai.models.generateContent({
         model,
         contents: [
@@ -81,12 +94,7 @@ export async function parseMultimodalReceipt(
             ],
           },
         ],
-        config: {
-          systemInstruction,
-          temperature: 0.1,
-          maxOutputTokens: 1024,
-          responseMimeType: "application/json",
-        },
+        config,
       });
 
       if (!response.text) continue;

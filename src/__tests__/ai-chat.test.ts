@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { generateProactiveAlerts } from "@/lib/client-proactive-alerts";
+import {
+  generateProactiveAlerts,
+  generateDynamicQuickPrompts,
+} from "@/lib/client-proactive-alerts";
 import { GEMINI_FALLBACK_CHAIN, MODEL_FALLBACK_MAP } from "@/lib/gemini";
 
 describe("AI Advisor & Proactive Alerts", () => {
@@ -83,5 +86,57 @@ describe("AI Advisor & Proactive Alerts", () => {
     expect(MODEL_FALLBACK_MAP["gemini-3.5-flash-lite"]).toBe(
       "gemini-3.5-flash"
     );
+  });
+
+  it("генерує динамічні запитання для нормального бюджету", () => {
+    const prompts = generateDynamicQuickPrompts({
+      remaining: 10000,
+      safeDailySpend: 500,
+      daysRemaining: 10,
+      status: "healthy",
+      topCategoryName: "Продукти",
+      upcomingSubscription: {
+        title: "Spotify",
+        amount: 6.49,
+        currency: "USD",
+        daysRemaining: 12,
+      },
+    });
+
+    expect(prompts).toContain("Чи вкладаюсь я в бюджет?");
+    expect(prompts).toContain("Скільки можу витратити на вихідних?");
+    expect(prompts).toContain('Як оптимізувати категорію "Продукти"?');
+  });
+
+  it("генерує запитання про доживання до кінця циклу при критичному залишку", () => {
+    const prompts = generateDynamicQuickPrompts({
+      remaining: 200,
+      safeDailySpend: 50,
+      daysRemaining: 5,
+      status: "danger",
+      topCategoryName: "Кафе та ресторани",
+    });
+
+    expect(prompts).toContain("Як дожити до кінця циклу без дефіциту?");
+    expect(prompts).toContain('Як оптимізувати категорію "Кафе та ресторани"?');
+  });
+
+  it("генерує цільове запитання про підписку, якщо списання незабаром (<= 7 днів)", () => {
+    const prompts = generateDynamicQuickPrompts({
+      remaining: 5000,
+      safeDailySpend: 400,
+      daysRemaining: 8,
+      status: "healthy",
+      upcomingSubscription: {
+        title: "Netflix",
+        amount: 390,
+        currency: "UAH",
+        daysRemaining: 2,
+      },
+      wishlistCount: 2,
+    });
+
+    expect(prompts.some((p) => p.includes("Netflix (390 ₴)"))).toBe(true);
+    expect(prompts).toContain("Чи можу дозволити покупку з вішліста?");
   });
 });

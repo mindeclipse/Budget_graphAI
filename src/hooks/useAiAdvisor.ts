@@ -95,15 +95,22 @@ export function useAiAdvisor({
       savedImpulseAmount: wishlistSavedAmount,
       costPerUseCount: costPerUseItems.length,
       costPerUseTotalSaved: costPerUseSavedAmount,
-      recentTransactions: filteredTransactions
-        .filter(
+      recentTransactions: (() => {
+        const sorted = [...filteredTransactions].sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const tagged = sorted.filter(
           (t) =>
             (t.tags && t.tags.length > 0) ||
             t.metadata?.comment ||
             t.metadata?.note
-        )
-        .slice(0, 15)
-        .map((t) => ({
+        );
+        const taggedIds = new Set(tagged.map((t) => t.id));
+        const regular = sorted.filter((t) => !taggedIds.has(t.id));
+        const selected = [...tagged, ...regular].slice(0, 15);
+
+        return selected.map((t) => ({
           merchant: t.merchant_raw,
           amount: Number(t.amount),
           category: t.category_name,
@@ -119,7 +126,8 @@ export function useAiAdvisor({
             day: "numeric",
             month: "short",
           }),
-        })),
+        }));
+      })(),
     };
   }, [
     activeCycle?.name,
@@ -151,27 +159,33 @@ export function useAiAdvisor({
     setIsAiLoading(true);
 
     try {
-      const recentTaggedTransactions = filteredTransactions
-        .filter(
-          (t) =>
-            (t.tags && t.tags.length > 0) ||
-            t.metadata?.comment ||
-            t.metadata?.note
-        )
-        .slice(0, 10)
-        .map((t) => ({
-          merchant: t.merchant_raw,
-          amount: Number(t.amount),
-          category: t.category_name,
-          tags: t.tags,
-          comment:
-            (t.metadata?.comment as string) ||
-            (t.metadata?.note as string) ||
-            undefined,
-          isEmergency: Boolean(
-            t.metadata?.is_emergency || t.tags?.includes("форсмажор")
-          ),
-        }));
+      const sorted = [...filteredTransactions].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const tagged = sorted.filter(
+        (t) =>
+          (t.tags && t.tags.length > 0) ||
+          t.metadata?.comment ||
+          t.metadata?.note
+      );
+      const taggedIds = new Set(tagged.map((t) => t.id));
+      const regular = sorted.filter((t) => !taggedIds.has(t.id));
+      const selected = [...tagged, ...regular].slice(0, 12);
+
+      const recentTaggedTransactions = selected.map((t) => ({
+        merchant: t.merchant_raw,
+        amount: Number(t.amount),
+        category: t.category_name,
+        tags: t.tags,
+        comment:
+          (t.metadata?.comment as string) ||
+          (t.metadata?.note as string) ||
+          undefined,
+        isEmergency: Boolean(
+          t.metadata?.is_emergency || t.tags?.includes("форсмажор")
+        ),
+      }));
 
       const payload: AIAnalysisRequest = {
         cycleName: activeCycle?.name,

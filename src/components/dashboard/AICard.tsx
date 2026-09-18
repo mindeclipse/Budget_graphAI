@@ -11,7 +11,10 @@ import {
   Send,
 } from "lucide-react";
 import { AIAnalysisResponse, SupportedGeminiModel } from "@/types/ai";
-import { generateProactiveAlerts } from "@/lib/client-proactive-alerts";
+import {
+  generateProactiveAlerts,
+  generateDynamicQuickPrompts,
+} from "@/lib/client-proactive-alerts";
 
 interface AICardProps {
   aiAnalysis: AIAnalysisResponse | null;
@@ -121,11 +124,25 @@ export function AICard({
     setQuickInput("");
   };
 
-  const quickQuestions = [
-    "Чи вкладаюсь я в бюджет?",
-    "Чи можу купити на 2 000 ₴?",
-    "Як оптимізувати витрати?",
-  ];
+  const quickQuestions = useMemo(() => {
+    const upcomingSub = radarUpcoming?.[0]
+      ? {
+          title: radarUpcoming[0].title,
+          amount: radarUpcoming[0].amount,
+          daysRemaining: radarUpcoming[0].days_remaining,
+        }
+      : undefined;
+
+    return generateDynamicQuickPrompts({
+      remaining: budgetMetrics.remaining,
+      safeDailySpend: budgetMetrics.safeDailySpend,
+      daysRemaining: budgetMetrics.daysRemaining,
+      exactPercent: budgetMetrics.exactPercent,
+      status: budgetMetrics.status,
+      topCategoryName: categoryStats[0]?.name,
+      upcomingSubscription: upcomingSub,
+    });
+  }, [budgetMetrics, categoryStats, radarUpcoming]);
 
   return (
     <div className="flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-900 bg-zinc-950 p-5 shadow-sm">
