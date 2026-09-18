@@ -133,7 +133,7 @@ export function TrashModal({ isOpen, onClose }: TrashModalProps) {
       />
 
       {/* Модальне вікно */}
-      <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[85vh] min-h-0 w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         {/* Grabber Bar для смартфонів */}
         <div className="mx-auto mb-3.5 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
@@ -173,7 +173,7 @@ export function TrashModal({ isOpen, onClose }: TrashModalProps) {
         </div>
 
         {/* Список елементів */}
-        <div className="flex-1 space-y-2.5 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 [scrollbar-width:thin] space-y-2.5 overflow-y-auto overscroll-contain pr-1">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
               <Loader2 size={24} className="animate-spin" />
@@ -250,7 +250,7 @@ export function TrashModal({ isOpen, onClose }: TrashModalProps) {
 
         {/* Футер: Кнопка очищення всього кошика */}
         {trashItems.length > 0 && (
-          <div className="mt-3 border-t border-zinc-800/80 pt-3">
+          <div className="mt-3 shrink-0 border-t border-zinc-800/80 pt-3">
             {confirmClear ? (
               <div className="flex items-center gap-2">
                 <button

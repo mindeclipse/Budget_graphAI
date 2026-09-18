@@ -158,7 +158,7 @@ export function AIAnalysisDrawer({
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
       {/* Адаптивна шторка для iPhone / Центрована картка для десктопу */}
-      <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[88vh] sm:rounded-3xl sm:p-6 sm:pb-5">
+      <div className="relative z-10 flex max-h-[92vh] min-h-0 w-full max-w-2xl flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[88vh] sm:rounded-3xl sm:p-6 sm:pb-5">
         {/* Grabber Bar для iOS */}
         <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
@@ -194,7 +194,7 @@ export function AIAnalysisDrawer({
         />
 
         {/* 3. Скрол-зона: Аналітичний звіт + Follow-up чат */}
-        <div className="flex-1 [scrollbar-width:thin] space-y-3.5 overflow-y-auto overscroll-contain pr-1">
+        <div className="min-h-0 flex-1 [scrollbar-width:thin] space-y-3.5 overflow-y-auto overscroll-contain pr-1">
           <AnalysisReportBody
             isLoading={isLoading}
             analysis={analysis}

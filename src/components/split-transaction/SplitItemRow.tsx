@@ -40,7 +40,7 @@ export const SplitItemRow = React.memo(function SplitItemRow({
             value={item.amount}
             onChange={(e) => onUpdate(index, "amount", e.target.value)}
             placeholder="0.00"
-            className="w-full rounded-xl border border-zinc-700/60 bg-zinc-900 px-3 py-2 text-sm font-semibold text-white focus:border-sky-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-700/60 bg-zinc-900 px-3 py-2 text-base font-semibold text-white focus:border-sky-500 focus:outline-none sm:text-sm"
           />
         </div>
 
@@ -51,7 +51,7 @@ export const SplitItemRow = React.memo(function SplitItemRow({
           <select
             value={item.category_name}
             onChange={(e) => onUpdate(index, "category_name", e.target.value)}
-            className="w-full rounded-xl border border-zinc-700/60 bg-zinc-900 px-2.5 py-2 text-xs font-medium text-white focus:border-sky-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-700/60 bg-zinc-900 px-2.5 py-2 text-base font-medium text-white focus:border-sky-500 focus:outline-none sm:text-xs"
           >
             {CATEGORIES.map((cat) => (
               <option key={cat} value={cat} className="bg-zinc-900">
@@ -68,7 +68,7 @@ export const SplitItemRow = React.memo(function SplitItemRow({
           value={item.merchant_raw}
           onChange={(e) => onUpdate(index, "merchant_raw", e.target.value)}
           placeholder="Опис частини (опціонально)..."
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 text-xs text-zinc-300 placeholder-zinc-600 focus:border-zinc-700 focus:outline-none"
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-1.5 text-base text-zinc-300 placeholder-zinc-600 focus:border-zinc-700 focus:outline-none sm:text-xs"
         />
       </div>
     </div>

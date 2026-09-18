@@ -62,7 +62,7 @@ export const InvestmentAssetFormFields: React.FC<
             setName(e.target.value);
             clearError();
           }}
-          className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+          className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-indigo-500 focus:outline-none sm:text-sm"
         />
       </div>
 
@@ -74,7 +74,7 @@ export const InvestmentAssetFormFields: React.FC<
           <select
             value={assetType}
             onChange={(e) => setAssetType(e.target.value as any)}
-            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-base text-white focus:border-indigo-500 focus:outline-none sm:text-sm"
           >
             <option value="bonds">ОВДП (Облігації)</option>
             <option value="stocks">Акції / ETF</option>
@@ -91,7 +91,7 @@ export const InvestmentAssetFormFields: React.FC<
           <select
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-base text-white focus:border-indigo-500 focus:outline-none sm:text-sm"
           >
             <option value="UAH">UAH (₴)</option>
             <option value="USD">USD ($)</option>
@@ -116,7 +116,7 @@ export const InvestmentAssetFormFields: React.FC<
               setInvested(e.target.value);
               clearError();
             }}
-            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-indigo-500 focus:outline-none sm:text-sm"
           />
         </div>
         <div>
@@ -133,7 +133,7 @@ export const InvestmentAssetFormFields: React.FC<
               setCurrentVal(e.target.value);
               clearError();
             }}
-            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-indigo-500 focus:outline-none sm:text-sm"
           />
         </div>
       </div>
@@ -152,7 +152,7 @@ export const InvestmentAssetFormFields: React.FC<
               setYieldPct(e.target.value);
               clearError();
             }}
-            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-indigo-500 focus:outline-none sm:text-sm"
           />
         </div>
         <div>
@@ -169,7 +169,7 @@ export const InvestmentAssetFormFields: React.FC<
                 setMaturityDateInput(e.target.value);
                 clearError();
               }}
-              className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 py-2.5 pr-9 pl-3.5 text-sm text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 py-2.5 pr-9 pl-3.5 text-base text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none sm:text-sm"
             />
             <button
               type="button"
@@ -205,7 +205,7 @@ export const InvestmentAssetFormFields: React.FC<
           placeholder="Брокер, рахунок, умови виплати тощо..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+          className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-indigo-500 focus:outline-none sm:text-sm"
         />
       </div>
     </>

@@ -17,7 +17,7 @@ export function AdvisorChatInput({
   onSubmit,
 }: AdvisorChatInputProps) {
   return (
-    <div className="mt-3 border-t border-zinc-800/80 pt-3">
+    <div className="mt-3 shrink-0 border-t border-zinc-800/80 pt-3">
       <form onSubmit={onSubmit} className="flex items-center gap-2">
         <input
           type="text"
@@ -25,7 +25,7 @@ export function AdvisorChatInput({
           onChange={(e) => onInputChange(e.target.value)}
           placeholder="Напишіть запитання до фінансового радника..."
           disabled={isSendingChat}
-          className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-purple-500 focus:outline-none disabled:opacity-50"
+          className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-base text-zinc-200 placeholder-zinc-500 focus:border-purple-500 focus:outline-none disabled:opacity-50 sm:text-xs"
         />
         <button
           type="submit"

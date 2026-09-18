@@ -89,7 +89,7 @@ export function NewCycleModal({
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
       {/* Адаптивна шторка для iPhone / Центрована картка для десктопу */}
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[90vh] min-h-0 w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         {/* Grabber Bar для iOS */}
         <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
@@ -119,58 +119,64 @@ export function NewCycleModal({
         </div>
 
         {/* Форма запуску циклу */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Назва циклу
-            </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Плановий ліміт витрат
-            </label>
-            <div className="relative flex items-center">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain pr-1">
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                Назва циклу
+              </label>
               <input
-                type="number"
-                inputMode="decimal"
+                type="text"
                 required
-                min={1}
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 pr-12 font-mono text-base font-semibold text-white tabular-nums transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
               />
-              <span className="pointer-events-none absolute right-3.5 font-mono text-xs font-medium text-zinc-500">
-                ₴
-              </span>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                Плановий ліміт витрат
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  required
+                  min={1}
+                  value={limit}
+                  onChange={(e) => setLimit(Number(e.target.value))}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 pr-12 font-mono text-base font-semibold text-white tabular-nums transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+                />
+                <span className="pointer-events-none absolute right-3.5 font-mono text-xs font-medium text-zinc-500">
+                  ₴
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                <Calendar size={12} className="text-zinc-500" /> Точний час
+                старту
+              </label>
+              <input
+                type="datetime-local"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 font-mono text-base text-white [color-scheme:dark] transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+              />
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Усі транзакції після цього часу потраплять у новий цикл.
+              </p>
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              <Calendar size={12} className="text-zinc-500" /> Точний час старту
-            </label>
-            <input
-              type="datetime-local"
-              required
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 font-mono text-base text-white [color-scheme:dark] transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-            />
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Усі транзакції після цього часу потраплять у новий цикл.
-            </p>
-          </div>
-
           {/* Кнопки дій */}
-          <div className="flex gap-2.5 pt-2">
+          <div className="flex shrink-0 gap-2.5 pt-3">
             <button
               type="button"
               onClick={onClose}

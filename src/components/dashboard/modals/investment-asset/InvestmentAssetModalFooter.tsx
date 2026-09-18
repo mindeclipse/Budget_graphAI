@@ -13,7 +13,7 @@ export const InvestmentAssetModalFooter: React.FC<
   InvestmentAssetModalFooterProps
 > = ({ onClose, isSubmitting, isEditing }) => {
   return (
-    <div className="flex gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
+    <div className="flex shrink-0 gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
       <button
         type="button"
         onClick={onClose}

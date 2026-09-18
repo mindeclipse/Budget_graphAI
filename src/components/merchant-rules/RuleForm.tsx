@@ -52,7 +52,7 @@ export function RuleForm({
             disabled={!!editingPattern}
             onChange={(e) => onPatternChange(e.target.value)}
             placeholder="напр. SILPO або UBER"
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white placeholder-zinc-600 focus:border-sky-500 focus:outline-none disabled:opacity-60"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-base text-white placeholder-zinc-600 focus:border-sky-500 focus:outline-none disabled:opacity-60 sm:text-xs"
           />
         </div>
 
@@ -65,7 +65,7 @@ export function RuleForm({
             value={normalizedName}
             onChange={(e) => onNormalizedNameChange(e.target.value)}
             placeholder="напр. Сільпо"
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white placeholder-zinc-600 focus:border-sky-500 focus:outline-none"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-base text-white placeholder-zinc-600 focus:border-sky-500 focus:outline-none sm:text-xs"
           />
         </div>
       </div>
@@ -77,7 +77,7 @@ export function RuleForm({
         <select
           value={categoryName}
           onChange={(e) => onCategoryNameChange(e.target.value)}
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white focus:border-sky-500 focus:outline-none"
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-base text-white focus:border-sky-500 focus:outline-none sm:text-xs"
         >
           {CATEGORIES.map((cat) => (
             <option key={cat} value={cat}>

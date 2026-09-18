@@ -257,11 +257,11 @@ export function TransactionActionSheet({
       <div className="fixed inset-0" onClick={onClose} />
 
       {/* Шторка (Bottom Sheet) для iPhone / Центрована картка для десктопу */}
-      <div className="relative z-10 flex max-h-[88vh] w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[88vh] min-h-0 w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         <ActionSheetHeader transaction={transaction} onClose={onClose} />
 
         {/* Скрол-зона вмісту форми з ізольованим overscroll */}
-        <div className="[scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain pr-1">
+        <div className="min-h-0 flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain pr-1">
           <ActionSheetMerchantSection
             cleanTitleInput={cleanTitleInput}
             onChangeTitle={setCleanTitleInput}

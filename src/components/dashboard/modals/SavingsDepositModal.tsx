@@ -86,7 +86,7 @@ export function SavingsDepositModal({
           onSubmit={handleDeposit}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain px-6 py-4">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-zinc-300">
                 Сума поповнення ({goal.currency})
@@ -116,7 +116,7 @@ export function SavingsDepositModal({
             </div>
           </div>
 
-          <div className="flex gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
+          <div className="flex shrink-0 gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
             <button
               type="button"
               onClick={onClose}

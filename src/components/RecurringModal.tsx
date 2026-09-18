@@ -107,7 +107,7 @@ export function RecurringModal({
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
       {/* Адаптивна шторка для iPhone / Центрована картка для десктопу */}
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[90vh] min-h-0 w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         {/* Grabber Bar для iOS */}
         <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
@@ -132,80 +132,87 @@ export function RecurringModal({
         </div>
 
         {/* Форма */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Назва платежу
-            </label>
-            <input
-              type="text"
-              placeholder="Оренда, зв'язок, iCloud..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain pr-1">
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-                Сума і валюта
+                Назва платежу
               </label>
-              <div className="flex gap-1.5">
+              <input
+                type="text"
+                placeholder="Оренда, зв'язок, iCloud..."
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                  Сума і валюта
+                </label>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="100"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 font-mono text-base text-white tabular-nums placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+                  />
+                  <select
+                    value={currency}
+                    onChange={(e) =>
+                      setCurrency(e.target.value as "UAH" | "USD")
+                    }
+                    className="rounded-xl border border-zinc-800 bg-zinc-900 px-2.5 py-2.5 text-base font-semibold text-zinc-200 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+                  >
+                    <option value="UAH">₴</option>
+                    <option value="USD">$</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                  День місяця
+                </label>
                 <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="100"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full min-w-0 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 font-mono text-base text-white tabular-nums placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+                  type="number"
+                  min="1"
+                  max="31"
+                  inputMode="numeric"
+                  value={day}
+                  onChange={(e) => setDay(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 font-mono text-base text-white tabular-nums transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
                 />
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value as "UAH" | "USD")}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900 px-2.5 py-2.5 text-base font-semibold text-zinc-200 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-                >
-                  <option value="UAH">₴</option>
-                  <option value="USD">$</option>
-                </select>
               </div>
             </div>
 
             <div>
               <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-                День місяця
+                Категорія
               </label>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                inputMode="numeric"
-                value={day}
-                onChange={(e) => setDay(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 font-mono text-base text-white tabular-nums transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-              />
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-base text-zinc-200 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Категорія
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-base text-zinc-200 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {isConfirmingDelete ? (
-            <div className="flex items-center gap-2 pt-3">
+            <div className="flex shrink-0 items-center gap-2 pt-3">
               <button
                 type="button"
                 onClick={() => setIsConfirmingDelete(false)}
@@ -227,7 +234,7 @@ export function RecurringModal({
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 pt-3">
+            <div className="flex shrink-0 items-center gap-2 pt-3">
               {item && item.id !== undefined && (
                 <button
                   type="button"

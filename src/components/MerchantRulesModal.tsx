@@ -154,7 +154,7 @@ export function MerchantRulesModal({
       />
 
       {/* Модальне вікно */}
-      <div className="relative z-10 flex max-h-[88vh] w-full max-w-xl flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
+      <div className="relative z-10 flex max-h-[88vh] min-h-0 w-full max-w-xl flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-3xl sm:p-6 sm:pb-6">
         {/* Grabber Bar */}
         <div className="mx-auto mb-3.5 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
@@ -196,7 +196,7 @@ export function MerchantRulesModal({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Пошук серед правил..."
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/90 py-2 pr-3 pl-9 text-xs text-white placeholder-zinc-500 focus:border-zinc-700 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/90 py-2 pr-3 pl-9 text-base text-white placeholder-zinc-500 focus:border-zinc-700 focus:outline-none sm:text-xs"
             />
           </div>
 
@@ -241,7 +241,7 @@ export function MerchantRulesModal({
         )}
 
         {/* Список правил */}
-        <div className="flex-1 space-y-2 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 [scrollbar-width:thin] space-y-2 overflow-y-auto overscroll-contain pr-1">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
               <Loader2 size={24} className="animate-spin" />
@@ -273,7 +273,7 @@ export function MerchantRulesModal({
         </div>
 
         {/* Футер із загальною кількістю */}
-        <div className="mt-3 flex items-center justify-between border-t border-zinc-800/80 pt-2.5 text-xs text-zinc-500">
+        <div className="mt-3 flex shrink-0 items-center justify-between border-t border-zinc-800/80 pt-2.5 text-xs text-zinc-500">
           <span>
             Всього правил: <b>{rules.length}</b>
           </span>

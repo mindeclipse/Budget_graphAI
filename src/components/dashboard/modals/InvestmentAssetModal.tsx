@@ -155,14 +155,14 @@ export function InvestmentAssetModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative z-10 flex max-h-[90dvh] min-h-[60vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:min-h-0 sm:rounded-3xl">
+      <div className="relative z-10 flex max-h-[90dvh] min-h-0 w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
         <InvestmentAssetModalHeader isEditing={isEditing} onClose={onClose} />
 
         <form
           onSubmit={handleSaveAsset}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain px-6 py-4">
             {formError && (
               <p className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-2.5 text-xs text-rose-400">
                 {formError}

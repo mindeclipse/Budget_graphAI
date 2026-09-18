@@ -41,7 +41,7 @@ export function ActionSheetCommentSection({
           rows={2}
           onChange={(e) => onChangeComment(e.target.value)}
           placeholder="Додайте опис або коментар... Слова з # стають тегами (напр: подарунок мамі #деньнародження)"
-          className="w-full resize-none rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 transition-colors focus:border-zinc-700 focus:outline-none"
+          className="w-full resize-none rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-base text-white placeholder-zinc-500 transition-colors focus:border-zinc-700 focus:outline-none sm:text-xs"
         />
       </div>
 

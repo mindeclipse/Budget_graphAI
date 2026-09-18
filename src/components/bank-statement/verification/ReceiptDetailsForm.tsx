@@ -40,7 +40,7 @@ export const ReceiptDetailsForm: React.FC<ReceiptDetailsFormProps> = ({
             type="text"
             value={amount}
             onChange={(e) => onChangeAmount(e.target.value)}
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 font-mono text-sm font-bold text-white outline-none focus:border-emerald-500/50"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 font-mono text-base font-bold text-white outline-none focus:border-emerald-500/50 sm:text-sm"
             placeholder="0.00"
           />
         </div>
@@ -53,7 +53,7 @@ export const ReceiptDetailsForm: React.FC<ReceiptDetailsFormProps> = ({
             type="datetime-local"
             value={date}
             onChange={(e) => onChangeDate(e.target.value)}
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-base text-white outline-none focus:border-emerald-500/50 sm:text-xs"
           />
         </div>
       </div>
@@ -67,7 +67,7 @@ export const ReceiptDetailsForm: React.FC<ReceiptDetailsFormProps> = ({
           type="text"
           value={recipient}
           onChange={(e) => onChangeRecipient(e.target.value)}
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50"
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-base text-white outline-none focus:border-emerald-500/50 sm:text-xs"
           placeholder="Назва компанії чи ФОП"
         />
       </div>
@@ -80,7 +80,7 @@ export const ReceiptDetailsForm: React.FC<ReceiptDetailsFormProps> = ({
         <select
           value={category}
           onChange={(e) => onChangeCategory(e.target.value)}
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50"
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-base text-white outline-none focus:border-emerald-500/50 sm:text-xs"
         >
           {CATEGORIES.map((cat) => (
             <option key={cat} value={cat}>

@@ -164,67 +164,72 @@ export function ReceiptVerificationView({
   };
 
   return (
-    <div className="space-y-4 overflow-y-auto pr-1">
-      {/* Попередження про дублікат */}
-      {parsedReceipt.isPotentialDuplicate && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-400" />
-          <div>
-            <span className="font-semibold text-amber-300">
-              Увага, знайдено схожу операцію!
-            </span>
-            <p className="mt-0.5 text-[11px] text-amber-300/80">
-              В системі за останні 3 дні вже є транзакція на таку саму суму.
-              Перевірте, щоб не додати операцію двічі.
-            </p>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain pr-1">
+        {/* Попередження про дублікат */}
+        {parsedReceipt.isPotentialDuplicate && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            <AlertTriangle
+              size={16}
+              className="mt-0.5 shrink-0 text-amber-400"
+            />
+            <div>
+              <span className="font-semibold text-amber-300">
+                Увага, знайдено схожу операцію!
+              </span>
+              <p className="mt-0.5 text-[11px] text-amber-300/80">
+                В системі за останні 3 дні вже є транзакція на таку саму суму.
+                Перевірте, щоб не додати операцію двічі.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Бедж банку та AI */}
-      <div className="border-zinc-850 flex items-center justify-between rounded-xl border bg-zinc-900/50 px-3 py-2 text-xs">
-        <div className="flex items-center gap-1.5 text-zinc-400">
-          <Sparkles size={13} className="text-emerald-400" />
-          <span>Розпізнано Gemini 3.5 Flash</span>
+        {/* Бедж банку та AI */}
+        <div className="border-zinc-850 flex items-center justify-between rounded-xl border bg-zinc-900/50 px-3 py-2 text-xs">
+          <div className="flex items-center gap-1.5 text-zinc-400">
+            <Sparkles size={13} className="text-emerald-400" />
+            <span>Розпізнано Gemini 3.5 Flash</span>
+          </div>
+          {parsedReceipt.bankName && (
+            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-400">
+              {parsedReceipt.bankName}
+            </span>
+          )}
         </div>
-        {parsedReceipt.bankName && (
-          <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-400">
-            {parsedReceipt.bankName}
-          </span>
+
+        {/* Перемикач типу операції (Витрата / Інвестиція) */}
+        <ReceiptTypeSelector editType={editType} onChangeType={setEditType} />
+
+        {/* Форма деталей: сума, дата, отримувач, категорія, призначення */}
+        <ReceiptDetailsForm
+          currency={parsedReceipt.currency || "UAH"}
+          amount={editAmount}
+          onChangeAmount={setEditAmount}
+          date={editDate}
+          onChangeDate={setEditDate}
+          recipient={editRecipient}
+          onChangeRecipient={setEditRecipient}
+          category={editCategory}
+          onChangeCategory={setEditCategory}
+          purpose={parsedReceipt.purpose}
+        />
+
+        {/* Прив'язка до активу портфеля (коли type === "investment") */}
+        {editType === "investment" && (
+          <InvestmentLinkSection
+            selectedAssetId={selectedAssetId}
+            onChangeAssetId={setSelectedAssetId}
+            sortedInvestments={sortedInvestments}
+            updateAssetCostBasis={updateAssetCostBasis}
+            onChangeUpdateCostBasis={setUpdateAssetCostBasis}
+            amount={editAmount}
+          />
         )}
       </div>
 
-      {/* Перемикач типу операції (Витрата / Інвестиція) */}
-      <ReceiptTypeSelector editType={editType} onChangeType={setEditType} />
-
-      {/* Форма деталей: сума, дата, отримувач, категорія, призначення */}
-      <ReceiptDetailsForm
-        currency={parsedReceipt.currency || "UAH"}
-        amount={editAmount}
-        onChangeAmount={setEditAmount}
-        date={editDate}
-        onChangeDate={setEditDate}
-        recipient={editRecipient}
-        onChangeRecipient={setEditRecipient}
-        category={editCategory}
-        onChangeCategory={setEditCategory}
-        purpose={parsedReceipt.purpose}
-      />
-
-      {/* Прив'язка до активу портфеля (коли type === "investment") */}
-      {editType === "investment" && (
-        <InvestmentLinkSection
-          selectedAssetId={selectedAssetId}
-          onChangeAssetId={setSelectedAssetId}
-          sortedInvestments={sortedInvestments}
-          updateAssetCostBasis={updateAssetCostBasis}
-          onChangeUpdateCostBasis={setUpdateAssetCostBasis}
-          amount={editAmount}
-        />
-      )}
-
       {/* Кнопки дій */}
-      <div className="flex items-center gap-2 pt-2">
+      <div className="flex shrink-0 items-center gap-2 pt-3">
         <button
           type="button"
           onClick={onResetFile}

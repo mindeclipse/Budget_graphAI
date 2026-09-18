@@ -99,7 +99,7 @@ export function AddCostPerUseModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative z-10 flex max-h-[90dvh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-slate-800 bg-slate-900 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-2xl">
+      <div className="relative z-10 flex max-h-[90dvh] min-h-0 w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-slate-800 bg-slate-900 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-2xl">
         {/* Mobile handle indicator */}
         <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-slate-700/50 sm:hidden" />
 
@@ -121,7 +121,7 @@ export function AddCostPerUseModal({
           onSubmit={handleCreate}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+          <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-300">
                 Назва речі / обладнання *
@@ -132,7 +132,7 @@ export function AddCostPerUseModal({
                 placeholder="напр. Кавоварка DeLonghi або Зимова куртка"
                 value={itemName}
                 onChange={(e) => setItemName(e.target.value)}
-                className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-base text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none sm:text-sm"
               />
             </div>
 
@@ -148,7 +148,7 @@ export function AddCostPerUseModal({
                   placeholder="0.00"
                   value={purchasePrice}
                   onChange={(e) => setPurchasePrice(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-base text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none sm:text-sm"
                 />
               </div>
               <div>
@@ -158,7 +158,7 @@ export function AddCostPerUseModal({
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3 py-2.5 text-base text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none sm:text-sm"
                 >
                   <option value="UAH">UAH ₴</option>
                   <option value="USD">USD $</option>
@@ -176,7 +176,7 @@ export function AddCostPerUseModal({
                 <select
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-base text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none sm:text-sm"
                 >
                   <option value="Гаджети">Гаджети та техніка</option>
                   <option value="Одяг">Одяг та взуття</option>
@@ -196,7 +196,7 @@ export function AddCostPerUseModal({
                   min="1"
                   value={totalUses}
                   onChange={(e) => setTotalUses(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-base text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none sm:text-sm"
                 />
               </div>
             </div>
@@ -212,7 +212,7 @@ export function AddCostPerUseModal({
                   placeholder="напр. 70 ₴ за каву в кав'ярні чи 250 ₴ за зал"
                   value={benchmarkCost}
                   onChange={(e) => setBenchmarkCost(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-base text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none sm:text-xs"
                 />
               </div>
               <p className="mt-1 text-[10px] text-slate-400">
@@ -229,12 +229,12 @@ export function AddCostPerUseModal({
                 type="date"
                 value={purchaseDate}
                 onChange={(e) => setPurchaseDate(e.target.value)}
-                className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-xs text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-base text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none sm:text-xs"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 border-t border-slate-800 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
+          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-800 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-4 sm:pb-4">
             <button
               type="button"
               onClick={onClose}

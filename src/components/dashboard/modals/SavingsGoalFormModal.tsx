@@ -132,7 +132,7 @@ export function SavingsGoalFormModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative z-10 flex max-h-[90dvh] min-h-[60vh] w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:min-h-0 sm:rounded-3xl">
+      <div className="relative z-10 flex max-h-[90dvh] min-h-0 w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
         {/* Mobile handle indicator */}
         <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
@@ -153,7 +153,7 @@ export function SavingsGoalFormModal({
           onSubmit={handleSubmit}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+          <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain px-6 py-4">
             {error && (
               <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-400">
                 {error}
@@ -173,7 +173,7 @@ export function SavingsGoalFormModal({
                   setName(e.target.value);
                   setError("");
                 }}
-                className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-emerald-500 focus:outline-none sm:text-sm"
               />
             </div>
 
@@ -192,7 +192,7 @@ export function SavingsGoalFormModal({
                     setCurrent(e.target.value);
                     setError("");
                   }}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-emerald-500 focus:outline-none sm:text-sm"
                 />
                 <p className="mt-1 text-[10px] text-zinc-500">
                   Поточні збереження
@@ -211,7 +211,7 @@ export function SavingsGoalFormModal({
                     setTarget(e.target.value);
                     setError("");
                   }}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-emerald-500 focus:outline-none sm:text-sm"
                 />
                 <p className="mt-1 text-[10px] text-zinc-500">
                   Порожнє = безстроково
@@ -227,7 +227,7 @@ export function SavingsGoalFormModal({
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-base text-white focus:border-emerald-500 focus:outline-none sm:text-sm"
                 >
                   <option value="UAH">UAH (₴)</option>
                   <option value="USD">USD ($)</option>
@@ -243,13 +243,13 @@ export function SavingsGoalFormModal({
                   type="date"
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2.5 text-base text-white focus:border-emerald-500 focus:outline-none sm:text-sm"
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
+          <div className="flex shrink-0 gap-3 border-t border-zinc-800/80 px-6 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
             <button
               type="button"
               onClick={onClose}

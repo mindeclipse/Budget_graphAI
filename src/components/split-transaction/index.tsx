@@ -129,7 +129,7 @@ export function SplitTransactionModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="fixed inset-0" onClick={onClose} />
 
-      <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 shadow-2xl sm:rounded-3xl sm:p-6">
+      <div className="relative z-10 flex max-h-[90vh] min-h-0 w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl sm:p-6 sm:pb-6">
         <div className="mx-auto mb-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
         {/* Заголовок */}
@@ -171,7 +171,7 @@ export function SplitTransactionModal({
         )}
 
         {/* Список частин */}
-        <div className="space-y-3 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 [scrollbar-width:thin] space-y-3 overflow-y-auto overscroll-contain pr-1">
           {items.map((item, idx) => (
             <SplitItemRow
               key={idx}
@@ -193,7 +193,7 @@ export function SplitTransactionModal({
         </div>
 
         {/* Кнопки дій */}
-        <div className="mt-4 flex gap-2 border-t border-zinc-800/80 pt-3">
+        <div className="mt-4 flex shrink-0 gap-2 border-t border-zinc-800/80 pt-3">
           <button
             type="button"
             onClick={onClose}
