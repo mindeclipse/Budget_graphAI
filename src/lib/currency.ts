@@ -184,3 +184,21 @@ export async function getCurrencyRate(
 export async function getUsdRate(): Promise<number> {
   return getCurrencyRate("USD");
 }
+
+/**
+ * Перетворює числовий код валюти ISO 4217 у літерний код
+ */
+export function isoCodeToCurrency(code: number): string {
+  switch (code) {
+    case 840:
+      return "USD";
+    case 978:
+      return "EUR";
+    case 985:
+      return "PLN";
+    case 980:
+      return "UAH";
+    default:
+      return "UAH";
+  }
+}

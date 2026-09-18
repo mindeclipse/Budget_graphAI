@@ -10,6 +10,7 @@ import {
   isWeekendOrLeisureDay,
   UpcomingObligation,
 } from "@/lib/weighted-pacing";
+import { SupabaseClient } from "@supabase/supabase-js";
 import { Transaction } from "@/types/finance";
 
 export interface DailyBudgetInfo {
@@ -77,7 +78,7 @@ export function formatQuickSummary(
 }
 
 export async function computeSafeDailyBudget(
-  supabaseAdmin: any,
+  supabaseAdmin: SupabaseClient | any,
   now: Date = new Date(),
   customBudgetLimit?: number
 ): Promise<DailyBudgetInfo | null> {

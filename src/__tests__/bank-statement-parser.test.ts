@@ -354,4 +354,63 @@ describe("parsePrivatStatementRows", () => {
     expect(transactions[1].amount).toBe(1234.56);
     expect(transactions[1].type).toBe("expense");
   });
+
+  describe("Збагачення імпортованих транзакцій правилами merchant_rules", () => {
+    it("перезаписує назву мерчанта та категорію згідно зіставлених правил", () => {
+      const parsedTransactions = [
+        {
+          merchant_raw: "WOG AZS #123 Kyiv",
+          category_name: "Інше",
+          amount: 1500,
+          currency: "UAH",
+          type: "expense" as const,
+        },
+        {
+          merchant_raw: "Novus Supermarket",
+          category_name: "Покупки",
+          amount: 450,
+          currency: "UAH",
+          type: "expense" as const,
+        },
+      ];
+
+      const rules = [
+        {
+          pattern: "wog",
+          clean_merchant: "АЗС WOG",
+          category_name: "Авто",
+        },
+        {
+          pattern: "novus",
+          clean_merchant: "Новус",
+          category_name: "Продукти",
+        },
+      ];
+
+      const sortedRules = [...rules].sort(
+        (a, b) => (b.pattern?.length || 0) - (a.pattern?.length || 0)
+      );
+
+      for (const tx of parsedTransactions) {
+        const lowerRaw = (tx.merchant_raw || "").toLowerCase();
+        const matched = sortedRules.find((r) => {
+          const p = (r.pattern || "").trim().toLowerCase();
+          return p && lowerRaw.includes(p);
+        });
+        if (matched) {
+          if (matched.category_name) {
+            tx.category_name = matched.category_name;
+          }
+          if (matched.clean_merchant) {
+            tx.merchant_raw = matched.clean_merchant;
+          }
+        }
+      }
+
+      expect(parsedTransactions[0].merchant_raw).toBe("АЗС WOG");
+      expect(parsedTransactions[0].category_name).toBe("Авто");
+      expect(parsedTransactions[1].merchant_raw).toBe("Новус");
+      expect(parsedTransactions[1].category_name).toBe("Продукти");
+    });
+  });
 });

@@ -193,6 +193,37 @@ export async function POST(req: Request) {
       });
     }
 
+    // ── Застосування користувацьких правил з merchant_rules ────
+    try {
+      const { data: rulesData } = await supabase
+        .from("merchant_rules")
+        .select("pattern, clean_merchant, category_name");
+
+      if (rulesData && rulesData.length > 0) {
+        const sortedRules = [...rulesData].sort(
+          (a, b) => (b.pattern?.length || 0) - (a.pattern?.length || 0)
+        );
+
+        for (const tx of newTransactions) {
+          const lowerRaw = (tx.merchant_raw || "").toLowerCase();
+          const matched = sortedRules.find((r) => {
+            const p = (r.pattern || "").trim().toLowerCase();
+            return p && lowerRaw.includes(p);
+          });
+          if (matched) {
+            if (matched.category_name) {
+              tx.category_name = matched.category_name;
+            }
+            if (matched.clean_merchant) {
+              tx.merchant_raw = matched.clean_merchant;
+            }
+          }
+        }
+      }
+    } catch (ruleErr) {
+      console.warn("[ImportCSV] Merchant rules matching error:", ruleErr);
+    }
+
     // ── Batch INSERT (НЕ upsert — щоб уникнути race condition) ──
     let totalInserted = 0;
 

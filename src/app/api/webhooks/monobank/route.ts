@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getCategoryByMcc } from "@/lib/mcc-mapper";
 import { checkDailyBudgetThreshold } from "@/lib/budget-alerts";
-
+import { applyMerchantRules } from "@/lib/bot/parsers/merchant-rules";
+import { isoCodeToCurrency, getCurrencyRate } from "@/lib/currency";
 import { timingSafeEqual } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
@@ -58,14 +59,41 @@ export async function POST(req: NextRequest) {
     const isExpense = rawAmount < 0;
     const transactionType = isExpense ? "expense" : "income";
 
-    const merchantName = item.description?.trim() || "Monobank операція";
-    const categoryName = getCategoryByMcc(item.mcc);
+    const rawMerchantName = item.description?.trim() || "Monobank операція";
+    const mccCategory = getCategoryByMcc(item.mcc);
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // Застосовуємо правила користувача з таблиці merchant_rules
+    const ruleMatch = await applyMerchantRules(rawMerchantName, supabaseAdmin);
+    const categoryName = ruleMatch.category || mccCategory;
+    const merchantName = ruleMatch.merchant || rawMerchantName;
+
+    // Обробка валютних операцій та карток
+    const rawCurrencyCode = Number(item.currencyCode) || 980;
+    const currencyStr = isoCodeToCurrency(rawCurrencyCode);
+    let finalAmountUah = finalAmount;
+    let originalAmount: number | null = null;
+    let originalCurrency: string | null = null;
+
+    if (currencyStr !== "UAH") {
+      // Валютна картка Monobank (наприклад, USD або EUR)
+      originalAmount = finalAmount;
+      originalCurrency = currencyStr;
+      const rate = await getCurrencyRate(currencyStr);
+      finalAmountUah = Math.round(finalAmount * rate * 100) / 100;
+    } else if (
+      item.operationAmount != null &&
+      Math.abs(Number(item.operationAmount)) !== Math.abs(rawAmount)
+    ) {
+      // Крос-бордер операція з гривневої картки
+      originalAmount = Math.abs(Number(item.operationAmount)) / 100;
+    }
+
     const externalId = `mono_${item.id}`;
 
     // Час транзакції передається як Unix timestamp в секундах
     const transactionDate = new Date(item.time * 1000).toISOString();
-
-    const supabaseAdmin = getSupabaseAdmin();
 
     // Запис у базу із захистом від дублікатів (upsert по external_id)
     const { data: inserted, error } = await supabaseAdmin
@@ -73,8 +101,10 @@ export async function POST(req: NextRequest) {
       .upsert(
         {
           external_id: externalId,
-          amount: finalAmount,
+          amount: finalAmountUah,
           currency: "UAH",
+          original_amount: originalAmount,
+          original_currency: originalCurrency,
           merchant_raw: merchantName,
           category_name: categoryName,
           source: "monobank",
@@ -92,9 +122,11 @@ export async function POST(req: NextRequest) {
 
     // Якщо це нова витрата — запускаємо перевірку ліміту та Telegram-алерт
     if (isExpense && inserted) {
-      await checkDailyBudgetThreshold().catch((err) => {
+      try {
+        await checkDailyBudgetThreshold();
+      } catch (err) {
         console.error("[Monobank Webhook] Budget alert error:", err);
-      });
+      }
     }
 
     return NextResponse.json({ success: true });

@@ -17,16 +17,15 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Публічні винятки: автентифікація, вебхуки, крон
+  // 2. Публічні винятки: автентифікація, вебхуки
   if (
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/webhooks") ||
-    pathname.startsWith("/api/cron")
+    pathname.startsWith("/api/webhooks")
   ) {
     return NextResponse.next();
   }
 
-  // 3. Авторизація зовнішніх викликів через Bearer-токен (Apple Shortcuts, Cron)
+  // 3. Авторизація зовнішніх викликів через Bearer-токен (Apple Shortcuts, Cron, Віджет)
   const authHeader = req.headers.get("authorization");
   const appSecretKey = process.env.APP_API_SECRET;
   const cronSecretKey = process.env.CRON_SECRET;
@@ -81,6 +80,33 @@ export async function proxy(req: NextRequest) {
       return NextResponse.next();
     }
     // Якщо Bearer відсутній, продовжуємо перевірку сесії користувача нижче
+  }
+
+  // Д. Фоновий планувальник (/api/cron)
+  if (pathname.startsWith("/api/cron")) {
+    if (
+      cronSecretKey &&
+      authHeader &&
+      timingSafeEqual(authHeader, `Bearer ${cronSecretKey}`)
+    ) {
+      return NextResponse.next();
+    }
+
+    // Для ручного запуску з інтерфейсу або локальної розробки
+    const session = req.cookies.get("finance_session")?.value;
+    const { valid } = await verifySessionToken(session);
+    if (valid) {
+      return NextResponse.next();
+    }
+
+    if (process.env.NODE_ENV !== "production" && !cronSecretKey) {
+      return NextResponse.next();
+    }
+
+    return NextResponse.json(
+      { error: "Unauthorized: Invalid or missing Cron token" },
+      { status: 401 }
+    );
   }
 
   // 4. Захист від CSRF для всіх сесійних змінюючих запитів браузера (POST, PATCH, DELETE, PUT)

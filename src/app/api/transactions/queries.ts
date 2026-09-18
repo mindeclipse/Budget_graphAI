@@ -1,4 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import { Transaction } from "@/types/finance";
 
 export const ALLOWED_TRANSACTION_TYPES = [
   "investment",
@@ -19,7 +20,7 @@ export interface FetchTransactionsParams {
 }
 
 export interface FetchTransactionsResult {
-  transactions: any[];
+  transactions: Transaction[];
   count: number;
   hasMore: boolean;
 }
