@@ -57,6 +57,20 @@ export async function POST(req: NextRequest) {
       throw error;
     }
 
+    // Каскадне відновлення: якщо відновлюється батьківська транзакція, відновлюємо всі її дочірні частки
+    await supabase
+      .from("transactions")
+      .update({ deleted_at: null })
+      .eq("parent_transaction_id", numId);
+
+    // Якщо відновлюється дочірня транзакція, відновлюємо і батьківську транзакцію, щоб уникнути осиротіння
+    if (data?.parent_transaction_id) {
+      await supabase
+        .from("transactions")
+        .update({ deleted_at: null })
+        .eq("id", data.parent_transaction_id);
+    }
+
     return NextResponse.json({
       success: true,
       restored: data,

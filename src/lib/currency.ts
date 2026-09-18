@@ -1,4 +1,6 @@
-// Сервіс комерційних курсів валют (Monobank API з fallback на ПриватБанк)
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+
+// Сервіс комерційних курсів валют (Monobank API з fallback на ПриватБанк та Supabase кеш)
 
 export interface CommercialRates {
   USD: number;
@@ -42,7 +44,81 @@ const DEFAULT_FALLBACK_RATES: CommercialRates = {
 };
 
 let cachedRates: CommercialRates | null = null;
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 хвилин
+const IN_MEMORY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 хвилин для поточного лямбда-інстансу
+const DB_CACHE_TTL_MS = 30 * 60 * 1000; // 30 хвилин для збереження між викликами Serverless
+
+/**
+ * Отримує збережені курси з таблиці exchange_rates_cache в Supabase
+ */
+async function getRatesFromDb(): Promise<CommercialRates | null> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("exchange_rates_cache")
+      .select("currency, rate, source, updated_at");
+
+    if (error || !data || data.length === 0) return null;
+
+    const usd = data.find((r) => r.currency === "USD");
+    const eur = data.find((r) => r.currency === "EUR");
+    const pln = data.find((r) => r.currency === "PLN");
+
+    if (!usd?.rate || !eur?.rate) return null;
+
+    const timestamps = data
+      .map((r) => new Date(r.updated_at).getTime())
+      .filter((t) => !isNaN(t));
+
+    const updatedAt = timestamps.length > 0 ? Math.min(...timestamps) : 0;
+
+    return {
+      USD: Number(usd.rate),
+      EUR: Number(eur.rate),
+      PLN: pln?.rate ? Number(pln.rate) : 10.6,
+      updatedAt,
+      source: (usd.source as any) || "monobank",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Зберігає свіжі курси валют у Supabase exchange_rates_cache
+ */
+async function saveRatesToDb(rates: CommercialRates): Promise<void> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const nowIso = new Date(rates.updatedAt || Date.now()).toISOString();
+    const rows = [
+      {
+        currency: "USD",
+        rate: rates.USD,
+        source: rates.source,
+        updated_at: nowIso,
+      },
+      {
+        currency: "EUR",
+        rate: rates.EUR,
+        source: rates.source,
+        updated_at: nowIso,
+      },
+      {
+        currency: "PLN",
+        rate: rates.PLN,
+        source: rates.source,
+        updated_at: nowIso,
+      },
+    ];
+    await supabase
+      .from("exchange_rates_cache")
+      .upsert(rows, { onConflict: "currency" });
+  } catch (err: any) {
+    if (process.env.NODE_ENV !== "test") {
+      console.warn("[Currency] Failed to save rates to DB cache:", err);
+    }
+  }
+}
 
 /**
  * Отримує комерційні курси Monobank
@@ -128,37 +204,64 @@ async function fetchPrivatBankRates(): Promise<CommercialRates | null> {
 }
 
 /**
- * Головний метод отримання комерційних курсів валют (Monobank -> PrivatBank -> Fallback)
+ * Головний метод отримання комерційних курсів валют:
+ * In-Memory (5m) -> Supabase Cache (30m) -> Monobank -> PrivatBank -> DB Historical Fallback -> Default Fallback
  */
 export async function getCommercialRates(): Promise<CommercialRates> {
   const now = Date.now();
 
-  // Повертаємо свіжий кеш
-  if (cachedRates && now - cachedRates.updatedAt < CACHE_TTL_MS) {
+  // 1. Повертаємо свіжий in-memory кеш поточної лямбди
+  if (cachedRates && now - cachedRates.updatedAt < IN_MEMORY_CACHE_TTL_MS) {
     return cachedRates;
   }
 
-  // 1. Спроба Monobank
+  // 2. Перевіряємо персистентний кеш у Supabase (захист від 429 при нових інстансах)
+  const dbRates = await getRatesFromDb();
+  if (dbRates && now - dbRates.updatedAt < DB_CACHE_TTL_MS) {
+    cachedRates = dbRates;
+    return dbRates;
+  }
+
+  // 3. Якщо кеш протермінований або відсутній — запитуємо Monobank
   const monoRates = await fetchMonobankRates();
   if (monoRates) {
     cachedRates = monoRates;
+    await saveRatesToDb(monoRates);
     return monoRates;
   }
 
-  // 2. Спроба PrivatBank
+  // 4. Спроба PrivatBank при недоступності Monobank
   const privatRates = await fetchPrivatBankRates();
   if (privatRates) {
     cachedRates = privatRates;
+    await saveRatesToDb(privatRates);
     return privatRates;
   }
 
-  // 3. Якщо був старий кеш — повертаємо його
+  // 5. Якщо обидва банки недоступні або повернули 429 — використовуємо історичний курс із БД (навіть старший за 30 хв)
+  if (dbRates) {
+    console.warn(
+      "[Currency] Bank APIs failed/rate-limited, using stale DB cache from:",
+      new Date(dbRates.updatedAt).toISOString()
+    );
+    cachedRates = dbRates;
+    return dbRates;
+  }
+
+  // 6. Якщо був старий in-memory кеш
   if (cachedRates) {
     return cachedRates;
   }
 
-  // 4. Безпечний fallback
+  // 7. Безпечний fallback константами
   return DEFAULT_FALLBACK_RATES;
+}
+
+/**
+ * Скидає in-memory кеш для ізольованого модульного тестування
+ */
+export function _resetCurrencyCacheForTesting() {
+  cachedRates = null;
 }
 
 /**

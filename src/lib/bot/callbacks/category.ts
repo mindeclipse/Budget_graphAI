@@ -175,10 +175,17 @@ export async function handleCancelTransactionCallback(
   }
 
   // М'яке видалення з фіксацією дати
+  const nowIso = new Date().toISOString();
   await supabaseAdmin
     .from("transactions")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: nowIso })
     .eq("id", txId);
+
+  // Каскадне переміщення дочірніх сплітів у кошик
+  await supabaseAdmin
+    .from("transactions")
+    .update({ deleted_at: nowIso })
+    .eq("parent_transaction_id", txId);
 
   const cancelledText = `❌ <b>Транзакцію скасовано!</b>\n💳 <b>${escapeHtml(tx.merchant_raw)}</b> на <b>${Number(tx.amount).toFixed(2)} ₴</b> переміщено в кошик.`;
 
@@ -249,7 +256,26 @@ export async function handleSplitTransactionCallback(
     tags: ["спліт"],
   }));
 
-  await supabaseAdmin.from("transactions").insert(childRecords);
+  const { error: insertErr } = await supabaseAdmin
+    .from("transactions")
+    .insert(childRecords);
+
+  if (insertErr) {
+    console.error("[Telegram Bot split error] Rollback parent:", insertErr);
+    await supabaseAdmin
+      .from("transactions")
+      .update({
+        exclude_from_budget: parentTx.exclude_from_budget ?? false,
+        tags: parentTx.tags || [],
+      })
+      .eq("id", txId);
+    await supabaseAdmin
+      .from("transactions")
+      .delete()
+      .eq("parent_transaction_id", txId);
+    await answerTelegramCallbackQuery(queryId, "Помилка розбиття чеку", true);
+    return false;
+  }
 
   const splitLines = [
     `✂️ <b>Чек успішно розбито на ${items.length} позицій:</b>`,

@@ -186,9 +186,10 @@ export async function deleteTransactionRecord(
     return { success: true, permanent: true };
   } else {
     // Soft Delete: переміщення в кошик на 10 днів
+    const nowIso = new Date().toISOString();
     const { error: softErr } = await supabase
       .from("transactions")
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: nowIso })
       .eq("id", numId);
 
     // Захисний fallback: якщо колонка deleted_at ще не додана в БД
@@ -208,6 +209,13 @@ export async function deleteTransactionRecord(
     }
 
     if (softErr) throw softErr;
+
+    // Каскадне м'яке видалення для дочірніх сплітів (якщо видалено батьківську транзакцію)
+    await supabase
+      .from("transactions")
+      .update({ deleted_at: nowIso })
+      .eq("parent_transaction_id", numId);
+
     return { success: true, softDeleted: true };
   }
 }

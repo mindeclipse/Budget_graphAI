@@ -98,7 +98,28 @@ export async function POST(req: Request) {
       .insert(childRecords)
       .select();
 
-    if (insertErr) throw insertErr;
+    if (insertErr) {
+      console.error(
+        "[API transactions/split error] Insert children failed, rolling back parent:",
+        insertErr
+      );
+      // Відкочуємо стан батьківської транзакції до початкового
+      await supabase
+        .from("transactions")
+        .update({
+          exclude_from_budget: parentTx.exclude_from_budget ?? false,
+          tags: parentTx.tags || [],
+        })
+        .eq("id", parent_transaction_id);
+
+      // Видаляємо будь-які частково вставлені частки
+      await supabase
+        .from("transactions")
+        .delete()
+        .eq("parent_transaction_id", parent_transaction_id);
+
+      throw insertErr;
+    }
 
     return NextResponse.json({
       success: true,
