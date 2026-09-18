@@ -101,6 +101,7 @@ export function buildUpcomingSchedule(
       days_remaining: daysRemaining,
       paid_at: matchedTx?.created_at,
       paid_amount: matchedTx ? Number(matchedTx.amount) : undefined,
+      matched_transaction_id: matchedTx ? matchedTx.id : undefined,
     });
   }
 

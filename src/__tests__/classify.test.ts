@@ -203,5 +203,101 @@ describe("Classify API & QuickSummary Formatting", () => {
       expect(result?.todayTarget).toBeGreaterThan(0);
       expect(result?.todayRemaining).toBe(result?.todayTarget);
     });
+
+    it("не включає списання регулярної підписки, що відбулося сьогодні, у todaySpent", async () => {
+      const { computeSafeDailyBudget } =
+        await import("@/lib/classify-formatter");
+
+      const fakeSupabase = {
+        from: (table: string) => {
+          if (table === "budget_cycles") {
+            return {
+              select: () => ({
+                eq: () => ({
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => ({
+                        data: {
+                          budget_limit: 30000,
+                          is_active: true,
+                          start_date: "2026-09-01T00:00:00.000Z",
+                          end_date: "2026-09-30T23:59:59.999Z",
+                        },
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "recurring_templates") {
+            return {
+              select: () => ({
+                eq: async () => ({
+                  data: [
+                    {
+                      id: 42,
+                      title: "Spotify",
+                      amount: 199,
+                      currency: "UAH",
+                      day_of_month: 18,
+                      is_active: true,
+                      category_name: "Підписки та сервіси",
+                    },
+                  ],
+                }),
+              }),
+            };
+          }
+          if (table === "transactions") {
+            return {
+              select: () => ({
+                gte: () => ({
+                  is: () => ({
+                    order: async () => ({
+                      data: [
+                        // Списання за Spotify сьогодні вранці
+                        {
+                          id: 201,
+                          amount: 199,
+                          currency: "UAH",
+                          type: "expense",
+                          source: "recurring",
+                          merchant_raw: "Spotify",
+                          category_name: "Підписки та сервіси",
+                          exclude_from_budget: false,
+                          created_at: "2026-09-18T08:00:00.000Z",
+                        },
+                        // Звичайна покупка сьогодні (дискреційна)
+                        {
+                          id: 202,
+                          amount: 85,
+                          currency: "UAH",
+                          type: "expense",
+                          source: "monobank",
+                          merchant_raw: "Coffee Spot",
+                          category_name: "Кафе",
+                          exclude_from_budget: false,
+                          created_at: "2026-09-18T09:30:00.000Z",
+                        },
+                      ],
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return { select: () => ({ eq: async () => ({ data: [] }) }) };
+        },
+      };
+
+      const testNow = new Date("2026-09-18T12:00:00.000Z");
+      const result = await computeSafeDailyBudget(fakeSupabase, testNow);
+
+      expect(result).not.toBeNull();
+      // todaySpent має містити виключно дискреційну витрату 85 грн, БЕЗ підписки 199 грн!
+      expect(result?.todaySpent).toBe(85);
+      expect(result?.todayRemaining).toBe(result!.todayTarget - 85);
+    });
   });
 });

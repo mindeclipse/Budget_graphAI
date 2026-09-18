@@ -335,6 +335,7 @@ describe("Subscription Radar Engine", () => {
       // Перевіряємо, що Київстар визнано сплаченим
       expect(kyivstar.status).toBe("paid");
       expect(kyivstar.days_remaining).toBe(0); // НЕ "Через 1 дн."!
+      expect(kyivstar.matched_transaction_id).toBe(501);
 
       // Spotify залишається майбутнім
       expect(spotify.status).toBe("upcoming");

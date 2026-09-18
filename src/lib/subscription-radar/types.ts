@@ -24,6 +24,7 @@ export interface UpcomingScheduleItem {
   days_remaining: number;
   paid_at?: string;
   paid_amount?: number;
+  matched_transaction_id?: number;
 }
 
 export interface SubscriptionRadarMetrics {

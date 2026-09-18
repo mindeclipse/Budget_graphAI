@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { timingSafeEqual } from "@/lib/security";
+import { buildUpcomingSchedule } from "@/lib/subscription-radar";
+import { Transaction, RecurringItem } from "@/types/finance";
 
 describe("iOS Scriptable Widget Summary Logic", () => {
   describe("Розрахунок статусу денного темпу (Pace Status)", () => {
@@ -78,6 +80,147 @@ describe("iOS Scriptable Widget Summary Logic", () => {
       const fakeHeader = "Bearer wrong_secret_key";
 
       expect(timingSafeEqual(fakeHeader, `Bearer ${secret}`)).toBe(false);
+    });
+  });
+
+  describe("Виключення регулярних підписок з щоденних витрат (todaySpent)", () => {
+    it("виключає транзакції з source='recurring' та зіставлені підписки з todaySpent", () => {
+      const recurringItems: RecurringItem[] = [
+        {
+          id: 42,
+          title: "Spotify",
+          amount: 199,
+          currency: "UAH",
+          day_of_month: 18,
+          is_active: true,
+          category_name: "Підписки та сервіси",
+        },
+      ];
+
+      const now = new Date("2026-09-18T10:00:00Z");
+
+      const cycleTransactions: Transaction[] = [
+        // Регулярне списання за підписку Spotify сьогодні
+        {
+          id: 1001,
+          amount: 199,
+          currency: "UAH",
+          type: "expense",
+          source: "recurring",
+          merchant_raw: "Spotify AB",
+          category_name: "Підписки та сервіси",
+          exclude_from_budget: false,
+          created_at: "2026-09-18T08:00:00Z",
+        },
+        // Звичайна покупка сьогодні (кава)
+        {
+          id: 1002,
+          amount: 85,
+          currency: "UAH",
+          type: "expense",
+          source: "monobank",
+          merchant_raw: "Coffee Spot",
+          category_name: "Кафе",
+          exclude_from_budget: false,
+          created_at: "2026-09-18T09:30:00Z",
+        },
+      ];
+
+      const upcomingSchedule = buildUpcomingSchedule(
+        recurringItems,
+        cycleTransactions,
+        41.5,
+        now
+      );
+
+      const paidRecurringTxIds = new Set(
+        upcomingSchedule.upcoming
+          .filter(
+            (u) => u.status === "paid" && u.matched_transaction_id != null
+          )
+          .map((u) => u.matched_transaction_id!)
+      );
+
+      const isRecurringTx = (t: Transaction) =>
+        t.source === "recurring" ||
+        (t.id != null && paidRecurringTxIds.has(t.id)) ||
+        Boolean((t.metadata as any)?.recurring_id);
+
+      const todayAllTx = cycleTransactions;
+      const todayDiscretionaryTx = todayAllTx.filter((t) => !isRecurringTx(t));
+      const todayRecurringTx = todayAllTx.filter((t) => isRecurringTx(t));
+
+      const todaySpent = Math.round(
+        todayDiscretionaryTx.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+      );
+      const todayRecurringSpent = Math.round(
+        todayRecurringTx.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+      );
+
+      expect(todaySpent).toBe(85); // Тільки кава, БЕЗ Spotify!
+      expect(todayRecurringSpent).toBe(199); // Spotify зафіксовано як підписка
+    });
+
+    it("також виключає звичайні транзакції за карткою, що збіглися з активною підпискою", () => {
+      const recurringItems: RecurringItem[] = [
+        {
+          id: 50,
+          title: "Netflix",
+          amount: 390,
+          currency: "UAH",
+          day_of_month: 18,
+          is_active: true,
+          category_name: "Підписки та сервіси",
+        },
+      ];
+
+      const now = new Date("2026-09-18T10:00:00Z");
+
+      // Транзакція прийшла з monobank (не cron, а карткове списання)
+      const cycleTransactions: Transaction[] = [
+        {
+          id: 2001,
+          amount: 390,
+          currency: "UAH",
+          type: "expense",
+          source: "monobank",
+          merchant_raw: "Netflix.com Amsterdam NL",
+          category_name: "Підписки та сервіси",
+          exclude_from_budget: false,
+          created_at: "2026-09-18T06:00:00Z",
+        },
+      ];
+
+      const upcomingSchedule = buildUpcomingSchedule(
+        recurringItems,
+        cycleTransactions,
+        41.5,
+        now
+      );
+
+      const paidRecurringTxIds = new Set(
+        upcomingSchedule.upcoming
+          .filter(
+            (u) => u.status === "paid" && u.matched_transaction_id != null
+          )
+          .map((u) => u.matched_transaction_id!)
+      );
+
+      expect(paidRecurringTxIds.has(2001)).toBe(true);
+
+      const isRecurringTx = (t: Transaction) =>
+        t.source === "recurring" ||
+        (t.id != null && paidRecurringTxIds.has(t.id)) ||
+        Boolean((t.metadata as any)?.recurring_id);
+
+      const todayDiscretionaryTx = cycleTransactions.filter(
+        (t) => !isRecurringTx(t)
+      );
+      const todaySpent = Math.round(
+        todayDiscretionaryTx.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+      );
+
+      expect(todaySpent).toBe(0); // Netflix не зменшує денний ліміт!
     });
   });
 });

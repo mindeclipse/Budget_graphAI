@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     const { data: transactions, error: txError } = await supabase
       .from("transactions")
       .select(
-        "id, amount, created_at, type, merchant_raw, category_name, exclude_from_budget, metadata"
+        "id, amount, created_at, type, source, merchant_raw, category_name, exclude_from_budget, metadata"
       )
       .is("deleted_at", null)
       .gte("created_at", fetchStart)
@@ -172,13 +172,32 @@ export async function GET(req: NextRequest) {
     );
 
     // 4. Розрахунок витрат за сьогодні (за київським часом Europe/Kyiv)
+    // Виключаємо регулярні підписки (source === 'recurring' або зіставлені за розкладом),
+    // оскільки вони вже зарезервовані в обов'язкових витратах циклу і не повинні зменшувати дискреційний денний ліміт.
+    const paidRecurringTxIds = new Set(
+      upcomingSchedule.upcoming
+        .filter((u) => u.status === "paid" && u.matched_transaction_id != null)
+        .map((u) => u.matched_transaction_id!)
+    );
+
+    const isRecurringTx = (t: Transaction) =>
+      t.source === "recurring" ||
+      (t.id != null && paidRecurringTxIds.has(t.id)) ||
+      Boolean((t.metadata as any)?.recurring_id);
+
     const kyivTodayStr = getKyivDateString(now);
-    const todayTx = cycleExpenseTx.filter(
+    const todayAllTx = cycleExpenseTx.filter(
       (t) => getKyivDateString(t.created_at) === kyivTodayStr
     );
 
+    const todayDiscretionaryTx = todayAllTx.filter((t) => !isRecurringTx(t));
+    const todayRecurringTx = todayAllTx.filter((t) => isRecurringTx(t));
+
     const todaySpent = Math.round(
-      todayTx.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+      todayDiscretionaryTx.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+    );
+    const todayRecurringSpent = Math.round(
+      todayRecurringTx.reduce((sum, t) => sum + Number(t.amount || 0), 0)
     );
     const todayRemaining = Math.max(0, safeDailySpend - todaySpent);
 
@@ -233,6 +252,7 @@ export async function GET(req: NextRequest) {
       safeDailySpend,
       todaySpent,
       todayRemaining,
+      todayRecurringSpent,
       remainingBudget,
       daysRemaining,
       cycleProgressPercent,

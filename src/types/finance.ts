@@ -122,6 +122,7 @@ export interface WidgetSummaryResponse {
   safeDailySpend: number;
   todaySpent: number;
   todayRemaining: number;
+  todayRecurringSpent?: number;
   remainingBudget: number;
   daysRemaining: number;
   cycleProgressPercent: number;

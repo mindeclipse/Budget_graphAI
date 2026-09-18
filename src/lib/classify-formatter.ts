@@ -159,6 +159,19 @@ export async function computeSafeDailyBudget(
       }));
 
     // 5. Розділяємо витрати: зроблені до початку сьогоднішнього дня vs витрачені сьогодні
+    // Виключаємо регулярні підписки з `spentToday` (дискреційного темпу сьогодні),
+    // оскільки вони вже зарезервовані в обов'язкових зобов'язаннях циклу.
+    const paidRecurringTxIds = new Set(
+      upcomingSchedule.upcoming
+        .filter((u) => u.status === "paid" && u.matched_transaction_id != null)
+        .map((u) => u.matched_transaction_id!)
+    );
+
+    const isRecurringTx = (t: Transaction) =>
+      t.source === "recurring" ||
+      (t.id != null && paidRecurringTxIds.has(t.id)) ||
+      Boolean((t.metadata as any)?.recurring_id);
+
     const todayStr = getKyivDateString(now);
     let spentBeforeToday = 0;
     let spentToday = 0;
@@ -166,7 +179,9 @@ export async function computeSafeDailyBudget(
     for (const t of cycleExpenseTx) {
       const amt = Number(t.amount || 0);
       const txDayStr = getKyivDateString(t.created_at);
-      if (txDayStr < todayStr) {
+      if (isRecurringTx(t)) {
+        spentBeforeToday += amt;
+      } else if (txDayStr < todayStr) {
         spentBeforeToday += amt;
       } else if (txDayStr === todayStr) {
         spentToday += amt;
