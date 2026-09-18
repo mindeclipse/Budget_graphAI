@@ -1,19 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import {
-  Trash2,
-  SlidersHorizontal,
-  Split,
-  HelpCircle,
-  Paperclip,
-} from "lucide-react";
+import { HelpCircle } from "lucide-react";
 import { Transaction } from "@/types/finance";
 import { CATEGORY_ICONS, CATEGORY_COLORS } from "@/constants/categories";
-import { triggerHaptic } from "@/lib/haptics";
-
-const SWIPE_THRESHOLD = 75;
-const MAX_RUBBER_BAND = 130;
+import {
+  useSwipeGesture,
+  TransactionBadges,
+  SwipeActionsBackground,
+} from "./transaction-card";
 
 export interface SwipeableTransactionCardProps {
   transaction: Transaction;
@@ -30,21 +24,24 @@ export function SwipeableTransactionCard({
   isSyncing = false,
   onSelect,
   onDelete,
-  onSplit,
   onOpenTagProject,
   className,
 }: SwipeableTransactionCardProps) {
-  const [offsetX, setOffsetX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
-  const [hasCrossedThreshold, setHasCrossedThreshold] = useState(false);
-
-  // Відстеження жестів touch
-  const touchStartXRef = useRef(0);
-  const touchStartYRef = useRef(0);
-  const isHorizontalSwipeRef = useRef<boolean | null>(null);
-  const currentOffsetRef = useRef(0);
-  const hasTriggeredHapticRef = useRef(false);
+  const {
+    offsetX,
+    isDragging,
+    isExiting,
+    hasCrossedThreshold,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    handleClick,
+  } = useSwipeGesture({
+    transactionId: transaction.id,
+    isSyncing,
+    onDelete,
+    onSelect: () => onSelect(transaction),
+  });
 
   const IconComponent = CATEGORY_ICONS[transaction.category_name] || HelpCircle;
   const iconColor = CATEGORY_COLORS[transaction.category_name] || "#71717A";
@@ -74,283 +71,91 @@ export function SwipeableTransactionCard({
     (transaction.metadata?.note as string | undefined)?.trim() ||
     null;
 
-  // Очищення стану виходу при зміні транзакції
-  useEffect(() => {
-    setIsExiting(false);
-    setOffsetX(0);
-    currentOffsetRef.current = 0;
-  }, [transaction.id]);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (isSyncing || isExiting) return;
-    const touch = e.touches[0];
-    touchStartXRef.current = touch.clientX;
-    touchStartYRef.current = touch.clientY;
-    isHorizontalSwipeRef.current = null;
-    hasTriggeredHapticRef.current = false;
-    setIsDragging(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (isSyncing || isExiting || !isDragging) return;
-    const touch = e.touches[0];
-    const diffX = touch.clientX - touchStartXRef.current;
-    const diffY = touch.clientY - touchStartYRef.current;
-
-    // Визначаємо намір користувача: вертикальний скрол чи горизонтальний свайп
-    if (isHorizontalSwipeRef.current === null) {
-      if (Math.abs(diffX) > 8 || Math.abs(diffY) > 8) {
-        if (Math.abs(diffX) > Math.abs(diffY)) {
-          isHorizontalSwipeRef.current = true;
-        } else {
-          // Користувач скролить вертикально — не блокуємо нативний скрол
-          isHorizontalSwipeRef.current = false;
-          setIsDragging(false);
-          setOffsetX(0);
-          return;
-        }
-      } else {
-        return;
-      }
-    }
-
-    if (!isHorizontalSwipeRef.current) return;
-
-    // Розрахунок зміщення з еластичним супротивом (Rubber-banding)
-    const sign = Math.sign(diffX);
-    const absDiff = Math.abs(diffX);
-    let dampedX = diffX;
-
-    if (absDiff > SWIPE_THRESHOLD) {
-      const excess = absDiff - SWIPE_THRESHOLD;
-      const damped = Math.pow(excess, 0.72) * 2;
-      dampedX = sign * Math.min(SWIPE_THRESHOLD + damped, MAX_RUBBER_BAND);
-    }
-
-    setOffsetX(dampedX);
-    currentOffsetRef.current = dampedX;
-
-    // Тактильний відгук Taptic Engine при перетині порогу дії
-    const isPast = absDiff >= SWIPE_THRESHOLD;
-    if (isPast && !hasTriggeredHapticRef.current) {
-      hasTriggeredHapticRef.current = true;
-      setHasCrossedThreshold(true);
-      triggerHaptic("selection");
-    } else if (!isPast && hasTriggeredHapticRef.current) {
-      hasTriggeredHapticRef.current = false;
-      setHasCrossedThreshold(false);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (isSyncing || isExiting || !isDragging) return;
-    setIsDragging(false);
-
-    const finalOffset = currentOffsetRef.current;
-    const isPast = Math.abs(finalOffset) >= SWIPE_THRESHOLD;
-
-    if (isPast) {
-      if (finalOffset < 0 && onDelete) {
-        // Свайп вліво: видалення в кошик
-        triggerHaptic("medium");
-        setIsExiting(true);
-        setOffsetX(-window.innerWidth);
-        setTimeout(() => {
-          onDelete(transaction.id);
-        }, 220);
-        return;
-      } else if (finalOffset > 0) {
-        // Свайп вправо: редагування або швидкий спліт
-        triggerHaptic("light");
-        setOffsetX(0);
-        currentOffsetRef.current = 0;
-        setHasCrossedThreshold(false);
-
-        if (hasSplitItems && onSplit) {
-          onSplit(transaction);
-        } else {
-          onSelect(transaction);
-        }
-        return;
-      }
-    }
-
-    // Повернення на місце (Snap back)
-    setOffsetX(0);
-    currentOffsetRef.current = 0;
-    setHasCrossedThreshold(false);
-  };
-
-  const handleClick = () => {
-    if (isSyncing || isExiting) return;
-    // Викликаємо перегляд тільки якщо це був клік, а не свайп
-    if (Math.abs(offsetX) < 6) {
-      onSelect(transaction);
-    }
-  };
-
   return (
     <div
-      className={`relative overflow-hidden rounded-xl transition-[max-height,opacity,margin,padding] duration-250 ease-out ${
-        isExiting
-          ? "pointer-events-none my-0 max-h-0 py-0 opacity-0"
-          : "my-1 max-h-32"
-      } ${className || ""}`}
+      className={`relative overflow-hidden rounded-2xl select-none ${className || ""}`}
     >
-      {/* Підкладка дій: Свайп вправо (Редагувати / Split) */}
-      <div
-        className={`absolute inset-y-0 left-0 flex items-center justify-start rounded-xl px-4 text-xs font-semibold transition-colors duration-150 ${
-          offsetX > 0
-            ? hasCrossedThreshold
-              ? "bg-sky-500 text-white"
-              : "bg-sky-600/60 text-sky-200"
-            : "pointer-events-none opacity-0"
-        }`}
-        style={{ width: "100%" }}
-      >
-        <div
-          className={`flex items-center gap-1.5 transition-transform duration-150 ${
-            hasCrossedThreshold ? "translate-x-1 scale-110" : "scale-100"
-          }`}
-        >
-          {hasSplitItems ? (
-            <Split size={18} />
-          ) : (
-            <SlidersHorizontal size={18} />
-          )}
-          <span>{hasSplitItems ? "Split" : "Дії"}</span>
-        </div>
-      </div>
+      {/* Фоновий шар дій при свайпі */}
+      {Boolean(onDelete) && (
+        <SwipeActionsBackground
+          offsetX={offsetX}
+          hasCrossedThreshold={hasCrossedThreshold}
+        />
+      )}
 
-      {/* Підкладка дій: Свайп вліво (Кошик / Видалити) */}
+      {/* Основна картка (зміщується за пальцем) */}
       <div
-        className={`absolute inset-y-0 right-0 flex items-center justify-end rounded-xl px-4 text-xs font-semibold transition-colors duration-150 ${
-          offsetX < 0
-            ? hasCrossedThreshold
-              ? "bg-rose-500 text-white"
-              : "bg-rose-600/60 text-rose-200"
-            : "pointer-events-none opacity-0"
-        }`}
-        style={{ width: "100%" }}
-      >
-        <div
-          className={`flex items-center gap-1.5 transition-transform duration-150 ${
-            hasCrossedThreshold ? "-translate-x-1 scale-110" : "scale-100"
-          }`}
-        >
-          <span>В кошик</span>
-          <Trash2 size={18} />
-        </div>
-      </div>
-
-      {/* Основна картка транзакції */}
-      <div
-        onClick={handleClick}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
+        onClick={handleClick}
         style={{
           transform: `translateX(${offsetX}px)`,
           transition: isDragging
             ? "none"
-            : "transform 260ms cubic-bezier(0.175, 0.885, 0.32, 1.15)",
+            : isExiting
+              ? "transform 0.2s cubic-bezier(0.4, 0, 1, 1), opacity 0.2s ease-out"
+              : "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+          opacity: isExiting ? 0 : 1,
         }}
-        className={`group relative flex touch-pan-y items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/90 p-3 backdrop-blur-sm transition-colors duration-150 select-none ${
-          isSyncing
-            ? "pointer-events-none opacity-50 select-none"
-            : "cursor-pointer hover:border-zinc-700/80 hover:bg-zinc-900 active:bg-zinc-800/80"
-        }`}
+        className="group relative flex cursor-pointer items-center justify-between border border-zinc-800/80 bg-zinc-900/60 p-3.5 backdrop-blur-md transition-colors hover:border-zinc-700/80 hover:bg-zinc-900/90 active:bg-zinc-800/80"
       >
-        <div className="flex min-w-0 items-center space-x-3 pr-2">
+        <div className="flex min-w-0 flex-1 items-center gap-3.5 pr-2">
+          {/* Категорійна іконка */}
           <div
-            className="shrink-0 rounded-lg p-2 transition-transform duration-150 group-hover:scale-110"
-            style={{
-              backgroundColor: `${iconColor}15`,
-              color: iconColor,
-            }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/5 shadow-inner"
+            style={{ backgroundColor: `${iconColor}18`, color: iconColor }}
           >
-            <IconComponent size={16} />
+            <IconComponent size={18} />
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-zinc-100 transition-colors group-hover:text-white">
-              {transaction.merchant_raw}
-            </p>
-            <div className="flex items-center gap-1.5 truncate text-xs text-zinc-500">
-              <span className="truncate">
-                {transaction.category_name} •{" "}
-                {new Date(transaction.created_at).toLocaleDateString([], {
-                  day: "numeric",
-                  month: "short",
-                })}{" "}
-                {new Date(transaction.created_at).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-              {Boolean(transaction.metadata?.receipt) && (
-                <span
-                  className="inline-flex shrink-0 items-center text-emerald-400"
-                  title="Долучено оригінал чека / квитанції"
-                >
-                  <Paperclip size={11} />
-                </span>
-              )}
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h4 className="truncate text-xs font-semibold text-zinc-100 group-hover:text-white sm:text-sm">
+                {transaction.merchant_raw}
+              </h4>
             </div>
+
+            {/* Коментар / замітка */}
             {transactionComment && (
-              <p className="mt-0.5 max-w-[260px] truncate text-[11px] text-zinc-400 italic sm:max-w-md">
-                “{transactionComment}”
+              <p className="mt-0.5 truncate text-[11px] text-zinc-400 italic">
+                «{transactionComment}»
               </p>
             )}
-            {/* Спеціальні бейджі: Покриття з подушки та Амортизація */}
-            <div className="mt-1 flex flex-wrap items-center gap-1">
-              {isEmergency && (
-                <span className="inline-flex items-center rounded-md border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-                  🛡️ Форс-мажор
-                </span>
-              )}
-              {isAmortized && (
-                <span className="inline-flex items-center rounded-md border border-indigo-500/30 bg-indigo-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-300">
-                  🗓️ {amortMonths} міс (по{" "}
-                  {amortMonthly.toLocaleString("uk-UA")} ₴)
-                </span>
-              )}
-              {transaction.tags &&
-                transaction.tags.length > 0 &&
-                transaction.tags
-                  .filter((t) => t !== "форсмажор")
-                  .map((tag: string) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenTagProject?.(tag);
-                      }}
-                      title={`Аналітика проєкту #${tag} за всі періоди`}
-                      className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 transition-colors hover:bg-sky-500/20 hover:text-sky-300"
-                    >
-                      #{tag}
-                    </button>
-                  ))}
-            </div>
+
+            {/* Бейджі метаданих */}
+            <TransactionBadges
+              transaction={transaction}
+              isEmergency={isEmergency}
+              isAmortized={isAmortized}
+              amortMonths={amortMonths}
+              amortMonthly={amortMonthly}
+              hasSplitItems={hasSplitItems}
+              onOpenTagProject={onOpenTagProject}
+            />
           </div>
         </div>
 
-        <div className="ml-2 flex flex-col items-end">
-          <span
-            className={`font-mono text-sm font-bold tracking-tight whitespace-nowrap tabular-nums ${
+        {/* Сума та час */}
+        <div className="shrink-0 text-right">
+          <div
+            className={`text-sm font-bold tabular-nums sm:text-base ${
               isIncome ? "text-emerald-400" : "text-white"
             }`}
           >
-            {isIncome ? "+" : "-"}
-            {Number(transaction.amount).toFixed(2)} ₴
-          </span>
-          {isAmortized && (
-            <span className="font-mono text-[10px] text-indigo-400 tabular-nums">
-              {amortMonthly.toFixed(2)} ₴/міс
+            {isIncome ? "+" : ""}
+            {Number(transaction.amount).toLocaleString("uk-UA")}{" "}
+            <span className="text-xs font-medium text-zinc-400">
+              {transaction.currency === "USD" ? "$" : "₴"}
             </span>
-          )}
+          </div>
+
+          <div className="text-[10px] text-zinc-500 tabular-nums">
+            {new Date(transaction.created_at).toLocaleTimeString("uk-UA", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
         </div>
       </div>
     </div>
