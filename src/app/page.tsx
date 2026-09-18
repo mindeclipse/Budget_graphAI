@@ -10,6 +10,8 @@ import { useAiAdvisor } from "@/hooks/useAiAdvisor";
 import { useHistoryFilters } from "@/hooks/useHistoryFilters";
 import { useCapitalTransactions } from "@/hooks/useCapitalTransactions";
 import { useRecurringActions } from "@/hooks/useRecurringActions";
+import { useCycleComparison } from "@/hooks/useCycleComparison";
+import { useDashboardOperations } from "@/hooks/useDashboardOperations";
 
 import { PinAuthScreen } from "@/components/auth/PinAuthScreen";
 import { OfflineBanner } from "@/components/dashboard/OfflineBanner";
@@ -19,6 +21,7 @@ import { BudgetLimitCard } from "@/components/dashboard/BudgetLimitCard";
 import { DashboardModals } from "@/components/dashboard/DashboardModals";
 import { MobileBottomBar } from "@/components/dashboard/MobileBottomBar";
 import { QuickActionsListener } from "@/components/QuickActionsListener";
+import { TabNavigationHeader } from "@/components/dashboard/tabs/TabNavigationHeader";
 
 import { DashboardOverviewTab } from "@/components/dashboard/tabs/DashboardOverviewTab";
 import { DashboardHistoryTab } from "@/components/dashboard/tabs/DashboardHistoryTab";
@@ -26,16 +29,11 @@ import { DashboardWealthTab } from "@/components/dashboard/tabs/DashboardWealthT
 
 import {
   Transaction,
-  BudgetCycle,
   SavingsGoal,
   InvestmentAsset,
   WishlistItem,
   CostPerUseItem,
 } from "@/types/finance";
-import {
-  getCycleDateRange,
-  filterTransactionsByDateRange,
-} from "@/lib/cycle-utils";
 
 export default function Dashboard() {
   // 1. Автентифікація та сесія
@@ -66,7 +64,7 @@ export default function Dashboard() {
     invalidateRadar,
     markRecurringPaidOptimistic,
     cycles,
-    activeCycle: queryActiveCycle,
+    activeCycle,
     wealthData,
     invalidateCycles,
     invalidateWealth,
@@ -85,15 +83,6 @@ export default function Dashboard() {
     "overview"
   );
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-
-  const activeCycle = queryActiveCycle;
-  const previousCycle = useMemo(() => {
-    if (!cycles || cycles.length === 0) return null;
-    const activeIdx = cycles.findIndex(
-      (c: BudgetCycle) => c.id === activeCycle?.id || c.is_active
-    );
-    return activeIdx !== -1 ? cycles[activeIdx + 1] || null : cycles[1] || null;
-  }, [cycles, activeCycle]);
 
   // 4. Стан капіталу з TanStack Query
   const savingsGoals = useMemo<SavingsGoal[]>(() => {
@@ -220,49 +209,44 @@ export default function Dashboard() {
     cyclePreviousTransactions,
     cycleCurrentLabel,
     cyclePreviousLabel,
-  } = useMemo(() => {
-    if (!activeCycle) {
-      return {
-        cycleCurrentTransactions: monthTransactions,
-        cyclePreviousTransactions: previousMonthTransactions,
-        cycleCurrentLabel: monthLabel,
-        cyclePreviousLabel: "Мин. місяць",
-      };
-    }
-
-    const currentRange = getCycleDateRange(activeCycle);
-    const curr = filterTransactionsByDateRange(
-      transactions,
-      currentRange.startMs,
-      currentRange.endMs
-    );
-
-    let prev: Transaction[] = [];
-    if (previousCycle) {
-      const prevRange = getCycleDateRange(previousCycle);
-      prev = filterTransactionsByDateRange(
-        transactions,
-        prevRange.startMs,
-        currentRange.startMs
-      );
-    }
-
-    return {
-      cycleCurrentTransactions: curr,
-      cyclePreviousTransactions: prev,
-      cycleCurrentLabel: activeCycle.name || "Поточний цикл",
-      cyclePreviousLabel: previousCycle?.name || "Мин. цикл",
-    };
-  }, [
+  } = useCycleComparison({
+    cycles,
     activeCycle,
-    previousCycle,
     transactions,
     monthTransactions,
     previousMonthTransactions,
     monthLabel,
-  ]);
+  });
 
-  // 8. Виділені хуки бізнес-логіки
+  // 8. Бізнес-логіка операцій дашборду
+  const {
+    handleSaveBudgetLimit,
+    handleUpdateCategory,
+    handleUpdateTags,
+    handleDeleteTransaction,
+    handleSaveCategoryBudget,
+    handleDeleteCategoryBudget,
+    handleExportExcel,
+    handleRestoreSuccess,
+    handleSplitSuccess,
+  } = useDashboardOperations({
+    activeCycle,
+    updateActiveCycleLimitOptimistic,
+    invalidateCycles,
+    updateCategoryBudgetOptimistic,
+    deleteCategoryBudgetOptimistic,
+    invalidateWealth,
+    invalidateTransactions,
+    selectedTx,
+    setSelectedTx,
+    updateTransaction,
+    deleteTransaction,
+    transactions,
+    investments,
+    savingsGoals,
+  });
+
+  // 9. Виділені хуки бізнес-логіки
   const {
     aiAnalysis,
     isAiLoading,
@@ -318,7 +302,7 @@ export default function Dashboard() {
     closeRecurringModal,
   });
 
-  // 9. Хендлери операцій
+  // Форматування відображення витрат
   const [spentWhole, spentCents] = totalSpent
     .toLocaleString("uk-UA", {
       minimumFractionDigits: 2,
@@ -336,112 +320,6 @@ export default function Dashboard() {
     setSelectedDate(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
     );
-  };
-
-  const handleSaveBudgetLimit = async (newLimit: number) => {
-    if (!activeCycle?.id) return;
-    updateActiveCycleLimitOptimistic(newLimit);
-    try {
-      const res = await fetch("/api/cycles", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cycleId: activeCycle.id, limit: newLimit }),
-      });
-      if (!res.ok) throw new Error("Не вдалося оновити ліміт на сервері");
-    } catch (error) {
-      console.error("Помилка збереження бюджету:", error);
-      invalidateCycles();
-    }
-  };
-
-  const handleUpdateCategory = (
-    txId: number,
-    newCategory: string,
-    cleanTitle?: string,
-    saveAsRule?: boolean
-  ) => {
-    setSelectedTx(null);
-    updateTransaction({
-      id: txId,
-      category_name: newCategory,
-      merchant_raw: selectedTx?.merchant_raw,
-      clean_title: cleanTitle,
-      save_as_rule: saveAsRule,
-    });
-  };
-
-  const handleUpdateTags = (txId: number, newTags: string[]) => {
-    updateTransaction({
-      id: txId,
-      tags: newTags,
-    });
-  };
-
-  const handleDeleteTransaction = (txId: number) => {
-    setSelectedTx(null);
-    deleteTransaction(txId, {
-      onError: (err) => {
-        console.error("Помилка видалення транзакції:", err);
-      },
-    });
-  };
-
-  const handleSaveCategoryBudget = async (
-    categoryName: string,
-    limit: number
-  ) => {
-    updateCategoryBudgetOptimistic(categoryName, limit);
-    try {
-      await fetch("/api/category-budgets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category_name: categoryName,
-          monthly_limit: limit,
-        }),
-      });
-    } catch (err) {
-      console.error("Помилка збереження ліміту категорії:", err);
-      invalidateWealth();
-    }
-  };
-
-  const handleDeleteCategoryBudget = async (categoryName: string) => {
-    deleteCategoryBudgetOptimistic(categoryName);
-    try {
-      await fetch(
-        `/api/category-budgets?category_name=${encodeURIComponent(categoryName)}`,
-        { method: "DELETE" }
-      );
-    } catch (err) {
-      console.error("Помилка видалення ліміту категорії:", err);
-      invalidateWealth();
-    }
-  };
-
-  const handleExportExcel = async () => {
-    try {
-      const { exportFinancialDataToExcel } = await import("@/lib/export-excel");
-      exportFinancialDataToExcel({
-        transactions,
-        investments,
-        savingsGoals,
-      });
-    } catch (err) {
-      console.error("Помилка експорту в Excel:", err);
-    }
-  };
-
-  const handleRestoreSuccess = async () => {
-    invalidateCycles();
-    invalidateWealth();
-    window.location.reload();
-  };
-
-  const handleSplitSuccess = async () => {
-    invalidateWealth();
-    invalidateTransactions();
-    window.location.reload();
   };
 
   // Екран автентифікації, якщо користувач не залогінений
@@ -500,42 +378,8 @@ export default function Dashboard() {
         onSaveBudget={handleSaveBudgetLimit}
       />
 
-      {/* Навігація між вкладками: Аналітика & Бюджет -> Історія операцій -> Капітал & Цілі */}
-      <div className="mb-6 hidden rounded-2xl border border-zinc-800 bg-zinc-900/80 p-1 backdrop-blur-md md:flex">
-        <button
-          type="button"
-          onClick={() => setActiveTab("overview")}
-          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
-            activeTab === "overview"
-              ? "bg-zinc-800 text-white shadow-md"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Аналітика & Бюджет
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("history")}
-          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
-            activeTab === "history"
-              ? "bg-zinc-800 text-white shadow-md"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Історія операцій
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("wealth")}
-          className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-all ${
-            activeTab === "wealth"
-              ? "bg-zinc-800 text-white shadow-md"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          Капітал & Цілі
-        </button>
-      </div>
+      {/* Навігація між вкладками для десктопу */}
+      <TabNavigationHeader activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Вкладка 1: Аналітика & Бюджет */}
       {activeTab === "overview" && (
