@@ -2,27 +2,19 @@
 
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  SlidersHorizontal,
-  Search,
-  Plus,
-  Trash2,
-  Edit2,
-  X,
-  Loader2,
-  Check,
-  Tag,
-  ArrowRight,
-} from "lucide-react";
+import { SlidersHorizontal, Search, Plus, X, Loader2, Tag } from "lucide-react";
 import { CATEGORIES } from "@/constants/categories";
 import { MerchantRule } from "@/types/finance";
 import { triggerHaptic } from "@/lib/haptics";
 import { toast } from "sonner";
+import {
+  MerchantRulesModalProps,
+  RuleFormPayload,
+  RuleForm,
+  RuleListItem,
+} from "./merchant-rules";
 
-interface MerchantRulesModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+export type { MerchantRulesModalProps } from "./merchant-rules";
 
 export function MerchantRulesModal({
   isOpen,
@@ -53,11 +45,7 @@ export function MerchantRulesModal({
 
   // Збереження або оновлення правила
   const saveMutation = useMutation({
-    mutationFn: async (payload: {
-      pattern: string;
-      normalized_name: string;
-      category_name: string;
-    }) => {
+    mutationFn: async (payload: RuleFormPayload) => {
       const res = await fetch("/api/merchant-rules", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,85 +226,18 @@ export function MerchantRulesModal({
 
         {/* Форма додавання/редагування */}
         {isFormOpen && (
-          <form
+          <RuleForm
+            pattern={pattern}
+            normalizedName={normalizedName}
+            categoryName={categoryName}
+            editingPattern={editingPattern}
+            isPending={saveMutation.isPending}
+            onPatternChange={setPattern}
+            onNormalizedNameChange={setNormalizedName}
+            onCategoryNameChange={setCategoryName}
             onSubmit={handleSubmit}
-            className="mb-3.5 rounded-2xl border border-sky-500/20 bg-sky-950/10 p-3.5"
-          >
-            <h4 className="mb-2.5 text-xs font-semibold text-sky-400">
-              {editingPattern
-                ? `Редагування правила для: ${editingPattern}`
-                : "Нове правило автокатегоризації"}
-            </h4>
-
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-                  Шаблон мерчанта (підрядок у чеку)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={pattern}
-                  disabled={!!editingPattern}
-                  onChange={(e) => setPattern(e.target.value)}
-                  placeholder="напр. SILPO або UBER"
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white placeholder-zinc-600 focus:border-sky-500 focus:outline-none disabled:opacity-60"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-                  Охайна назва в списку
-                </label>
-                <input
-                  type="text"
-                  value={normalizedName}
-                  onChange={(e) => setNormalizedName(e.target.value)}
-                  placeholder="напр. Сільпо"
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white placeholder-zinc-600 focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="mt-2.5">
-              <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-                Категорія для автопризначення
-              </label>
-              <select
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white focus:border-sky-500 focus:outline-none"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 active:scale-95"
-              >
-                Скасувати
-              </button>
-              <button
-                type="submit"
-                disabled={saveMutation.isPending}
-                className="flex items-center gap-1 rounded-xl bg-sky-500 px-3.5 py-1.5 text-xs font-bold text-zinc-950 shadow-md shadow-sky-950/30 hover:bg-sky-400 active:scale-95 disabled:opacity-50"
-              >
-                {saveMutation.isPending ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Check size={13} />
-                )}
-                <span>Зберегти</span>
-              </button>
-            </div>
-          </form>
+            onCancel={resetForm}
+          />
         )}
 
         {/* Список правил */}
@@ -340,54 +261,13 @@ export function MerchantRulesModal({
             </div>
           ) : (
             filteredRules.map((rule) => (
-              <div
+              <RuleListItem
                 key={rule.pattern}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/50 p-3 transition-colors hover:border-zinc-700/80"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="max-w-[160px] truncate rounded-lg border border-sky-800/40 bg-sky-950/40 px-2 py-0.5 font-mono text-xs font-semibold text-sky-400 sm:max-w-xs">
-                      {rule.pattern}
-                    </span>
-                    <ArrowRight size={12} className="shrink-0 text-zinc-600" />
-                    <span className="max-w-[140px] truncate text-xs font-semibold text-white">
-                      {rule.clean_merchant ||
-                        rule.normalized_name ||
-                        rule.pattern}
-                    </span>
-                  </div>
-                  <div className="mt-1">
-                    <span className="inline-flex items-center rounded-md bg-zinc-800/90 px-2 py-0.5 text-[10px] font-medium text-zinc-300">
-                      {rule.category_name}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleStartEdit(rule)}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
-                    title="Редагувати правило"
-                  >
-                    <Edit2 size={13} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm(`Видалити правило для "${rule.pattern}"?`)) {
-                        deleteMutation.mutate(rule.pattern);
-                      }
-                    }}
-                    disabled={deleteMutation.isPending}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-rose-500/20 hover:text-rose-400 active:scale-95 disabled:opacity-50"
-                    title="Видалити правило"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
+                rule={rule}
+                isDeleting={deleteMutation.isPending}
+                onEdit={handleStartEdit}
+                onDelete={(pat) => deleteMutation.mutate(pat)}
+              />
             ))
           )}
         </div>
