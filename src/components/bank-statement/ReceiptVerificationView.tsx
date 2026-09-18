@@ -1,16 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import {
-  AlertTriangle,
-  Sparkles,
-  Wallet,
-  TrendingUp,
-  Info,
-  Loader2,
-  ArrowRight,
-} from "lucide-react";
-import { CATEGORIES } from "@/constants/categories";
+import { AlertTriangle, Sparkles, Loader2, ArrowRight } from "lucide-react";
 import { InvestmentAsset } from "@/types/finance";
 import { triggerHaptic } from "@/lib/haptics";
 import { toast } from "sonner";
@@ -19,6 +10,9 @@ import {
   ParsedReceiptData,
   toDateTimeLocalString,
 } from "@/components/bank-statement/types";
+import { ReceiptTypeSelector } from "./verification/ReceiptTypeSelector";
+import { ReceiptDetailsForm } from "./verification/ReceiptDetailsForm";
+import { InvestmentLinkSection } from "./verification/InvestmentLinkSection";
 
 interface ReceiptVerificationViewProps {
   parsedReceipt: ParsedReceiptData;
@@ -201,178 +195,32 @@ export function ReceiptVerificationView({
       </div>
 
       {/* Перемикач типу операції (Витрата / Інвестиція) */}
-      <div>
-        <label className="mb-1.5 block text-[11px] font-medium text-zinc-400">
-          Куди зарахувати операцію?
-        </label>
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setEditType("expense");
-              triggerHaptic("selection");
-            }}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
-              editType === "expense"
-                ? "bg-rose-500/20 text-rose-300 shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            <Wallet size={14} />
-            <span>💸 Витрата (бюджет)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditType("investment");
-              triggerHaptic("selection");
-            }}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all ${
-              editType === "investment"
-                ? "bg-emerald-500/20 text-emerald-300 shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            }`}
-          >
-            <TrendingUp size={14} />
-            <span>📈 Інвестиція / Капітал</span>
-          </button>
-        </div>
-      </div>
+      <ReceiptTypeSelector editType={editType} onChangeType={setEditType} />
 
-      {/* Сума та Отримувач */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-            Сума операції ({parsedReceipt.currency})
-          </label>
-          <input
-            type="text"
-            value={editAmount}
-            onChange={(e) => setEditAmount(e.target.value)}
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 font-mono text-sm font-bold text-white outline-none focus:border-emerald-500/50"
-            placeholder="0.00"
-          />
-        </div>
+      {/* Форма деталей: сума, дата, отримувач, категорія, призначення */}
+      <ReceiptDetailsForm
+        currency={parsedReceipt.currency || "UAH"}
+        amount={editAmount}
+        onChangeAmount={setEditAmount}
+        date={editDate}
+        onChangeDate={setEditDate}
+        recipient={editRecipient}
+        onChangeRecipient={setEditRecipient}
+        category={editCategory}
+        onChangeCategory={setEditCategory}
+        purpose={parsedReceipt.purpose}
+      />
 
-        <div>
-          <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-            Дата та час
-          </label>
-          <input
-            type="datetime-local"
-            value={editDate}
-            onChange={(e) => setEditDate(e.target.value)}
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50"
-          />
-        </div>
-      </div>
-
-      {/* Отримувач */}
-      <div>
-        <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-          Отримувач / Торговець
-        </label>
-        <input
-          type="text"
-          value={editRecipient}
-          onChange={(e) => setEditRecipient(e.target.value)}
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50"
-          placeholder="Назва компанії чи ФОП"
-        />
-      </div>
-
-      {/* Категорія */}
-      <div>
-        <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-          Категорія
-        </label>
-        <select
-          value={editCategory}
-          onChange={(e) => setEditCategory(e.target.value)}
-          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50"
-        >
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Призначення платежу */}
-      {parsedReceipt.purpose && (
-        <div>
-          <label className="mb-1 block text-[11px] font-medium text-zinc-400">
-            Призначення платежу (з квитанції)
-          </label>
-          <div className="border-zinc-850 rounded-xl border bg-zinc-900/30 p-2.5 text-[11px] leading-relaxed text-zinc-400">
-            {parsedReceipt.purpose}
-          </div>
-        </div>
-      )}
-
-      {/* ── УМОВНИЙ БЛОК: Вибір активу портфеля (ТІЛЬКИ коли type === "investment") ── */}
+      {/* Прив'язка до активу портфеля (коли type === "investment") */}
       {editType === "investment" && (
-        <div className="space-y-3 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-3.5">
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-300">
-            <TrendingUp size={15} className="text-emerald-400" />
-            <span>Прив&apos;язка до активу портфеля (опціонально)</span>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-[11px] text-zinc-400">
-              Оберіть випуск ОВДП або інвестиційний актив:
-            </label>
-            <select
-              value={selectedAssetId}
-              onChange={(e) => setSelectedAssetId(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50"
-            >
-              <option value="none">
-                Без прив&apos;язки (тільки операція в капіталі)
-              </option>
-              {sortedInvestments.map((asset) => (
-                <option key={asset.id} value={String(asset.id)}>
-                  [{asset.asset_type.toUpperCase()}] {asset.asset_name} (
-                  {Number(asset.invested_amount).toLocaleString("uk-UA")}{" "}
-                  {asset.currency})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedAssetId !== "none" && (
-            <div className="space-y-2 border-t border-emerald-500/10 pt-2.5">
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
-                <input
-                  type="checkbox"
-                  checked={updateAssetCostBasis}
-                  onChange={(e) => setUpdateAssetCostBasis(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-emerald-500 focus:ring-0"
-                />
-                <span>
-                  Збільшити собівартість (
-                  <code className="text-[11px] text-emerald-400">
-                    invested_amount
-                  </code>
-                  ) на +{parseFloat(editAmount || "0").toLocaleString("uk-UA")}{" "}
-                  ₴
-                </span>
-              </label>
-
-              <div className="flex items-start gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-2.5 text-[11px] leading-relaxed text-zinc-400">
-                <Info size={14} className="mt-0.5 shrink-0 text-emerald-400" />
-                <span>
-                  Сума збільшить фактично вкладені кошти (собівартість). Поточну
-                  ринкову вартість (
-                  <code className="text-zinc-300">current_value</code>) ви
-                  зможете оновити пізніше через звіт Inzhur або вручну в картці
-                  інвестицій.
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+        <InvestmentLinkSection
+          selectedAssetId={selectedAssetId}
+          onChangeAssetId={setSelectedAssetId}
+          sortedInvestments={sortedInvestments}
+          updateAssetCostBasis={updateAssetCostBasis}
+          onChangeUpdateCostBasis={setUpdateAssetCostBasis}
+          amount={editAmount}
+        />
       )}
 
       {/* Кнопки дій */}

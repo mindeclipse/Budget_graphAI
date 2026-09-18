@@ -1,15 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  X,
-  Trash2,
-  Store,
-  BookmarkCheck,
-  Check,
-  Loader2,
-  Split,
-} from "lucide-react";
 import { Transaction, TransactionReceiptMetadata } from "@/types/finance";
 import { triggerHaptic } from "@/lib/haptics";
 import { toast } from "sonner";
@@ -18,10 +9,13 @@ import {
   formatInitialCommentAndTags,
   removeTagFromText,
 } from "@/lib/tag-utils";
+import { ActionSheetHeader } from "@/components/transaction-action-sheet/ActionSheetHeader";
+import { ActionSheetMerchantSection } from "@/components/transaction-action-sheet/ActionSheetMerchantSection";
 import { ActionSheetCategoryPicker } from "@/components/transaction-action-sheet/ActionSheetCategoryPicker";
 import { ActionSheetAmortizationSection } from "@/components/transaction-action-sheet/ActionSheetAmortizationSection";
 import { ActionSheetCommentSection } from "@/components/transaction-action-sheet/ActionSheetCommentSection";
 import { ActionSheetReceiptSection } from "@/components/transaction-action-sheet/ActionSheetReceiptSection";
+import { ActionSheetFooterActions } from "@/components/transaction-action-sheet/ActionSheetFooterActions";
 
 export interface TransactionActionSheetProps {
   transaction: Transaction | null;
@@ -264,90 +258,20 @@ export function TransactionActionSheet({
 
       {/* Шторка (Bottom Sheet) для iPhone / Центрована картка для десктопу */}
       <div className="relative z-10 flex max-h-[88vh] w-full max-w-lg flex-col overscroll-contain rounded-t-[28px] border border-zinc-800/80 bg-zinc-950 p-5 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[90vh] sm:rounded-3xl sm:p-6 sm:pb-6">
-        {/* Grabber Bar — маркер свайпу для iOS */}
-        <div className="mx-auto mb-3.5 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
-
-        {/* Шапка модалки */}
-        <div className="mb-4 flex items-start justify-between border-b border-zinc-800/80 pb-3.5">
-          <div className="min-w-0 pr-2">
-            <span className="text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">
-              Редагування чека
-            </span>
-            <h3 className="truncate text-base font-bold text-white">
-              {transaction.merchant_raw}
-            </h3>
-            <p className="mt-0.5 text-xs text-zinc-400">
-              {new Date(transaction.created_at).toLocaleString("uk-UA")} •{" "}
-              <strong className="font-mono font-semibold text-emerald-400 tabular-nums">
-                {Number(transaction.amount).toFixed(2)} ₴
-              </strong>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-zinc-800/80 bg-zinc-900/60 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white active:scale-95"
-          >
-            <X size={16} />
-          </button>
-        </div>
+        <ActionSheetHeader transaction={transaction} onClose={onClose} />
 
         {/* Скрол-зона вмісту форми з ізольованим overscroll */}
         <div className="[scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain pr-1">
-          {/* Поле редагування назви закладу */}
-          <div>
-            <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              <Store size={12} className="text-zinc-500" /> Назва мерчанта
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={cleanTitleInput}
-                onChange={(e) => setCleanTitleInput(e.target.value)}
-                placeholder="Введіть зрозумілу назву..."
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-              />
-              {isTitleModified && (
-                <button
-                  type="button"
-                  onClick={() => handleSave(selectedCategory)}
-                  disabled={isSubmitting}
-                  className="flex shrink-0 items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-sky-500 active:scale-95 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <Loader2 size={13} className="animate-spin" />
-                  ) : (
-                    <Check size={13} />
-                  )}
-                  Зберегти
-                </button>
-              )}
-            </div>
-          </div>
+          <ActionSheetMerchantSection
+            cleanTitleInput={cleanTitleInput}
+            onChangeTitle={setCleanTitleInput}
+            isTitleModified={isTitleModified}
+            onSaveTitle={() => handleSave(selectedCategory)}
+            isSubmitting={isSubmitting}
+            saveAsRule={saveAsRule}
+            onToggleSaveAsRule={setSaveAsRule}
+          />
 
-          {/* Чекбокс запам'ятовування правила */}
-          <div>
-            <label className="hover:border-zinc-750 flex cursor-pointer items-start gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3 transition-colors">
-              <input
-                type="checkbox"
-                checked={saveAsRule}
-                onChange={(e) => setSaveAsRule(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-sky-500 focus:ring-0 focus:ring-offset-0"
-              />
-              <div className="text-xs">
-                <div className="flex items-center gap-1.5 font-medium text-zinc-200">
-                  <BookmarkCheck size={13} className="text-sky-400" />
-                  Запам'ятати для майбутніх покупок
-                </div>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">
-                  Усі наступні списання від цього продавця отримуватимуть цю
-                  назву та категорію.
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {/* Форс-мажор та амортизація */}
           <ActionSheetAmortizationSection
             amount={Number(transaction.amount)}
             isEmergency={isEmergency}
@@ -356,14 +280,12 @@ export function TransactionActionSheet({
             onChangeAmortization={setAmortizationMonths}
           />
 
-          {/* Вибір категорії */}
           <ActionSheetCategoryPicker
             selectedCategory={selectedCategory}
             onSelectCategory={handleCategorySelect}
             isSubmitting={isSubmitting}
           />
 
-          {/* Коментар та теги */}
           <ActionSheetCommentSection
             commentInput={commentInput}
             currentTags={currentTags}
@@ -375,7 +297,6 @@ export function TransactionActionSheet({
             }}
           />
 
-          {/* Блок квитанції / чека */}
           <ActionSheetReceiptSection
             transactionId={transaction.id}
             currentReceipt={currentReceipt}
@@ -383,80 +304,21 @@ export function TransactionActionSheet({
             onReceiptUpdated={onReceiptUpdated}
           />
 
-          {/* Кнопка збереження змін форми (якщо змінено назву, форс-мажор, амортизацію або коментар) */}
-          {isDirty && (
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => handleSave(selectedCategory)}
-                disabled={isSubmitting}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-600 py-3 text-xs font-bold text-white shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500 active:scale-[0.98] disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Check size={16} />
-                )}
-                Зберегти зміни
-              </button>
-            </div>
-          )}
-
-          {/* Розділити транзакцію (якщо це не вже розділена дочірня) */}
-          {onOpenSplit && !transaction.parent_transaction_id && (
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenSplit(transaction);
-                  onClose();
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 py-2.5 text-xs font-bold text-sky-400 transition-all hover:bg-sky-500/20 active:scale-[0.99]"
-              >
-                <Split size={14} /> Розділити на кілька категорій
-              </button>
-            </div>
-          )}
-
-          {/* Видалення транзакції із захистом від випадкового натискання */}
-          <div className="pt-2">
-            {isConfirmingDelete ? (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic("selection");
-                    setIsConfirmingDelete(false);
-                  }}
-                  className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/80 py-2.5 text-xs font-semibold text-zinc-400 transition-all hover:bg-zinc-800 active:scale-95"
-                >
-                  Скасувати
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic("heavy");
-                    onDelete(transaction.id);
-                  }}
-                  className="flex-1 items-center justify-center gap-1.5 rounded-2xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-rose-950/40 transition-all hover:bg-rose-500 active:scale-95"
-                >
-                  <Trash2 size={14} className="mr-1 inline" />
-                  Точно видалити?
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic("warning");
-                  setIsConfirmingDelete(true);
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-900/40 bg-rose-950/20 py-2.5 text-xs font-bold text-rose-400 transition-all hover:bg-rose-900/30 active:scale-[0.99]"
-              >
-                <Trash2 size={14} /> Видалити транзакцію
-              </button>
+          <ActionSheetFooterActions
+            isDirty={isDirty}
+            isSubmitting={isSubmitting}
+            onSave={() => handleSave(selectedCategory)}
+            canSplit={Boolean(
+              onOpenSplit && !transaction.parent_transaction_id
             )}
-          </div>
+            onSplit={() => {
+              onOpenSplit?.(transaction);
+              onClose();
+            }}
+            isConfirmingDelete={isConfirmingDelete}
+            onConfirmDeleteChange={setIsConfirmingDelete}
+            onDelete={() => onDelete(transaction.id)}
+          />
         </div>
       </div>
     </div>
