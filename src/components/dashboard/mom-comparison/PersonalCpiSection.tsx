@@ -30,101 +30,118 @@ export function PersonalCpiSection({
 }: PersonalCpiSectionProps) {
   const [isCpiOpen, setIsCpiOpen] = useState(false);
 
+  const switcher = (
+    <div className="flex rounded-lg border border-zinc-800 bg-zinc-900/90 p-0.5 text-[10px]">
+      <button
+        type="button"
+        onClick={() => onViewModeChange("cycle")}
+        className={`rounded px-2.5 py-1 font-medium transition-colors sm:px-2 sm:py-0.5 ${
+          cpiViewMode === "cycle"
+            ? "bg-zinc-800 text-zinc-100 shadow-sm"
+            : "text-zinc-500 hover:text-zinc-300"
+        }`}
+      >
+        Цикл
+      </button>
+      <button
+        type="button"
+        onClick={() => onViewModeChange("yoy")}
+        className={`rounded px-2.5 py-1 font-medium transition-colors sm:px-2 sm:py-0.5 ${
+          cpiViewMode === "yoy"
+            ? "bg-zinc-800 text-zinc-100 shadow-sm"
+            : "text-zinc-500 hover:text-zinc-300"
+        }`}
+      >
+        Рік / База
+      </button>
+    </div>
+  );
+
+  const metricBadge =
+    isLoadingYoy && cpiViewMode === "yoy" ? (
+      <span className="animate-pulse rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-0.5 font-mono text-[11px] text-zinc-500">
+        ...
+      </span>
+    ) : activeCpiReport.overallInflationRate !== null ? (
+      <span
+        className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium tabular-nums ${
+          activeCpiReport.overallInflationRate > 0
+            ? "border-rose-800/40 bg-rose-950/40 text-rose-400"
+            : activeCpiReport.overallInflationRate < 0
+              ? "border-emerald-800/40 bg-emerald-950/40 text-emerald-400"
+              : "border-zinc-800 bg-zinc-900 text-zinc-400"
+        }`}
+      >
+        {activeCpiReport.overallInflationRate > 0 ? (
+          <ArrowUpRight size={11} />
+        ) : activeCpiReport.overallInflationRate < 0 ? (
+          <ArrowDownRight size={11} />
+        ) : (
+          <Minus size={11} />
+        )}
+        {activeCpiReport.overallInflationRate > 0 ? "+" : ""}
+        {activeCpiReport.overallInflationRate.toFixed(1)}%
+      </span>
+    ) : (
+      <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-600">
+        —
+      </span>
+    );
+
+  const expandButton = (
+    <button
+      type="button"
+      onClick={() => setIsCpiOpen(!isCpiOpen)}
+      className="rounded-lg border border-zinc-800/60 p-1 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+      title={isCpiOpen ? "Згорнути кошик" : "Деталі кошика"}
+    >
+      {isCpiOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+    </button>
+  );
+
   return (
     <div className="mb-4 rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-3.5 shadow-sm transition-all">
-      <div className="flex items-center justify-between gap-2.5">
-        {/* Ліва частина: іконка та назва */}
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400">
-            <Receipt size={14} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-zinc-200">
-                Персональний CPI
-              </span>
-              <span className="shrink-0 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[9px] font-medium tracking-wide text-zinc-400">
-                {activeCpiReport.periodMode === "yoy"
-                  ? "Рік до року (YoY)"
-                  : activeCpiReport.periodMode === "baseline"
-                    ? "Базовий індекс"
-                    : "До мин. циклу"}
-              </span>
+      {/* Адаптивна шапка блоку: на мобільних 2 охайні рівні, на десктопі — в 1 рядок */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        {/* Рівень 1: Іконка + Назва та підзаголовок (зліва); Метрика + Кнопка розгортання (справа на мобільних) */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400">
+              <Receipt size={14} />
             </div>
-            <p className="truncate text-[10px] text-zinc-500">
-              Зміна реального середнього чека (супермаркети, куріння, кафе)
-            </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold whitespace-nowrap text-zinc-200">
+                  Персональний CPI
+                </span>
+                <span className="hidden shrink-0 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[9px] font-medium tracking-wide text-zinc-400 sm:inline-block">
+                  {activeCpiReport.periodMode === "yoy"
+                    ? "Рік до року (YoY)"
+                    : activeCpiReport.periodMode === "baseline"
+                      ? "Базовий індекс"
+                      : "До мин. циклу"}
+                </span>
+              </div>
+              <p className="truncate text-[10px] text-zinc-500">
+                Зміна реального середнього чека (супермаркети, куріння, кафе)
+              </p>
+            </div>
+          </div>
+
+          {/* На мобільному: показник індексу та стрілка розміщені праворуч від заголовка */}
+          <div className="flex shrink-0 items-center gap-2 sm:hidden">
+            {metricBadge}
+            {expandButton}
           </div>
         </div>
 
-        {/* Права частина: перемикач режимів, показник та кнопка розкриття */}
-        <div className="flex shrink-0 items-center gap-2">
-          {/* Перемикач: Цикл vs Рік/База */}
-          <div className="flex rounded-lg border border-zinc-800 bg-zinc-900/90 p-0.5 text-[10px]">
-            <button
-              type="button"
-              onClick={() => onViewModeChange("cycle")}
-              className={`rounded px-2 py-0.5 font-medium transition-colors ${
-                cpiViewMode === "cycle"
-                  ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              Цикл
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange("yoy")}
-              className={`rounded px-2 py-0.5 font-medium transition-colors ${
-                cpiViewMode === "yoy"
-                  ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              Рік / База
-            </button>
+        {/* Рівень 2: Перемикач режимів (на мобільних) / Повний блок керування (на десктопі) */}
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
+          {switcher}
+          <div className="hidden shrink-0 items-center gap-2 sm:flex">
+            {metricBadge}
+            {expandButton}
           </div>
-
-          {/* Значення індексу */}
-          {isLoadingYoy && cpiViewMode === "yoy" ? (
-            <span className="animate-pulse rounded-full border border-zinc-800 bg-zinc-900 px-2.5 py-0.5 font-mono text-[11px] text-zinc-500">
-              ...
-            </span>
-          ) : activeCpiReport.overallInflationRate !== null ? (
-            <span
-              className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-medium tabular-nums ${
-                activeCpiReport.overallInflationRate > 0
-                  ? "border-rose-800/40 bg-rose-950/40 text-rose-400"
-                  : activeCpiReport.overallInflationRate < 0
-                    ? "border-emerald-800/40 bg-emerald-950/40 text-emerald-400"
-                    : "border-zinc-800 bg-zinc-900 text-zinc-400"
-              }`}
-            >
-              {activeCpiReport.overallInflationRate > 0 ? (
-                <ArrowUpRight size={11} />
-              ) : activeCpiReport.overallInflationRate < 0 ? (
-                <ArrowDownRight size={11} />
-              ) : (
-                <Minus size={11} />
-              )}
-              {activeCpiReport.overallInflationRate > 0 ? "+" : ""}
-              {activeCpiReport.overallInflationRate.toFixed(1)}%
-            </span>
-          ) : (
-            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[11px] text-zinc-600">
-              —
-            </span>
-          )}
-
-          {/* Кнопка розгортання деталей кошика */}
-          <button
-            type="button"
-            onClick={() => setIsCpiOpen(!isCpiOpen)}
-            className="rounded-lg border border-zinc-800/60 p-1 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
-            title={isCpiOpen ? "Згорнути кошик" : "Деталі кошика"}
-          >
-            {isCpiOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </button>
         </div>
       </div>
 

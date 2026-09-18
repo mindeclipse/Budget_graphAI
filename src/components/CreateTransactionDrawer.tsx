@@ -125,156 +125,160 @@ export function CreateTransactionDrawer({
         </div>
 
         {/* Форма внесення витрати */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Поле введення суми */}
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Сума
-            </label>
-            <div className="relative flex items-center">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="flex-1 [scrollbar-width:thin] space-y-4 overflow-y-auto overscroll-contain pr-0.5">
+            {/* Поле введення суми */}
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                Сума
+              </label>
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  required
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3 pr-12 font-mono text-2xl font-bold tracking-tight text-white tabular-nums placeholder-zinc-700 transition-colors focus:border-zinc-600 focus:outline-none"
+                />
+                <span className="pointer-events-none absolute right-4 text-base font-bold text-zinc-500">
+                  ₴
+                </span>
+              </div>
+            </div>
+
+            {/* Заклад або опис */}
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                Заклад / Опис
+              </label>
               <input
                 type="text"
-                inputMode="decimal"
-                autoFocus
-                required
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/80 px-4 py-3 pr-12 font-mono text-2xl font-bold tracking-tight text-white tabular-nums placeholder-zinc-700 transition-colors focus:border-zinc-600 focus:outline-none"
+                placeholder="Сільпо, Кава, Аптека тощо..."
+                value={merchant}
+                onChange={(e) => setMerchant(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
               />
-              <span className="pointer-events-none absolute right-4 text-base font-bold text-zinc-500">
-                ₴
-              </span>
             </div>
-          </div>
 
-          {/* Заклад або опис */}
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Заклад / Опис
-            </label>
-            <input
-              type="text"
-              placeholder="Сільпо, Кава, Аптека тощо..."
-              value={merchant}
-              onChange={(e) => setMerchant(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3.5 py-2.5 text-base text-white placeholder-zinc-600 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-            />
-          </div>
+            {/* Вибір категорії */}
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                Категорія
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-base text-zinc-200 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
+              >
+                {CATEGORIES.map((cat) => (
+                  <option
+                    key={cat}
+                    value={cat}
+                    className="bg-zinc-900 text-zinc-200"
+                  >
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Вибір категорії */}
-          <div>
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Категорія
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-base text-zinc-200 transition-colors focus:border-zinc-600 focus:outline-none sm:text-xs"
-            >
-              {CATEGORIES.map((cat) => (
-                <option
-                  key={cat}
-                  value={cat}
-                  className="bg-zinc-900 text-zinc-200"
-                >
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Покриття з Фінансової подушки (форс-мажор) */}
-          {category !== "Інвестиції" && (
-            <label className="flex cursor-pointer items-start justify-between gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3 transition-colors">
-              <div className="flex items-start gap-2.5">
-                <div
-                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                    isEmergency
-                      ? "bg-amber-500/20 text-amber-400"
-                      : "bg-zinc-800 text-zinc-400"
-                  }`}
-                >
-                  <ShieldAlert size={16} />
-                </div>
-                <div className="text-xs">
-                  <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
-                    🛡️ Форс-мажор (екстрена витрата)
+            {/* Покриття з Фінансової подушки (форс-мажор) */}
+            {category !== "Інвестиції" && (
+              <label className="flex cursor-pointer items-start justify-between gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3 transition-colors">
+                <div className="flex items-start gap-2.5">
+                  <div
+                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                      isEmergency
+                        ? "bg-amber-500/20 text-amber-400"
+                        : "bg-zinc-800 text-zinc-400"
+                    }`}
+                  >
+                    <ShieldAlert size={16} />
                   </div>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
-                    Позначає витрату для ШІ як вимушену екстрену потребу, щоб
-                    вона не вважалася споживчим марнотратством.
-                  </p>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={isEmergency}
-                onChange={(e) => {
-                  triggerHaptic("selection");
-                  setIsEmergency(e.target.checked);
-                }}
-                className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-0 focus:ring-offset-0"
-              />
-            </label>
-          )}
-
-          {/* Розподіл витрати на кілька місяців (амортизація) */}
-          {!isEmergency &&
-            category !== "Інвестиції" &&
-            parseFloat(amount.replace(",", ".") || "0") > 0 && (
-              <div className="space-y-2 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
-                    <CalendarDays size={14} className="text-indigo-400" />
-                    🗓️ Розподіл (амортизація)
+                  <div className="text-xs">
+                    <div className="flex items-center gap-1.5 font-semibold text-zinc-200">
+                      🛡️ Форс-мажор (екстрена витрата)
+                    </div>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
+                      Позначає витрату для ШІ як вимушену екстрену потребу, щоб
+                      вона не вважалася споживчим марнотратством.
+                    </p>
                   </div>
-                  {amortizationMonths > 1 && (
-                    <span className="font-mono text-[11px] font-bold text-indigo-400">
-                      по ~
-                      {Math.round(
-                        parseFloat(amount.replace(",", ".")) /
-                          amortizationMonths
-                      ).toLocaleString("uk-UA")}{" "}
-                      ₴/міс
-                    </span>
-                  )}
                 </div>
-                <div className="grid grid-cols-5 gap-1.5 pt-0.5">
-                  {[1, 2, 3, 6, 12].map((m) => {
-                    const isSelected = amortizationMonths === m;
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => {
-                          triggerHaptic("selection");
-                          setAmortizationMonths(m);
-                        }}
-                        className={`rounded-xl py-1 text-center text-xs font-semibold transition-all active:scale-95 ${
-                          isSelected
-                            ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400"
-                            : "border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
-                        }`}
-                      >
-                        {m === 1 ? "1 міс" : `${m} міс`}
-                      </button>
-                    );
-                  })}
-                </div>
-                {amortizationMonths > 1 && (
-                  <div className="rounded-lg border border-indigo-800/30 bg-indigo-950/40 px-2.5 py-1.5 text-[11px] text-indigo-300">
-                    💡 З балансу списується вся сума — гроші не повертаються
-                    віртуально. ШІ та аналітика зафіксують це як планову
-                    інвестицію на {amortizationMonths} міс, а не разове
-                    марнотратство.
-                  </div>
-                )}
-              </div>
+                <input
+                  type="checkbox"
+                  checked={isEmergency}
+                  onChange={(e) => {
+                    triggerHaptic("selection");
+                    setIsEmergency(e.target.checked);
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-amber-500 focus:ring-0 focus:ring-offset-0"
+                />
+              </label>
             )}
 
+            {/* Розподіл витрати на кілька місяців (амортизація) */}
+            {!isEmergency &&
+              category !== "Інвестиції" &&
+              parseFloat(amount.replace(",", ".") || "0") > 0 && (
+                <div className="space-y-2 rounded-2xl border border-zinc-800/80 bg-zinc-900/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                      <CalendarDays size={14} className="text-indigo-400" />
+                      🗓️ Розподіл (амортизація)
+                    </div>
+                    {amortizationMonths > 1 && (
+                      <span className="font-mono text-[11px] font-bold text-indigo-400">
+                        по ~
+                        {Math.round(
+                          parseFloat(amount.replace(",", ".")) /
+                            amortizationMonths
+                        ).toLocaleString("uk-UA")}{" "}
+                        ₴/міс
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5 pt-0.5">
+                    {[1, 2, 3, 6, 12].map((m) => {
+                      const isSelected = amortizationMonths === m;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic("selection");
+                            setAmortizationMonths(m);
+                          }}
+                          className={`rounded-xl py-1 text-center text-xs font-semibold transition-all active:scale-95 ${
+                            isSelected
+                              ? "bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400"
+                              : "border border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                          }`}
+                        >
+                          {m === 1 ? "1 міс" : `${m} міс`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {amortizationMonths > 1 && (
+                    <div className="rounded-lg border border-indigo-800/30 bg-indigo-950/40 px-2.5 py-1.5 text-[11px] text-indigo-300">
+                      💡 З балансу списується вся сума — гроші не повертаються
+                      віртуально. ШІ та аналітика зафіксують це як планову
+                      інвестицію на {amortizationMonths} міс, а не разове
+                      марнотратство.
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
+
           {/* Кнопка збереження */}
-          <div className="pt-2">
+          <div className="shrink-0 pt-3">
             <button
               type="submit"
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-xs font-bold text-white shadow-lg shadow-sky-950/40 transition-all hover:bg-sky-500 active:scale-[0.98]"
