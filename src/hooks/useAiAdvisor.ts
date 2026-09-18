@@ -87,6 +87,7 @@ export function useAiAdvisor({
         .map((s: UpcomingScheduleItem) => ({
           title: s.title,
           amount: s.amount,
+          currency: s.currency,
           daysRemaining: s.days_remaining,
         })),
       wishlistCount: coolingCount,

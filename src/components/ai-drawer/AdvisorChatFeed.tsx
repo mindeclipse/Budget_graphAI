@@ -12,6 +12,55 @@ interface AdvisorChatFeedProps {
   onSelectQuickQuestion: (question: string) => void;
 }
 
+function FormattedMessageText({ content }: { content: string }) {
+  const lines = content.split("\n");
+
+  return (
+    <div className="space-y-1">
+      {lines.map((line, lineIdx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={lineIdx} className="h-1" />;
+        }
+
+        const isBullet = /^[*-•]\s+/.test(trimmed);
+        const textToFormat = isBullet ? trimmed.replace(/^[*-•]\s+/, "") : line;
+
+        // Розбиваємо за жирним виділенням **текст**
+        const parts = textToFormat.split(/(\*\*.*?\*\*)/g);
+
+        const renderedLine = (
+          <span>
+            {parts.map((part, pIdx) => {
+              if (part.startsWith("**") && part.endsWith("**")) {
+                return (
+                  <strong key={pIdx} className="font-semibold text-white">
+                    {part.slice(2, -2)}
+                  </strong>
+                );
+              }
+              return <span key={pIdx}>{part}</span>;
+            })}
+          </span>
+        );
+
+        if (isBullet) {
+          return (
+            <div key={lineIdx} className="flex items-start gap-1.5 pl-1">
+              <span className="mt-1 text-[8px] leading-none text-purple-400 select-none">
+                •
+              </span>
+              <span className="flex-1">{renderedLine}</span>
+            </div>
+          );
+        }
+
+        return <p key={lineIdx}>{renderedLine}</p>;
+      })}
+    </div>
+  );
+}
+
 export function AdvisorChatFeed({
   messages,
   isSendingChat,
@@ -65,7 +114,11 @@ export function AdvisorChatFeed({
                     : "border border-zinc-800 bg-zinc-900/80 text-zinc-200"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                {msg.role === "assistant" ? (
+                  <FormattedMessageText content={msg.content} />
+                ) : (
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                )}
                 {msg.usedModel && (
                   <p className="mt-1 text-right font-mono text-[9px] text-zinc-500">
                     {msg.usedModel}

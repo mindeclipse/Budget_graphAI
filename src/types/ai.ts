@@ -73,6 +73,7 @@ export interface AIChatFinancialContext {
   upcomingSubscriptions?: Array<{
     title: string;
     amount: number;
+    currency?: string;
     daysRemaining: number;
   }>;
   wishlistCount?: number;
