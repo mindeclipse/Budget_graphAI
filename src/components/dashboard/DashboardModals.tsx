@@ -154,6 +154,7 @@ export interface DashboardModalsProps {
   onImportSuccess: () => void;
   investments: InvestmentAsset[];
   importModalType: "expense" | "investment";
+  importModalFile?: File | null;
   onInvestmentsChange: () => void;
 
   // Inzhur Import modal
@@ -226,6 +227,7 @@ export function DashboardModals({
   onImportSuccess,
   investments,
   importModalType,
+  importModalFile,
   onInvestmentsChange,
 
   isInzhurImportOpen,
@@ -332,6 +334,7 @@ export function DashboardModals({
           onSuccess={onImportSuccess}
           investments={investments}
           initialType={importModalType}
+          initialFile={importModalFile}
           onInvestmentsChange={onInvestmentsChange}
         />
       )}

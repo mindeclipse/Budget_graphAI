@@ -57,6 +57,62 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Перехоплення Web Share Target API (Імпорт квитанцій та чеків в 1 клік)
+  if (request.method === "POST" && url.pathname === "/share-target") {
+    event.respondWith(
+      (async () => {
+        try {
+          const formData = await request.formData();
+          const file = formData.get("file");
+          const title = formData.get("title");
+          const text = formData.get("text");
+          const sharedUrl = formData.get("url");
+
+          if (file || text) {
+            await new Promise((resolve, reject) => {
+              const openReq = indexedDB.open("budget_share_target_db", 1);
+              openReq.onupgradeneeded = () => {
+                const db = openReq.result;
+                if (!db.objectStoreNames.contains("shared_items")) {
+                  db.createObjectStore("shared_items", { keyPath: "id", autoIncrement: true });
+                }
+              };
+              openReq.onsuccess = () => {
+                const db = openReq.result;
+                const tx = db.transaction(["shared_items"], "readwrite");
+                const store = tx.objectStore("shared_items");
+                store.add({
+                  blob: file || null,
+                  fileName: file ? file.name : "shared-receipt.pdf",
+                  fileType: file ? file.type : "application/pdf",
+                  title: typeof title === "string" ? title : "",
+                  text: typeof text === "string" ? text : "",
+                  url: typeof sharedUrl === "string" ? sharedUrl : "",
+                  timestamp: Date.now(),
+                });
+                tx.oncomplete = () => {
+                  db.close();
+                  resolve();
+                };
+                tx.onerror = () => {
+                  db.close();
+                  reject(tx.error);
+                };
+              };
+              openReq.onerror = () => reject(openReq.error);
+            });
+          }
+
+          return Response.redirect("/?action=shared_receipt", 303);
+        } catch (err) {
+          console.warn("[SW] Помилка обробки share-target:", err);
+          return Response.redirect("/?action=shared_receipt", 303);
+        }
+      })()
+    );
+    return;
+  }
+
   // Тільки GET запити підлягають кешуванню. POST/PATCH/DELETE/PUT обробляються безпосередньо (офлайн-чергою)
   if (request.method !== "GET") {
     return;

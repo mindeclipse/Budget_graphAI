@@ -32,7 +32,7 @@ export function StatementDropzoneView({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".xlsx,.xls,.csv,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+          accept=".xlsx,.xls,.csv,.pdf,image/*,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
           className="hidden"
           onChange={onFileSelected}
           disabled={isLoading}
@@ -58,7 +58,7 @@ export function StatementDropzoneView({
                 Перетягніть файл сюди або натисніть для вибору
               </p>
               <p className="text-[11px] text-zinc-500">
-                Квитанція PDF чи виписка XLSX / CSV до 5 МБ
+                Квитанція PDF, фото чека чи виписка XLSX / CSV до 5 МБ
               </p>
             </div>
             <button

@@ -63,9 +63,17 @@ export async function POST(req: Request) {
     }
 
     const lowerName = file.name.toLowerCase();
-    if (!lowerName.endsWith(".pdf")) {
+    const isPdfExt = lowerName.endsWith(".pdf");
+    const isPngExt = lowerName.endsWith(".png");
+    const isJpgExt = lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg");
+    const isWebpExt = lowerName.endsWith(".webp");
+
+    if (!isPdfExt && !isPngExt && !isJpgExt && !isWebpExt) {
       return NextResponse.json(
-        { error: "Дозволені лише файли квитанцій у форматі .pdf" },
+        {
+          error:
+            "Дозволені лише файли квитанцій у форматі .pdf, .png, .jpg, .webp",
+        },
         { status: 400 }
       );
     }
@@ -80,7 +88,8 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 3. Перевірка magic bytes PDF: %PDF- (0x25 0x50 0x44 0x46)
+    // 3. Перевірка magic bytes для безпеки:
+    // PDF: %PDF- (0x25 0x50 0x44 0x46)
     const isPdf =
       buffer.length >= 4 &&
       buffer[0] === 0x25 &&
@@ -88,18 +97,56 @@ export async function POST(req: Request) {
       buffer[2] === 0x44 &&
       buffer[3] === 0x46;
 
-    if (!isPdf) {
+    // PNG: \x89PNG\r\n\x1a\n (0x89 0x50 0x4E 0x47)
+    const isPng =
+      buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47;
+
+    // JPEG: 0xFF 0xD8 0xFF
+    const isJpeg =
+      buffer.length >= 3 &&
+      buffer[0] === 0xff &&
+      buffer[1] === 0xd8 &&
+      buffer[2] === 0xff;
+
+    // WEBP: RIFF....WEBP (0x52 0x49 0x46 0x46 .... 0x57 0x45 0x42 0x50)
+    const isWebp =
+      buffer.length >= 12 &&
+      buffer[0] === 0x52 &&
+      buffer[1] === 0x49 &&
+      buffer[2] === 0x46 &&
+      buffer[3] === 0x46 &&
+      buffer[8] === 0x57 &&
+      buffer[9] === 0x45 &&
+      buffer[10] === 0x42 &&
+      buffer[11] === 0x50;
+
+    let mimeType = "application/pdf";
+    if (isPdfExt && isPdf) {
+      mimeType = "application/pdf";
+    } else if (isPngExt && isPng) {
+      mimeType = "image/png";
+    } else if (isJpgExt && isJpeg) {
+      mimeType = "image/jpeg";
+    } else if (isWebpExt && isWebp) {
+      mimeType = "image/webp";
+    } else {
       return NextResponse.json(
-        { error: "Вміст файлу не відповідає дійсному формату PDF" },
+        {
+          error: "Вміст файлу не відповідає дійсному формату PDF чи зображення",
+        },
         { status: 400 }
       );
     }
 
-    // 4. Виклик Gemini для інтелектуального парсингу платіжки
+    // 4. Виклик Gemini для інтелектуального парсингу платіжки або фото чека
     const ai = getGeminiClient();
-    const base64Pdf = buffer.toString("base64");
+    const base64File = buffer.toString("base64");
 
-    const prompt = `Проаналізуй цю банківську квитанцію / платіжну інструкцію та витягни дані для фінансового обліку.
+    const prompt = `Проаналізуй цю банківську квитанцію, платіжну інструкцію або чек та витягни дані для фінансового обліку.
 Поверни ВИКЛЮЧНО валідний JSON-об'єкт без будь-якого форматування markdown, лапок чи пояснень, із такими полями:
 - amount: число (сума операції, наприклад 35758.74)
 - currency: рядок (валюта, наприклад UAH, USD, EUR)
@@ -121,8 +168,8 @@ export async function POST(req: Request) {
             parts: [
               {
                 inlineData: {
-                  mimeType: "application/pdf",
-                  data: base64Pdf,
+                  mimeType,
+                  data: base64File,
                 },
               },
               { text: prompt },
@@ -147,8 +194,8 @@ export async function POST(req: Request) {
             parts: [
               {
                 inlineData: {
-                  mimeType: "application/pdf",
-                  data: base64Pdf,
+                  mimeType,
+                  data: base64File,
                 },
               },
               { text: prompt },
@@ -263,8 +310,8 @@ export async function POST(req: Request) {
       fileMeta: {
         fileName: file.name,
         fileSize: file.size,
-        base64: base64Pdf,
-        mimeType: "application/pdf",
+        base64: base64File,
+        mimeType,
       },
     });
   } catch (err: any) {

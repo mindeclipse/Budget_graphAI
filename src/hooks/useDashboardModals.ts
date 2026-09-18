@@ -10,6 +10,7 @@ export function useDashboardModals() {
   const [importModalType, setImportModalType] = useState<
     "expense" | "investment"
   >("expense");
+  const [importModalFile, setImportModalFile] = useState<File | null>(null);
   const [isInzhurImportOpen, setIsInzhurImportOpen] = useState(false);
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
@@ -43,13 +44,17 @@ export function useDashboardModals() {
   const closeCycleModal = useCallback(() => setIsCycleModalOpen(false), []);
 
   const openImportModal = useCallback(
-    (type: "expense" | "investment" = "expense") => {
+    (type: "expense" | "investment" = "expense", file?: File | null) => {
       setImportModalType(type);
+      setImportModalFile(file || null);
       setIsImportModalOpen(true);
     },
     []
   );
-  const closeImportModal = useCallback(() => setIsImportModalOpen(false), []);
+  const closeImportModal = useCallback(() => {
+    setIsImportModalOpen(false);
+    setImportModalFile(null);
+  }, []);
 
   const openInzhurImport = useCallback(() => setIsInzhurImportOpen(true), []);
   const closeInzhurImport = useCallback(() => setIsInzhurImportOpen(false), []);
@@ -103,6 +108,7 @@ export function useDashboardModals() {
     // Import
     isImportModalOpen,
     importModalType,
+    importModalFile,
     openImportModal,
     closeImportModal,
     setIsImportModalOpen,

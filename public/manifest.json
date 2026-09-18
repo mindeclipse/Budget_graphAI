@@ -48,5 +48,29 @@
       "description": "Швидке відкриття форми внесення витрати",
       "url": "/?action=new_expense"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": [
+            "application/pdf",
+            "image/*",
+            ".pdf",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp"
+          ]
+        }
+      ]
+    }
+  }
 }

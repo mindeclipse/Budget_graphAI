@@ -21,6 +21,7 @@ import { BudgetLimitCard } from "@/components/dashboard/BudgetLimitCard";
 import { DashboardModals } from "@/components/dashboard/DashboardModals";
 import { MobileBottomBar } from "@/components/dashboard/MobileBottomBar";
 import { QuickActionsListener } from "@/components/QuickActionsListener";
+import { ShareTargetListener } from "@/components/ShareTargetListener";
 import { TabNavigationHeader } from "@/components/dashboard/tabs/TabNavigationHeader";
 
 import { DashboardOverviewTab } from "@/components/dashboard/tabs/DashboardOverviewTab";
@@ -138,6 +139,7 @@ export default function Dashboard() {
     closeCycleModal,
     isImportModalOpen,
     importModalType,
+    importModalFile,
     openImportModal,
     closeImportModal,
     isInzhurImportOpen,
@@ -343,6 +345,9 @@ export default function Dashboard() {
     <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:px-12">
       <Suspense fallback={null}>
         <QuickActionsListener onAddExpense={openCreateExpense} />
+        <ShareTargetListener
+          onOpenReceipt={(file) => openImportModal("expense", file)}
+        />
       </Suspense>
 
       {/* Офлайн банер та черга несинхронізованих транзакцій */}
@@ -523,6 +528,7 @@ export default function Dashboard() {
         }}
         investments={investments}
         importModalType={importModalType}
+        importModalFile={importModalFile}
         onInvestmentsChange={invalidateWealth}
         isInzhurImportOpen={isInzhurImportOpen}
         onCloseInzhurImport={closeInzhurImport}

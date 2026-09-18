@@ -115,4 +115,50 @@ describe("Receipt PDF Import Route Security & Parsing", () => {
     const json = await res.json();
     expect(json.error).toContain("перевищує ліміт");
   });
+
+  it("відхиляє файл з розширенням .png, якщо magic bytes не відповідають формату PNG", async () => {
+    const token = await createSessionToken();
+    const formData = new FormData();
+    const invalidPng = new Blob([new Uint8Array([0x00, 0x01, 0x02, 0x03])], {
+      type: "image/png",
+    });
+    formData.append("file", invalidPng, "fake.png");
+
+    const req = new Request(
+      "http://localhost:3000/api/transactions/parse-receipt",
+      {
+        method: "POST",
+        headers: { cookie: `finance_session=${token}` },
+        body: formData,
+      }
+    );
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("формату PDF чи зображення");
+  });
+
+  it("відхиляє файл з розширенням .jpg, якщо magic bytes не відповідають формату JPEG", async () => {
+    const token = await createSessionToken();
+    const formData = new FormData();
+    const invalidJpg = new Blob([new Uint8Array([0x00, 0x01, 0x02, 0x03])], {
+      type: "image/jpeg",
+    });
+    formData.append("file", invalidJpg, "fake.jpg");
+
+    const req = new Request(
+      "http://localhost:3000/api/transactions/parse-receipt",
+      {
+        method: "POST",
+        headers: { cookie: `finance_session=${token}` },
+        body: formData,
+      }
+    );
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("формату PDF чи зображення");
+  });
 });

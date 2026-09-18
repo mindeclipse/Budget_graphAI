@@ -17,6 +17,7 @@ export interface BankStatementModalProps {
   onSuccess?: () => void;
   investments?: InvestmentAsset[];
   initialType?: "expense" | "investment";
+  initialFile?: File | null;
   onInvestmentsChange?: () => void;
 }
 
@@ -26,6 +27,7 @@ export function BankStatementModal({
   onSuccess,
   investments = [],
   initialType = "expense",
+  initialFile = null,
   onInvestmentsChange,
 }: BankStatementModalProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -35,7 +37,7 @@ export function BankStatementModal({
     text: string;
   } | null>(null);
 
-  // Режим підтвердження квитанції PDF
+  // Режим підтвердження квитанції PDF або фото чека
   const [parsedReceipt, setParsedReceipt] = useState<ParsedReceiptData | null>(
     null
   );
@@ -63,12 +65,7 @@ export function BankStatementModal({
     onClose();
   };
 
-  if (!isOpen) return null;
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
       setStatus({
         type: "error",
@@ -80,15 +77,21 @@ export function BankStatementModal({
 
     const lowerName = file.name.toLowerCase();
     const isPdf = lowerName.endsWith(".pdf");
+    const isImage =
+      lowerName.endsWith(".png") ||
+      lowerName.endsWith(".jpg") ||
+      lowerName.endsWith(".jpeg") ||
+      lowerName.endsWith(".webp") ||
+      file.type.startsWith("image/");
     const isExcelOrCsv =
       lowerName.endsWith(".xlsx") ||
       lowerName.endsWith(".xls") ||
       lowerName.endsWith(".csv");
 
-    if (!isPdf && !isExcelOrCsv) {
+    if (!isPdf && !isImage && !isExcelOrCsv) {
       setStatus({
         type: "error",
-        text: "Дозволені лише файли виписок (.xlsx, .xls, .csv) або квитанцій (.pdf)",
+        text: "Дозволені лише файли виписок (.xlsx, .xls, .csv) або квитанцій (.pdf, .png, .jpg, .webp)",
       });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -96,10 +99,10 @@ export function BankStatementModal({
 
     setStatus(null);
 
-    // ── Сценарій 1: Квитанція у форматі PDF (AI-аналіз Gemini) ─────────────────────
-    if (isPdf) {
+    // ── Сценарій 1: Квитанція PDF або фото/скріншот чека (AI-аналіз Gemini) ──────
+    if (isPdf || isImage) {
       setIsLoading(true);
-      setLoadingText("ШІ аналізує банківську квитанцію (Gemini 3.5)...");
+      setLoadingText("ШІ аналізує квитанцію (Gemini 3.5)...");
 
       const formData = new FormData();
       formData.append("file", file);
@@ -203,6 +206,21 @@ export function BankStatementModal({
     }
   };
 
+  useEffect(() => {
+    if (isOpen && initialFile) {
+      processFile(initialFile);
+    }
+  }, [isOpen, initialFile]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       {/* Підкладка для закриття кліком */}
@@ -236,7 +254,7 @@ export function BankStatementModal({
               <p className="text-[11px] text-zinc-400">
                 {parsedReceipt
                   ? `${parsedReceipt.fileMeta.fileName} (${formatFileSize(parsedReceipt.fileMeta.fileSize)})`
-                  : "Підтримуються виписки (.xlsx, .xls, .csv) та квитанції (.pdf)"}
+                  : "Підтримуються виписки (.xlsx, .xls, .csv) та квитанції чи фото чеків (.pdf, .png, .jpg, .webp)"}
               </p>
             </div>
           </div>
