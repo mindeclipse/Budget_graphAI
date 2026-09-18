@@ -14,6 +14,11 @@ export {
 export { generateWeeklyDigest } from "./weekly";
 export { generateCycleSummary } from "./cycle";
 export {
+  calculateWeeklySpendingStats,
+  fetchWeeklyWishlistStats,
+} from "./weekly-stats";
+export { fetchWeeklyCyclePacing } from "./weekly-cycle";
+export {
   getAppUrl,
   getKyivWeekKey,
   formatWeeklyDigestHtml,
