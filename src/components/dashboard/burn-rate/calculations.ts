@@ -10,7 +10,7 @@ export function calculateBurnRateData({
   recurringTotal = 0,
   selectedMonthKey,
   recurring = [],
-  usdRate = 41.5,
+  usdRate = 44.0,
   activeCycle = null,
   currentDate,
 }: CalculateBurnRateParams): BurnRateResult {

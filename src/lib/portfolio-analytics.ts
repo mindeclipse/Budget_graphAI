@@ -7,9 +7,9 @@ export interface ExchangeRates {
 }
 
 export const DEFAULT_RATES: ExchangeRates = {
-  USD: 41.5,
-  EUR: 45.3,
-  PLN: 10.6,
+  USD: 44.0,
+  EUR: 48.0,
+  PLN: 11.0,
 };
 
 /**

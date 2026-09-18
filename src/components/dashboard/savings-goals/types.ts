@@ -37,9 +37,9 @@ export function calculateSavingsMetrics(
   goals: SavingsGoal[],
   monthlyBurnRate: number = 35000,
   rates: { USD: number; EUR: number; PLN: number } = {
-    USD: 41.5,
-    EUR: 45.3,
-    PLN: 10.6,
+    USD: 44.0,
+    EUR: 48.0,
+    PLN: 11.0,
   }
 ): SavingsMetrics {
   let totalSavedUahEquivalent = 0;

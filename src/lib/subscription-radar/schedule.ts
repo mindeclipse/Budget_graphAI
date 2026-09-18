@@ -12,7 +12,7 @@ import {
 export function buildUpcomingSchedule(
   templates: RecurringItem[],
   currentMonthTransactions: Transaction[],
-  usdRate: number = 41.5,
+  usdRate: number = 44.0,
   referenceDate: Date = new Date()
 ): { upcoming: UpcomingScheduleItem[]; metrics: SubscriptionRadarMetrics } {
   const activeTemplates = templates.filter((t) => t.is_active);

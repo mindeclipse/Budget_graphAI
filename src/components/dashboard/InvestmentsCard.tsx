@@ -30,7 +30,7 @@ export {
 
 export const InvestmentsCard = memo(function InvestmentsCard({
   investments,
-  rates = { USD: 41.5, EUR: 45.3, PLN: 10.6 },
+  rates = { USD: 44.0, EUR: 48.0, PLN: 11.0 },
   onRefresh,
 }: InvestmentsCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);

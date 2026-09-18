@@ -67,7 +67,7 @@ export function useBudgetMetrics({
   budgetLimit,
   selectedDate,
   activeCycle,
-  usdRate = 41.5,
+  usdRate = 44.0,
 }: BudgetMetricsParams) {
   // ✅ Оптимізація: Перевірка поточного місяця ізольована в useMemo
   const isCurrentMonth = useMemo(() => {

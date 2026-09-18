@@ -20,7 +20,7 @@ export type { SavingsMetrics, CurrencyTotalInfo } from "./savings-goals";
 export const SavingsGoalsCard = memo(function SavingsGoalsCard({
   goals,
   monthlyBurnRate = 35000,
-  rates = { USD: 41.5, EUR: 45.3, PLN: 10.6 },
+  rates = { USD: 44.0, EUR: 48.0, PLN: 11.0 },
   onRefresh,
 }: SavingsGoalsCardProps) {
   const [goalToDeposit, setGoalToDeposit] = useState<SavingsGoal | null>(null);
