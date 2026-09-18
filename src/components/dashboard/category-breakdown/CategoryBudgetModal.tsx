@@ -19,7 +19,7 @@ export const CategoryBudgetModal = React.memo(function CategoryBudgetModal({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
 
-      <div className="relative z-10 flex max-h-[90dvh] min-h-0 w-full max-w-xs flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl duration-200 sm:max-h-[85vh] sm:rounded-3xl">
+      <div className="relative z-10 flex max-h-[90vh] min-h-0 w-full max-w-md flex-col overscroll-contain rounded-t-[28px] border border-zinc-800 bg-zinc-950 shadow-2xl sm:max-h-[85vh] sm:max-w-xs sm:rounded-3xl">
         {/* Mobile handle indicator */}
         <div className="mx-auto mt-3 h-1.5 w-11 shrink-0 rounded-full bg-zinc-700/50 sm:hidden" />
 
@@ -48,11 +48,12 @@ export const CategoryBudgetModal = React.memo(function CategoryBudgetModal({
               <input
                 type="number"
                 step="any"
+                inputMode="decimal"
                 required
                 placeholder="наприклад 5000"
                 value={limitInput}
                 onChange={(e) => onLimitInputChange(e.target.value)}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-base text-white focus:border-sky-500 focus:outline-none sm:text-sm"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-base text-white focus:border-sky-500 focus:outline-none sm:text-sm"
               />
             </div>
 
@@ -70,7 +71,7 @@ export const CategoryBudgetModal = React.memo(function CategoryBudgetModal({
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 sm:pb-4">
+          <div className="flex shrink-0 gap-2 border-t border-zinc-800/80 px-5 py-3.5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-4 sm:pb-4">
             {categoryBudgets[categoryName] && onDelete && (
               <button
                 type="button"
