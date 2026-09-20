@@ -77,6 +77,8 @@ export default function Dashboard() {
 
   // Демо-режим (для демонстрацій, портфоліо та безпечних скріншотів)
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [isDemoBannerDismissed, setIsDemoBannerDismissed] =
+    useState<boolean>(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -402,7 +404,7 @@ export default function Dashboard() {
   return (
     <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:px-12">
       {/* Індикатор демо-режиму для скріншотів і портфоліо */}
-      {isDemoMode && (
+      {isDemoMode && !isDemoBannerDismissed && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-500/30 bg-sky-950/40 p-3.5 shadow-lg backdrop-blur-md">
           <div className="flex items-center gap-2 text-xs font-medium text-sky-200">
             <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-sky-400" />
@@ -411,21 +413,32 @@ export default function Dashboard() {
               для скріншотів (ваша база даних захищена й не змінюється).
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setIsDemoMode(false);
-              if (
-                typeof window !== "undefined" &&
-                window.location.search.includes("demo=true")
-              ) {
-                window.history.replaceState({}, "", window.location.pathname);
-              }
-            }}
-            className="shrink-0 rounded-xl border border-sky-400/40 bg-sky-500/20 px-3 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/30"
-          >
-            Вийти з демо
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsDemoMode(false);
+                if (
+                  typeof window !== "undefined" &&
+                  window.location.search.includes("demo=true")
+                ) {
+                  window.history.replaceState({}, "", window.location.pathname);
+                }
+              }}
+              className="shrink-0 rounded-xl border border-sky-400/40 bg-sky-500/20 px-3 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/30"
+            >
+              Вийти з демо
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDemoBannerDismissed(true)}
+              title="Приховати банер для чистих скріншотів"
+              aria-label="Приховати банер"
+              className="flex h-7 w-7 items-center justify-center rounded-xl border border-sky-400/30 bg-sky-500/10 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/25 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
