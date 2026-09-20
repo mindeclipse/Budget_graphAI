@@ -438,7 +438,7 @@ npm run build
 
 ## 📡 Key API Endpoints
 
-| Route                             |                Method               | Purpose                                          | Security & Architecture                         |
+| Route                             |               Method                | Purpose                                          | Security & Architecture                         |
 | :-------------------------------- | :---------------------------------: | :----------------------------------------------- | :---------------------------------------------- |
 | `/api/auth`                       |               `POST`                | Authenticate using PIN code                      | Constant-time comparison, Rate limited          |
 | `/api/auth/webauthn/login`        |           `GET` / `POST`            | WebAuthn challenge generation & verification     | Stateless sealed HMAC challenge, Counter check  |
