@@ -53,7 +53,7 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 
 - **Zero-Trust Security:** Hardware FIDO2 authentication (Face ID / Touch ID), stateless HMAC-sealed challenge cookies with zero database overhead, client-side PBKDF2 offline PIN cryptography with progressive brute-force lockout, and a strict Content Security Policy.
 - **Offline-First Resilience:** Seamless operation without internet access via a 3-tier Native Service Worker, background sync queue, and TanStack Query v5 optimistic mutations.
-- **Non-Linear Financial Mathematics:** Weighted Burn Rate modeling, Personal CPI tracking via the Laspeyres index formula, Cost-Per-Use (CPU) asset amortization, and penny-accurate ($0.01$) transaction split validation.
+- **Non-Linear Financial Mathematics:** Weighted Burn Rate modeling, Personal CPI tracking via the Laspeyres index formula, Cost-Per-Use (CPU) asset amortization, and penny-accurate (0.01 ₴) transaction split validation.
 - **Multi-Agent Multimodal AI:** Cascade of Google Gemini models (2.5 / 3.5 / 3.7 Flash) for real-time receipt OCR via Web Share Target API, full-cycle financial health audits, and Telegram voice message transcription.
 - **Automated Multi-Source Reconciliation:** High-performance parsers for bank statements (Monobank, PrivatBank) with noise-stripping and REIT broker reports (Inzhur) with bi-directional transfer deduplication.
 - **Interactive In-Memory Sandbox:** Instant zero-setup evaluation populated with realistic financial records (Inzhur REIT distributions, OVDP bonds, Monobank/PrivatBank transactions, and Gemini AI audits) with zero database mutations.
@@ -120,14 +120,18 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 
 - **Cycle-First Architecture (`src/lib/cycle-utils.ts`):** Budgets are synchronized with dynamic paycheck cycles (e.g., 10th to 9th of next month) rather than artificial calendar boundaries.
 - **Weighted Pacing & Burn Rate Simulator (`src/lib/weighted-pacing.ts`):**
-  $$\text{Target Daily Burn} = \frac{\text{Remaining Budget}}{\sum_{d \in \text{Remaining Days}} w(d)}$$
-  Incorporates weekend spending elasticity ($w_{\text{weekday}} = 1.0$, $w_{\text{weekend}} = 1.35$) to produce an achievable, realistic daily allowance curve.
+
+  <p align="center">
+    <img src="docs/assets/formula-burn-rate.svg" alt="Weighted Burn Rate Formula" width="620" />
+  </p>
+
+  Incorporates weekend spending elasticity (`w_weekday = 1.0`, `w_weekend = 1.35`) to produce an achievable, realistic daily allowance curve.
 
 - **Personal CPI (Personal Inflation Index) (`src/lib/personal-cpi.ts`):** Calculates a Laspeyres-weighted consumer basket inflation rate across expenditure categories compared to previous cycles.
 - **Subscription Leak Radar (`src/lib/subscription-radar/`):** Automated recurring expense detector analyzing cadence intervals and merchant signatures to surface forgotten subscriptions.
 - **Cost-Per-Use (CPU) Tracker (`src/components/dashboard/modals/AddCostPerUseModal.tsx`):** Quantifies return on investment for major purchases (electronics, gear, clothing) by amortizing cost over usage frequency and ownership lifespan.
 - **Runway & Emergency Fund Simulator:** Calculates financial runway reserves (months of baseline survival upon unexpected income cessation).
-- **Penny-Accurate Transaction Split (`src/components/SplitTransactionModal.tsx`):** Distributes itemized receipts across budget envelopes with exact penny balance enforcement ($0.01$).
+- **Penny-Accurate Transaction Split (`src/components/SplitTransactionModal.tsx`):** Distributes itemized receipts across budget envelopes with exact penny balance enforcement (0.01 ₴).
 - **Smart Round-Up ("Spare Change Vaults") (`src/lib/roundup-utils.ts`):** Virtual coin round-ups (to the nearest 10, 50, or 100 ₴) accelerating targeted savings goals.
 
 ### 🤖 3. Multimodal AI Financial Partner (Google Gemini)
