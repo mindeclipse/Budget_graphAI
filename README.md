@@ -13,7 +13,7 @@
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-4285f4?style=for-the-badge&logo=fido)](https://fidoalliance.org/)
 [![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-6da55f?style=for-the-badge&logo=vitest>)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-f59e0b?style=for-the-badge&logo=pwa)](https://web.dev/progressive-web-apps/)
-[![Demo](https://img.shields.io/badge/Demo-Interactive_Sandbox-38bdf8?style=for-the-badge&logo=googlechrome&logoColor=white)](#-interactive-demo-sandbox)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-38bdf8?style=for-the-badge&logo=vercel&logoColor=white)](https://budget-graph-ai-w8r2.vercel.app/?demo=true)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 <p align="center">
@@ -21,7 +21,13 @@
   Combines passwordless hardware biometrics (FIDO2 / Passkeys), non-linear cycle mathematics (Weighted Burn Rate), automated broker and bank statement reconciliation, inflation defense (Personal CPI), a multimodal AI copilot powered by Google Gemini, and a full-duplex Telegram bot with real-time infographic generation.
 </p>
 
-[✨ Interactive Demo](#-interactive-demo-sandbox) •
+<p align="center">
+  <a href="https://budget-graph-ai-w8r2.vercel.app/?demo=true">
+    <img src="https://img.shields.io/badge/⚡_Launch_Live_Interactive_Demo-budget--graph--ai--w8r2.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="Launch Live Demo" />
+  </a>
+</p>
+
+[🚀 Live Demo](https://budget-graph-ai-w8r2.vercel.app/?demo=true) •
 [📱 UI Showcase](#-application-showcase) •
 [✨ Key Features](#-key-capabilities--engineering-features) •
 [📐 Architecture](#-system-architecture) •
@@ -446,7 +452,14 @@ npm run build
 
 ### 🎮 Interactive Demo Sandbox (Zero Setup Required)
 
-Want to explore the complete operating system right away without configuring Supabase, external APIs, or environment variables?
+#### 🌐 Option A: Instant Web Access (Zero Installation)
+
+Explore the deployed production build instantly in your browser:  
+👉 **[https://budget-graph-ai-w8r2.vercel.app/?demo=true](https://budget-graph-ai-w8r2.vercel.app/?demo=true)**
+
+#### 💻 Option B: Local 60-Second Run
+
+Want to run and inspect the sandbox locally?
 
 ```bash
 # 1. Clone the repository and install dependencies
