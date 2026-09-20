@@ -87,7 +87,7 @@ describe("Calendar Events API (/api/calendar/events)", () => {
                   currency: "UAH",
                   yield_percent: 10,
                   maturity_date: null,
-                  notes: "щомісячні виплати 20 числа",
+                  notes: null,
                 },
               ],
               error: null,
@@ -137,7 +137,14 @@ describe("Calendar Events API (/api/calendar/events)", () => {
       expect(eventIds).toContain("cycle-end-cycle-sept-2026");
       expect(eventIds).toContain("recurring-1");
       expect(eventIds).toContain("investment-maturity-10");
+      expect(eventIds).toContain("investment-dividend-11");
       expect(eventIds).toContain("custom-101");
+
+      const inzhurEvent = json.events.find(
+        (e: any) => e.id === "investment-dividend-11"
+      );
+      expect(inzhurEvent?.date).toBe("2026-09-10");
+      expect(inzhurEvent?.title).toContain("Inzhur Supermarket");
     });
   });
 

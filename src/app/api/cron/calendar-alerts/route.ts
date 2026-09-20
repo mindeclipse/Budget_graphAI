@@ -178,6 +178,46 @@ export async function GET(req: NextRequest) {
           }
         });
       }
+
+      // Щомісячні дивіденди Inzhur REIT (10 числа) або день з notes
+      const isInzhur =
+        inv.asset_type === "reit" ||
+        inv.asset_name?.toLowerCase().includes("inzhur");
+
+      let divDay: number | null = null;
+      if (isInzhur) {
+        divDay = 10;
+      }
+      const dayMatch = inv.notes?.match(/(\d{1,2})[-. ]*(числа|число|день)/i);
+      if (dayMatch && dayMatch[1]) {
+        const parsed = parseInt(dayMatch[1], 10);
+        if (parsed >= 1 && parsed <= 31) divDay = parsed;
+      }
+
+      if (divDay) {
+        targetDays.forEach((days) => {
+          const tDate = new Date(today);
+          tDate.setDate(tDate.getDate() + days);
+          if (tDate.getDate() === divDay) {
+            let monthlyYieldAmount: number | null = null;
+            if (inv.yield_percent && inv.current_value) {
+              monthlyYieldAmount = Math.round(
+                (Number(inv.current_value) *
+                  (Number(inv.yield_percent) / 100)) /
+                  12
+              );
+            }
+            foundAlerts.push({
+              daysRemaining: days,
+              category: "investment",
+              title: `💰 Дивіденди: ${inv.asset_name}`,
+              amount: monthlyYieldAmount,
+              currency: inv.currency || "UAH",
+              type: "income",
+            });
+          }
+        });
+      }
     });
 
     // 4. Перевірка кастомних подій (financial_events)

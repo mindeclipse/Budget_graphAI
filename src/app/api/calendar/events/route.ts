@@ -169,6 +169,53 @@ export async function GET(req: NextRequest) {
           });
         }
       }
+
+      // Щомісячні дивіденди Inzhur REIT (10 числа) або активи із зазначеним днем у notes
+      const isInzhur =
+        inv.asset_type === "reit" ||
+        inv.asset_name?.toLowerCase().includes("inzhur");
+
+      let payoutDay: number | null = null;
+      if (isInzhur) {
+        payoutDay = 10;
+      }
+
+      const dayMatch = inv.notes?.match(/(\d{1,2})[-. ]*(числа|число|день)/i);
+      if (dayMatch && dayMatch[1]) {
+        const parsedDay = parseInt(dayMatch[1], 10);
+        if (parsedDay >= 1 && parsedDay <= 31) {
+          payoutDay = parsedDay;
+        }
+      }
+
+      if (payoutDay) {
+        const clampedDay = Math.min(payoutDay, daysInMonth);
+        const payoutDayPadded = String(clampedDay).padStart(2, "0");
+        const monthPadded = String(month + 1).padStart(2, "0");
+        const payoutDate = `${year}-${monthPadded}-${payoutDayPadded}`;
+
+        let monthlyYieldAmount: number | null = null;
+        if (inv.yield_percent && inv.current_value) {
+          monthlyYieldAmount = Math.round(
+            (Number(inv.current_value) * (Number(inv.yield_percent) / 100)) / 12
+          );
+        }
+
+        timelineItems.push({
+          id: `investment-dividend-${inv.id}`,
+          title: `💰 Дивіденди: ${inv.asset_name}`,
+          date: payoutDate,
+          source: "investment",
+          type: "income",
+          amount: monthlyYieldAmount,
+          currency: inv.currency || "UAH",
+          metadata: {
+            assetType: inv.asset_type,
+            yieldPercent: inv.yield_percent,
+            payoutDay: clampedDay,
+          },
+        });
+      }
     });
 
     // 4. Кастомні події (financial_events)
