@@ -4,6 +4,46 @@
 
 ---
 
+## 📱 Application Preview
+
+<div align="center">
+  <img src="docs/screenshots/desktop-hero.png" alt="BudgetGraph OS Desktop Dashboard" width="900" />
+  <p><em>Real-Time Pacing Engine, Daily Burn-Rate Forecasting Curve & Cycle Health</em></p>
+</div>
+
+<br />
+
+<div align="center">
+  <img src="docs/screenshots/desktop-ai-radar.png" alt="AI Financial Co-Pilot & Subscription Radar" width="900" />
+  <p><em>Agentic AI Financial Co-Pilot (Gemini), Expense Structure & Automated Subscription Radar</em></p>
+</div>
+
+<br />
+
+<div align="center">
+  <img src="docs/screenshots/desktop-history.png" alt="Transaction Intelligence & History" width="900" />
+  <p><em>Fuzzy Search, Context Hashtags (#trip, #weekend), and Transaction Breakdown</em></p>
+</div>
+
+<br />
+
+<div align="center">
+  <table border="0">
+    <tr>
+      <td width="35%" align="center" valign="top">
+        <p><b>📱 Mobile-First PWA</b></p>
+        <img src="docs/screenshots/mobile-pwa.png" alt="BudgetGraph OS Mobile PWA" width="290" />
+      </td>
+      <td width="65%" align="center" valign="top">
+        <p><b>💎 Wealth, Goals & Cost-per-Use</b></p>
+        <img src="docs/screenshots/desktop-wealth.png" alt="Wealth Management & Goals" width="580" />
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
 ## 🎯 What Problem Does This Solve?
 
 Most personal finance apps suffer from one or more structural problems:

@@ -71,7 +71,7 @@ export function getDemoData() {
     {
       offsetDays: 1,
       amount: 320.0,
-      category: "Аптека",
+      category: "Продукти",
       merchant: "Аптека Доброго Дня",
       source: "Apple Pay",
     },
@@ -92,7 +92,7 @@ export function getDemoData() {
     {
       offsetDays: 3,
       amount: 890.0,
-      category: "Подорожі",
+      category: "Транспорт",
       merchant: "Укрзалізниця (Інтерсіті)",
       source: "Monobank",
       tags: ["trip", "weekend"],
@@ -107,7 +107,7 @@ export function getDemoData() {
     {
       offsetDays: 5,
       amount: 1780.0,
-      category: "Одяг",
+      category: "Розваги",
       merchant: "Zara Man",
       source: "Apple Pay",
     },
@@ -121,7 +121,7 @@ export function getDemoData() {
     {
       offsetDays: 6,
       amount: 350.0,
-      category: "Комунікації",
+      category: "Підписки",
       merchant: "Kyivstar Тариф",
       source: "Apple Pay",
     },
@@ -142,7 +142,7 @@ export function getDemoData() {
     {
       offsetDays: 8,
       amount: 2400.0,
-      category: "Здоров'я",
+      category: "Розваги",
       merchant: "Добробут (Консультація)",
       source: "Monobank",
     },
@@ -198,7 +198,7 @@ export function getDemoData() {
     {
       offsetDays: 14,
       amount: 3500.0,
-      category: "Комуналка",
+      category: "Підписки",
       merchant: "Комунальні послуги ГІОЦ",
       source: "Monobank",
     },
@@ -241,7 +241,7 @@ export function getDemoData() {
       id: 90099,
       amount: 650.0,
       currency: "UAH",
-      category_name: "Дім та побут",
+      category_name: "Розваги",
       merchant_raw: "Епіцентр К (Інструменти)",
       source: "Apple Pay",
       type: "expense",
@@ -252,13 +252,10 @@ export function getDemoData() {
 
   const categoryBudgets: Record<string, number> = {
     Продукти: 14000,
-    "Кафе та ресторани": 6500,
-    Транспорт: 5500,
-    Підписки: 1800,
-    "Здоров'я": 3500,
-    Розваги: 3000,
-    Комуналка: 4000,
-    Одяг: 4500,
+    Розваги: 7000,
+    Транспорт: 6500,
+    Підписки: 6000,
+    "Кафе та ресторани": 4500,
   };
 
   const savingsGoals: SavingsGoal[] = [
