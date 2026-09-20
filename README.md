@@ -1,42 +1,91 @@
+<div align="center">
+
 # 🏛️ BudgetGraph OS
 
-> **A high-performance, local-first personal finance and wealth management PWA featuring zero-trust biometric authentication, intelligent cashflow forecasting, and an agentic AI financial co-pilot.**
+### _Autonomous Personal Finance & Wealth Operating System_
+
+[![Next.js](<https://img.shields.io/badge/Next.js-16.3.4_(Turbopack)-black?style=for-the-badge&logo=next.js>)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2.8-61dafb?style=for-the-badge&logo=react)](https://react.dev/)
+[![TypeScript](<https://img.shields.io/badge/TypeScript-5.9.3_(Strict)-3178c6?style=for-the-badge&logo=typescript>)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38bdf8?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_RLS-3ecf8e?style=for-the-badge&logo=supabase)](https://supabase.com/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_%7C_3.5_%7C_3.7_Flash-8e75ff?style=for-the-badge&logo=googlegemini)](https://ai.google.dev/)
+[![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-4285f4?style=for-the-badge&logo=fido)](https://fidoalliance.org/)
+[![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-6da55f?style=for-the-badge&logo=vitest>)](https://vitest.dev/)
+[![PWA](https://img.shields.io/badge/PWA-Offline--First-f59e0b?style=for-the-badge&logo=pwa)](https://web.dev/progressive-web-apps/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+
+<p align="center">
+  <b>A high-performance autonomous financial command center and next-generation Wealth OS.</b><br/>
+  Combines passwordless hardware biometrics (FIDO2 / Passkeys), non-linear cycle mathematics (Weighted Burn Rate), automated broker and bank statement reconciliation, inflation defense (Personal CPI), a multimodal AI copilot powered by Google Gemini, and a full-duplex Telegram bot with real-time infographic generation.
+</p>
+
+[📱 UI Showcase](#-application-showcase) •
+[✨ Key Features](#-key-capabilities--engineering-features) •
+[📐 Architecture](#-system-architecture) •
+[🛡️ Zero-Trust Security](#-zero-trust-security-architecture) •
+[🧮 FinTech Engine](#-fintech-engine--algorithms) •
+[🤖 AI & Telegram](#-multimodal-ai--telegram-ecosystem) •
+[📁 Directory Structure](#-repository-structure) •
+[🧪 Testing (484 Tests)](#-testing--quality-assurance) •
+[📡 API Reference](#-key-api-endpoints) •
+[🚀 Quick Start](#-quick-start)
 
 ---
 
-## 📱 Application Preview
+</div>
+
+## 📌 Executive Summary
+
+Most personal finance trackers suffer from three fundamental structural flaws:
+
+1. **Calendar Naivety:** They measure cashflow rigidly from the 1st to the 31st of the month, ignoring real-world paycheck cycles and spending elasticity (weekdays vs. weekends).
+2. **Network Dependency & Latency:** Adding expenses at a point-of-sale checkout or in an offline environment (subway, airplane, underground parking) is slow or outright fails.
+3. **Security Compromises:** Storing plaintext passwords on centralized servers, requesting excessive bank API permissions, and leaving financial telemetry vulnerable to third-party exfiltration.
+
+**BudgetGraph OS** is engineered to modern enterprise FinTech standards:
+
+- **Zero-Trust Security:** Hardware FIDO2 authentication (Face ID / Touch ID), stateless HMAC-sealed challenge cookies with zero database overhead, client-side PBKDF2 offline PIN cryptography with progressive brute-force lockout, and a strict Content Security Policy.
+- **Offline-First Resilience:** Seamless operation without internet access via a 3-tier Native Service Worker, background sync queue, and TanStack Query v5 optimistic mutations.
+- **Non-Linear Financial Mathematics:** Weighted Burn Rate modeling, Personal CPI tracking via the Laspeyres index formula, Cost-Per-Use (CPU) asset amortization, and penny-accurate ($0.01$) transaction split validation.
+- **Multi-Agent Multimodal AI:** Cascade of Google Gemini models (2.5 / 3.5 / 3.7 Flash) for real-time receipt OCR via Web Share Target API, full-cycle financial health audits, and Telegram voice message transcription.
+- **Automated Multi-Source Reconciliation:** High-performance parsers for bank statements (Monobank, PrivatBank) with noise-stripping and REIT broker reports (Inzhur) with bi-directional transfer deduplication.
+
+---
+
+## 📱 Application Showcase
 
 <div align="center">
-  <img src="docs/screenshots/desktop-hero.png" alt="BudgetGraph OS Desktop Dashboard" width="900" />
-  <p><em>Real-Time Pacing Engine, Daily Burn-Rate Forecasting Curve & Cycle Health</em></p>
+  <img src="docs/screenshots/desktop-hero.png" alt="BudgetGraph OS Desktop Dashboard" width="900" style="border-radius: 8px; border: 1px solid #30363d;" />
+  <p><em>Executive Analytics Dashboard: Real-Time Pacing Engine, Burn-Rate Forecasting Curve & Daily Cashflow Dynamics</em></p>
 </div>
 
 <br />
 
 <div align="center">
-  <img src="docs/screenshots/desktop-ai-radar.png" alt="AI Financial Co-Pilot & Subscription Radar" width="900" />
-  <p><em>Agentic AI Financial Co-Pilot (Gemini), Expense Structure & Automated Subscription Radar</em></p>
-</div>
-
-<br />
-
-<div align="center">
-  <img src="docs/screenshots/desktop-history.png" alt="Transaction Intelligence & History" width="900" />
-  <p><em>Fuzzy Search, Context Hashtags (#trip, #weekend), and Transaction Breakdown</em></p>
-</div>
-
-<br />
-
-<div align="center">
-  <table border="0">
-    <tr>
-      <td width="35%" align="center" valign="top">
-        <p><b>📱 Mobile-First PWA</b></p>
-        <img src="docs/screenshots/mobile-pwa.png" alt="BudgetGraph OS Mobile PWA" width="290" />
+  <table border="0" style="border: none; width: 100%; max-width: 900px;">
+    <tr style="border: none;">
+      <td width="50%" align="center" valign="top" style="border: none; padding: 8px;">
+        <p><b>🤖 AI Co-Pilot (Gemini) & Subscription Radar</b></p>
+        <img src="docs/screenshots/desktop-ai-radar.png" alt="AI Financial Co-Pilot & Subscription Radar" style="border-radius: 8px; border: 1px solid #30363d; width: 100%;" />
+        <p><sub><em>Personal CPI, recurring subscription leak detection, and conversational AI advisor</em></sub></p>
       </td>
-      <td width="65%" align="center" valign="top">
-        <p><b>💎 Wealth, Goals & Cost-per-Use</b></p>
-        <img src="docs/screenshots/desktop-wealth.png" alt="Wealth Management & Goals" width="580" />
+      <td width="50%" align="center" valign="top" style="border: none; padding: 8px;">
+        <p><b>🔍 Transaction Intelligence & Context Tags</b></p>
+        <img src="docs/screenshots/desktop-history.png" alt="Transaction Intelligence & History" style="border-radius: 8px; border: 1px solid #30363d; width: 100%;" />
+        <p><sub><em>Fuzzy search, itemized receipt splitting, and context hashtags (#trip, #weekend)</em></sub></p>
+      </td>
+    </tr>
+    <tr style="border: none;">
+      <td width="50%" align="center" valign="top" style="border: none; padding: 8px;">
+        <p><b>📱 Mobile-First PWA Experience</b></p>
+        <img src="docs/screenshots/mobile-pwa.png" alt="BudgetGraph OS Mobile PWA" style="border-radius: 8px; border: 1px solid #30363d; max-width: 250px; width: 60%;" />
+        <p><sub><em>Gesture-driven bottom sheets, iOS Safe Area insets, and full offline resilience</em></sub></p>
+      </td>
+      <td width="50%" align="center" valign="top" style="border: none; padding: 8px;">
+        <p><b>💎 Wealth Management & Capital OS</b></p>
+        <img src="docs/screenshots/desktop-wealth.png" alt="Wealth Management & Goals" style="border-radius: 8px; border: 1px solid #30363d; width: 100%;" />
+        <p><sub><em>Multi-asset portfolio (Inzhur, OVDP), multi-currency vaults, and Cost-Per-Use (CPU)</em></sub></p>
       </td>
     </tr>
   </table>
@@ -44,290 +93,407 @@
 
 ---
 
-## 🎯 What Problem Does This Solve?
+## 🌟 Key Capabilities & Engineering Features
 
-Most personal finance apps suffer from one or more structural problems:
+### 🛡️ 1. Bank-Grade Security (Zero-Trust)
 
-1. **Rigid Monthly Calendars:** Most trackers enforce a strict 1st-to-31st monthly view. Real financial life revolves around **dynamic income/paycheck cycles**, making traditional monthly envelopes inaccurate.
-2. **Online-Only Dependence:** Cloud-first financial apps fail on mobile when you're in a basement store, parking garage, or subway with poor connectivity. Entering a purchase right at the point of sale is critical to staying on budget.
-3. **Privacy Concerns:** Uploading intimate spending habits, receipts, and bank statements to closed third-party SaaS servers poses significant data privacy and security risks.
-4. **Passive Dashboards vs. Active Intelligence:** Traditional apps act as passive ledgers. They tell you what you _already_ spent, but lack forward-looking intelligence, actionable advice, or automated multi-currency portfolio tracking.
+- **Hardware Biometrics WebAuthn (Passkeys):** Passwordless authentication via Face ID, Touch ID, or hardware security keys (YubiKey) without transmitting credentials over the wire.
+- **Stateless Sealed Challenge Tokens:** WebAuthn cryptographic challenges are packaged into HMAC-SHA256 signed `HttpOnly` cookies (Web Crypto API), eliminating database round-trips during the authentication handshake for **Zero DB Latency**.
+- **Clone Detection Counter:** Validates the monotonic hardware signature counter on authenticators to defend against replay and cloned key attacks.
+- **Offline PIN Cryptographic Engine (`src/lib/offline-pin.ts`):** Client-side authentication via PBKDF2 (100,000 SHA-256 iterations with cryptographic salt). Features an automatic tamper-evident counter that triggers a 5-minute lockout after 5 consecutive failed attempts.
+- **Constant-Time Operations:** Protects against timing attacks via `crypto.timingSafeEqual` across all token and PIN verifications.
+- **In-Memory Sliding Window Rate Limiting:** Enforces granular request throttles on sensitive endpoints with compliant `Retry-After` headers.
+- **Strict Content Security Policy (CSP):** The `connect-src 'self'` directive ensures no session tokens or financial payloads can be exfiltrated by malicious scripts.
 
-### The Solution: BudgetGraph OS
+### 🧮 2. Non-Linear Financial Mathematics (FinTech Engine)
 
-**BudgetGraph OS** addresses these pain points directly:
+- **Cycle-First Architecture (`src/lib/cycle-utils.ts`):** Budgets are synchronized with dynamic paycheck cycles (e.g., 10th to 9th of next month) rather than artificial calendar boundaries.
+- **Weighted Pacing & Burn Rate Simulator (`src/lib/weighted-pacing.ts`):**
 
-- **Flexible Cycle-First Budgeting:** Budgets and burn-rates align with customizable income cycles with weighted weekday/weekend spending targets.
-- **True Offline-First Architecture:** Instant interactions and offline transaction recording via client-side IndexedDB (Dexie.js), background sync queue, and resilient service worker caching.
-- **Bank-Grade Security (Zero-Trust):** FIDO2/WebAuthn hardware biometrics (Face ID/Touch ID) with cryptographic stateless challenge tokens, client-side PBKDF2 offline PIN encryption, and strict PostgreSQL Row Level Security (RLS).
-- **Multi-Modal AI Financial Partner:** Deeply integrated with Google Gemini (2.5/3.5/3.7 Flash) to analyze full-cycle financial health, parse receipts directly from images/PDFs (via Web Share Target), and interact natively through a Telegram bot.
-- **Holistic Wealth Tracking:** Real-time multi-currency (UAH, USD, EUR, PLN) asset valuation, Inzhur REIT & Ukrainian Treasury Bonds (OVDP) support, asset depreciation (Cost-per-Use), and wishlist cooling-off tracking.
+  ```math
+  \text{Target Daily Burn} = \frac{\text{Remaining Budget}}{\sum_{d \in \text{Remaining Days}} w(d)}
+  ```
 
----
+  Incorporates weekend spending elasticity ($w_{\text{weekday}} = 1.0$, $w_{\text{weekend}} = 1.35$) to produce an achievable, realistic daily allowance curve.
 
-## 🏗️ Architecture & How It Works
+- **Personal CPI (Personal Inflation Index) (`src/lib/personal-cpi.ts`):** Calculates a Laspeyres-weighted consumer basket inflation rate across expenditure categories compared to previous cycles.
+- **Subscription Leak Radar (`src/lib/subscription-radar/`):** Automated recurring expense detector analyzing cadence intervals and merchant signatures to surface forgotten subscriptions.
+- **Cost-Per-Use (CPU) Tracker (`src/components/dashboard/modals/AddCostPerUseModal.tsx`):** Quantifies return on investment for major purchases (electronics, gear, clothing) by amortizing cost over usage frequency and ownership lifespan.
+- **Runway & Emergency Fund Simulator:** Calculates financial runway reserves (months of baseline survival upon unexpected income cessation).
+- **Penny-Accurate Transaction Split (`src/components/SplitTransactionModal.tsx`):** Distributes itemized receipts across budget envelopes with exact penny balance enforcement ($0.01$).
+- **Smart Round-Up ("Spare Change Vaults") (`src/lib/roundup-utils.ts`):** Virtual coin round-ups (to the nearest 10, 50, or 100 ₴) accelerating targeted savings goals.
 
-BudgetGraph OS follows a **modern Local-First, Edge-Assisted Architecture** designed for speed, security, and offline resilience.
+### 🤖 3. Multimodal AI Financial Partner (Google Gemini)
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT (PWA)                              │
-│                                                                        │
-│   ┌─────────────────────┐                 ┌────────────────────────┐   │
-│   │ React 19 / Next.js  │ ◄─(Optimistic)─►│    Dexie.js (Cache)    │   │
-│   │   App & State       │                 │   Offline Sync Queue   │   │
-│   └──────────┬──────────┘                 └───────────┬────────────┘   │
-│              │                                        │                │
-│              │ (Biometrics / FIDO2)                   │ (When Online)  │
-│              ▼                                        │                │
-│   ┌─────────────────────┐                             │                │
-│   │   WebAuthn Engine   │                             │                │
-│   └─────────────────────┘                             │                │
-└──────────────┬────────────────────────────────────────┼────────────────┘
-               │ HTTPS / JSON / Streaming               │ Background Sync
-               ▼                                        ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                        EDGE / BACKEND (Next.js)                        │
-│                                                                        │
-│   ┌────────────────────────────────────────────────────────────────┐   │
-│   │              Proxy & Security Boundary                         │   │
-│   │    - Constant-time HMAC Session Validation                     │   │
-│   │    - Sliding-Window In-Memory Rate Limiting                    │   │
-│   │    - CSV / Formula Injection Sanitizer                         │   │
-│   │    - Strict CSP (connect-src 'self')                           │   │
-│   └──────────────────────┬─────────────────────────────────────────┘   │
-│                          │                                             │
-│       ┌──────────────────┼──────────────────┐                          │
-│       ▼                  ▼                  ▼                          │
-│  ┌─────────┐      ┌─────────────┐     ┌───────────┐                    │
-│  │   API   │      │ AI Analysis │     │ Webhooks  │                    │
-│  │ Routes  │      │   Pipeline  │     │ Engine    │                    │
-│  └────┬────┘      └──────┬──────┘     └─────┬─────┘                    │
-└───────┼──────────────────┼──────────────────┼──────────────────────────┘
-        │                  │                  │
-        ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐    ┌──────────────┐
-│   Supabase   │   │Google Gemini │    │   Telegram   │
-│  PostgreSQL  │   │ Flash Models │    │  Bot Webhook │
-│  (with RLS)  │   │ (Cascade)    │    │ & Canvas Gen │
-└──────────────┘   └──────────────┘    └──────────────┘
-```
+- **Cascade Multi-Model Fallback:**
+  - Primary analytical intelligence: `gemini-3.5-flash` / `gemini-2.5-flash`.
+  - Sub-second categorization & network fallback: `gemini-3.5-flash-lite`.
+  - Heavy synthesis and end-of-cycle audits: `gemini-3.7-flash`.
+- **Web Share Target Receipt OCR (`/share-target`):** Share photos of paper receipts or bank PDFs directly from the native iOS/Android system share sheet — Gemini Vision extracts merchant name, date, currency, total, line items, and assigns categories instantly.
+- **Context-Aware Financial Advisor (`src/components/AIAnalysisDrawer.tsx`):** Conversational advisor aware of complete spending velocity, category limits, and historical trends, providing proactive recommendations and dynamic prompt chips.
+- **Apple Shortcuts Instant Classifier (`/api/classify`):** Low-latency edge route processing transaction push notifications from Apple Pay in under 400ms.
 
-### Core Architectural Layers
+### 📲 4. Full-Duplex Telegram Bot & Dynamic Canvas Generator
 
-1. **Client & Presentation Layer:**
-   - **Framework:** Next.js 16 (App Router) with React 19.
-   - **Styling & Design System:** Tailwind CSS v4 with custom dark mode, fluid mobile ergonomics, bottom sheets, and safe-area insets.
-   - **State Management & Caching:** TanStack React Query v5 provides server-state caching, optimistic UI updates, and stale-while-revalidate data synchronization.
-   - **Data Visualization:** Recharts for responsive, animated velocity and burn-rate curves; custom Canvas/HTML-to-Image engines for shareable financial cards.
+- **Interactive Telegram Webhook (`/api/webhooks/telegram`):** Inline keyboard actions, rapid expense input, and real-time category balance checks directly from messenger.
+- **Natural Language & Voice Parser:** Transcribes voice notes and parses free-form text (e.g., _"Coffee 85 snacks"_) via heuristics and Gemini models.
+- **"What-If" Simulations & Runway Queries:** Simulates the effect of discretionary purchases on cycle runway before the transaction happens.
+- **Dynamic Image Generator (`src/lib/dashboard-image/generator.tsx`):** Renders crisp serverless visual financial dashboard cards (SVG/Canvas) dispatched directly in Telegram digests.
 
-2. **Offline & Edge Layer:**
-   - **Service Worker (`public/sw.js`):** Custom 3-tier caching (Network-First for APIs, Stale-While-Revalidate for static assets, Network-Only for auth).
-   - **Offline Mutation Queue:** Queues mutations when offline, auto-replays and syncs when connectivity is restored, backed by visual offline banners.
-   - **Proxy Guard (`src/proxy.ts`):** Enforces origin verification, anti-tampering headers, and strict Content Security Policy (`connect-src 'self'`).
+### 🏦 5. Wealth OS & Intelligent Reconciliation
 
-3. **Security & Authentication Layer:**
-   - **WebAuthn / FIDO2:** Implemented using `@simplewebauthn`. Supports biometric authenticators (Face ID, Touch ID, Windows Hello) and YubiKeys.
-   - **Stateless Sealed Tokens:** Zero-DB-overhead authentication verification using HMAC-SHA256 encrypted cookies.
-   - **Offline Cryptographic PIN:** Client-side PBKDF2 key derivation with 100,000 iterations and salt, with lockout thresholds protecting against physical theft.
+- **Multi-Asset Ledger:** Real Estate (Inzhur REITs), Ukrainian Treasury Bonds (OVDP), Global Equities, Crypto, Cash, and Multi-Currency Bank Accounts.
+- **Inzhur REIT Import & Reconciliation:** Parses broker Excel/CSV exports and deduplicates transfers against bank checking accounts to prevent double-counting.
+- **Sanitized Bank Statement Parsers:** Tokenizes PDF/CSV statements from Monobank and PrivatBank, stripping terminal noise (terminal IDs, city tags, transaction timestamps, EDRPOU) and neutralizing **CSV Formula Injection** (`=`, `@`, `+`, `-`).
+- **Monobank Webhook Integration (`/api/webhooks/monobank`):** Real-time Monobank transaction ingestion with automatic MCC categorization and merchant normalization.
 
-4. **Intelligence Layer (Google Gemini Integration):**
-   - **Resilient AI Pipeline:** Automatic failover across `gemini-3.5-flash`, `gemini-3.5-flash-lite`, and `gemini-3.7-flash`.
-   - **Multi-Modal Vision:** Processes receipt photographs and bank statement PDFs (extracting vendor, totals, date, currency, line items) directly via mobile camera or OS Share Target.
-   - **Comprehensive Context Window:** Ingests entire spending history, cashflow velocity, budget limits, and financial goals for nuanced advisory.
+### ⚡ 6. Offline-First PWA & Mobile Ergonomics
 
-5. **Data & Storage Layer:**
-   - **Database:** Supabase PostgreSQL with 100% table isolation enforced through Row Level Security (RLS).
-   - **Migrations:** Versioned schema migrations covering financial expansions, audit logs, performance B-tree indexes, and soft-delete retention policies.
+- **3-Tier Native Service Worker (`public/sw.js`):**
+  - `Network-Only`: For sensitive biometric routes, PIN verification, and exports.
+  - `Network-First with Cache Fallback`: For live transaction ledgers and financial queries.
+  - `Stale-While-Revalidate`: For static JavaScript and CSS Next.js chunks.
+- **Background Sync Queue (`src/lib/offline-queue.ts`):** Records transactions offline in IndexedDB and transparently replays them upon network recovery.
+- **Mobile Ergonomics & Zero Layout Shift:** All dialogs adapt as native Bottom Sheets adhering to `env(safe-area-inset-bottom)`, scroll isolation (`overscroll-contain`), and virtual keyboard height stabilization.
 
 ---
 
-## ✨ Key Capabilities & Modules
+## 📐 System Architecture
 
-### 1. Budgeting & Pacing
+### 1. High-Level System Topology
 
-- **Custom Cycle Periods:** Set custom start/end dates for each budget period (aligned with your salary).
-- **Weighted Pacing:** Automatically assigns higher spend expectations to weekends versus weekdays so your daily allowance is realistic.
-- **Overspend Protection:** Visual gauges and real-time warnings when burn rate surpasses projected velocity.
+```mermaid
+flowchart TD
+    subgraph ClientLayer ["Client Layer (PWA / iOS / Android / Desktop)"]
+        UI["Next.js 16 App Router\n(React 19 + Tailwind CSS v4)"]
+        SW["Native Service Worker (sw.js)\n(3-Tier Cache Strategy)"]
+        OfflineQueue["Offline Queue\n(Optimistic Mutations Sync)"]
+        Biometrics["WebAuthn Sensor\n(Face ID / Touch ID / FIDO2)"]
+    end
 
-### 2. Wealth & Asset Management
+    subgraph SecurityBoundary ["Next.js Server API & Security Perimeter (Zero-Trust)"]
+        Proxy["Proxy / Middleware\n(CSRF, Origin & Header Guard)"]
+        HMACGuard["Stateless HMAC Session Guard\n(Constant-Time Verification)"]
+        RateLimiter["In-Memory Sliding Window\nRate Limiter"]
+        InputSanitizer["Zod Validation &\nFormula Injection Sanitizer"]
+    end
 
-- **Multi-Asset Portfolio:** Track Real Estate (Inzhur REITs), Government Bonds (OVDP), Stocks, Crypto, Cash, and Bank Accounts.
-- **Automated Currency Conversion:** Dynamic NBU / Monobank / PrivatBank rate fetching with local caching and fallback safeguards.
-- **Cost-Per-Use (CPU) Calculator:** Quantify return-on-investment for major purchases by tracking cost per usage over time.
-- **Wishlist with Cooling-Off Timer:** Curb impulsive spending with configurable cooling periods (e.g. 14 or 30 days) and track saved amounts when desires fade.
+    subgraph ProcessingEngines ["Core Business Engines & Analytics"]
+        PacingEngine["Weighted Burn Rate &\nCycle Pacing Engine"]
+        StatementParsers["Bank & Broker Parsers\n(Monobank, Privat, Inzhur)"]
+        Reconciler["Deduplication &\nReconciliation Service"]
+        CanvasGen["Dynamic Financial Card\nImage Generator (SVG/Canvas)"]
+    end
 
-### 3. Smart Import & Automation
+    subgraph ExternalEcosystem ["External Services & Artificial Intelligence"]
+        GeminiCascade["Google Gemini AI Cascade\n(3.5-Flash ➔ 3.5-Lite ➔ 3.7-Flash)"]
+        SupabaseDB[("Supabase PostgreSQL\n(Row Level Security + Indexes)")]
+        MonobankAPI["Monobank Webhook &\nCurrency Exchange API"]
+        TelegramAPI["Telegram Bot API\n(Interactive Digest & Alerts)"]
+    end
 
-- **Bank Statement Parsers:** Drag-and-drop or upload PDF/CSV statements from Ukrainian banks (Monobank, PrivatBank) with automated noise-cleaning and transaction reconciliation.
-- **Inzhur Integration:** Import official investment reports, automatically matching bank debits with broker credits.
-- **Apple Shortcuts Endpoint:** Dedicated `/api/classify` endpoint to capture Apple Pay notification events and categorize transactions instantly.
-- **Web Share Target:** Share images or PDFs from any app directly into BudgetGraph on iOS and Android.
-
-### 4. Telegram Bot Companion
-
-- **Real-Time Logging:** Submit expenses via text (e.g., `Кава 85`) or voice message.
-- **Dynamic Infographics:** Receive rendered graphical budget cards directly in chat.
-- **Interactive Queries:** Run "What-If" simulations (e.g. `What if I spend 4000 on a weekend trip?`) to preview the effect on your end-of-cycle runway.
-- **Scheduled Automated Digests:** Receive proactive Friday weekend alerts and Monday reset summaries via cron tasks.
+    UI <--> SW
+    SW <--> OfflineQueue
+    UI <--> Biometrics
+    UI <--> Proxy
+    Proxy --> HMACGuard
+    HMACGuard --> RateLimiter
+    RateLimiter --> InputSanitizer
+    InputSanitizer --> PacingEngine
+    InputSanitizer --> StatementParsers
+    StatementParsers --> Reconciler
+    Reconciler --> SupabaseDB
+    PacingEngine --> SupabaseDB
+    InputSanitizer --> GeminiCascade
+    InputSanitizer --> CanvasGen
+    CanvasGen --> TelegramAPI
+    MonobankAPI --> Proxy
+    TelegramAPI <--> Proxy
+```
 
 ---
 
-## 💻 Tech Stack
+### 2. Zero-Trust WebAuthn & Offline PIN Handshake
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User
+    participant Browser as PWA Client
+    participant Server as Next.js API
+    participant Auth as WebAuthn Authenticator
+    participant DB as Supabase PostgreSQL
+
+    alt Online Authentication via Passkeys (WebAuthn)
+        User->>Browser: Selects "Sign in with Face ID / Touch ID"
+        Browser->>Server: GET /api/auth/webauthn/login (Request Challenge)
+        Server-->>Browser: Returns Challenge + Cookie (HMAC Sealed Challenge)
+        Browser->>Auth: navigator.credentials.get({ challenge })
+        Auth-->>Browser: Signed Hardware Assertion (Signature + AuthenticatorData)
+        Browser->>Server: POST /api/auth/webauthn/login (Verify Assertion)
+        Note over Server: Unpacks HMAC Cookie (Zero DB query for challenge)<br/>Verifies signature, origin, and counter
+        Server->>DB: Updates authenticator monotonic counter
+        Server-->>Browser: Sets HttpOnly HMAC Session Cookie
+        Browser-->>User: Instant Dashboard Access
+    else Offline Authentication (Offline PIN)
+        User->>Browser: Enters 4-digit PIN
+        Browser->>Browser: Reads local salt and hash from secure storage
+        Browser->>Browser: Derives PBKDF2(PIN, salt, 100k, SHA-256)
+        alt Hash Matches
+            Browser->>Browser: Resets failure counter, unlocks local state
+            Browser-->>User: Access granted to offline dashboard
+        else Hash Mismatch
+            Browser->>Browser: Increments failed attempt counter
+            Note over Browser: If failed attempts >= 5 ➔ 5-minute lockout
+            Browser-->>User: PIN Error / Lockout countdown timer
+        end
+    end
 ```
-Runtime & Framework:     Next.js 16.3.4 (App Router, Turbopack)
-Language:                TypeScript 5.9.3 (Strict Mode)
-Frontend:                React 19.2.8, Tailwind CSS v4, Lucide Icons
-State & Cache:           TanStack React Query v5, Dexie.js (IndexedDB)
-Visualization:           Recharts 3.10.1, HTML5 Canvas
-Database & Auth:         Supabase (PostgreSQL 15+), SimpleWebAuthn v14
-AI / LLM:                Google GenAI SDK (@google/genai) — Gemini 2.5/3.5/3.7
-Testing:                 Vitest 5.0.0 (484 tests), JSDOM
-CI/CD & DevOps:          GitHub Actions, Vercel
+
+---
+
+### 3. Transaction Ingestion & Reconciliation Pipeline
+
+```mermaid
+flowchart LR
+    A[Transaction Sources] -->|Monobank Webhook| B(Ingestion Gateway)
+    A -->|Apple Shortcuts API| B
+    A -->|Bank PDF/CSV Import| B
+    A -->|Inzhur REIT Excel| B
+    A -->|Receipt Camera / Share| B
+    A -->|Telegram Voice / Text| B
+
+    B --> C{Validation & Sanitization}
+    C -->|Excel Formulas & XSS| D[Sanitizer: Strip Injection]
+    C -->|Zod Schema| E[Strict Type Validator]
+
+    D --> F[AI Entity Extraction & MCC Mapping]
+    E --> F
+    F --> G{Reconciliation Engine}
+    G -->|Inter-account Transfer Detected| H[Mark as Non-budget Transfer]
+    G -->|Unique Transaction| I[Supabase DB: INSERT with RLS]
+    I --> J[Background Cache Invalidation / Broadcast]
 ```
+
+---
+
+## 🛠️ Technology Stack & Engineering Rationale
+
+| Component                   | Technology                     | Version         | Engineering Rationale                                                                          |
+| :-------------------------- | :----------------------------- | :-------------- | :--------------------------------------------------------------------------------------------- |
+| **Framework**               | **Next.js (App Router)**       | `16.3.4`        | Server Actions, Route Handlers, Turbopack build pipeline, zero Express overhead.               |
+| **UI Library**              | **React**                      | `19.2.8`        | Latest React engine with native concurrent features and high-efficiency rendering.             |
+| **Language**                | **TypeScript**                 | `5.9.3`         | Strict mode (`strict: true`), zero untyped `any`, end-to-end type safety from schema to UI.    |
+| **Styling**                 | **Tailwind CSS**               | `v4.0`          | High-performance Rust-based engine, zero runtime CSS footprint, and clean design tokens.       |
+| **Database**                | **Supabase (PostgreSQL)**      | `Latest`        | Row Level Security (RLS), soft-delete triggers, and composite B-Tree indexes for fast queries. |
+| **Artificial Intelligence** | **Google GenAI SDK**           | `@google/genai` | Native integration with Gemini 2.5/3.5/3.7 Flash models, structured outputs, low latency.      |
+| **Biometrics**              | **SimpleWebAuthn**             | `v14.0`         | Comprehensive FIDO2/WebAuthn Level 3 implementation for passwordless biometric login.          |
+| **Server State**            | **TanStack React Query**       | `v5.102`        | Optimistic UI updates, smart cache invalidation, and automatic background refetching.          |
+| **Data Visualization**      | **Recharts**                   | `v3.10`         | Declarative financial charts with smooth animations and responsive interactive tooltips.       |
+| **Spreadsheet Parsing**     | **SheetJS (`xlsx`)**           | `v0.20.3`       | High-speed client/server parsing of complex banking statements and broker spreadsheets.        |
+| **Test Runner**             | **Vitest**                     | `v5.0.0`        | Ultra-fast ESM test runner with native TypeScript support. **484 tests pass in ~6 seconds**.   |
+| **Code Formatting**         | **Prettier + Tailwind Plugin** | `v3.9`          | Automated code alignment and utility class sorting enforced via pre-push Git hooks.            |
 
 ---
 
 ## 📁 Repository Structure
 
+The codebase is organized around a **Domain-Driven Modular Architecture** ensuring strict separation of concerns:
+
 ```text
+budget-pwa/
+├── .github/                      # CI/CD pipelines (GitHub Actions)
+│   └── workflows/ci.yml          # Prettier, TypeScript, Vitest, and Build checks
+├── public/                       # Static assets, PWA icons, and Service Worker
+│   ├── sw.js                     # 3-tier Native Service Worker with offline caching
+│   └── manifest.json             # Web App Manifest
 ├── src/
-│   ├── app/                          # Next.js App Router (Pages, Layouts, APIs)
-│   │   ├── api/                      # 34 Serverless Route Handlers
-│   │   │   ├── ai/                   # AI analysis & chat endpoints
-│   │   │   ├── analytics/            # Budget pacing & Personal CPI
-│   │   │   ├── auth/                 # WebAuthn & PIN endpoints
-│   │   │   ├── cron/                 # Recurring jobs & proactive digests
-│   │   │   ├── transactions/         # CRUD, batch imports, splits, restore
-│   │   │   └── webhooks/             # Monobank & Telegram webhooks
-│   │   ├── share-target/             # PWA Web Share Target receiver
-│   │   ├── layout.tsx                # App shell, PWA metadata, theme config
-│   │   └── page.tsx                  # Primary Dashboard entry point
-│   ├── components/                   # Modular UI Components
-│   │   ├── ai-drawer/                # AI Financial Advisor chat interface
-│   │   ├── auth/                     # Biometrics & PIN login interfaces
-│   │   ├── bank-statement/           # File drag-and-drop & parsing previews
-│   │   ├── dashboard/                # Analytics widgets, cards, tabs
-│   │   │   ├── budget-summary/       # Top header, KPI numbers
-│   │   │   ├── burn-rate/            # Pacing and velocity charts
-│   │   │   ├── category-breakdown/   # Category bars & budget modals
-│   │   │   ├── investments/          # Asset cards, yield calculations
-│   │   │   ├── mom-comparison/       # Month-over-month & CPI metrics
-│   │   │   ├── savings-goals/        # Goal cards & deposit dialogues
-│   │   │   └── subscription-radar/   # Recurring payments detector
-│   │   ├── merchant-rules/           # Custom merchant categorization rules
-│   │   └── split-transaction/        # Sub-transaction splitting interface
-│   ├── hooks/                        # Custom React Hooks
-│   │   ├── auth/                     # usePinAuth, useWebAuthn
-│   │   ├── finance-queries/          # TanStack query definitions & keys
-│   │   ├── transaction-mutations/    # Optimistic mutation handlers
-│   │   ├── useBudgetMetrics.ts       # Central financial math coordinator
-│   │   └── useAiAdvisor.ts           # Streaming conversation state
-│   ├── lib/                          # Core Business Logic & Infrastructure
-│   │   ├── bank-statement/           # PDF/CSV tokenizers and cleaners
-│   │   ├── bot/                      # Telegram bot logic, commands, and keyboards
-│   │   ├── dashboard-image/          # Serverless SVG/Canvas image generation
-│   │   ├── financial-ai-assistant/   # System prompts & Gemini orchestration
-│   │   ├── inzhur/                   # Inzhur REIT statement parser
-│   │   ├── pacing/                   # Weighted pacing algorithms
-│   │   ├── demo-data.ts              # Rich mock dataset for demo & testing
-│   │   ├── offline-pin.ts            # PBKDF2 key derivation & rate-limiting
-│   │   ├── offline-queue.ts          # IndexedDB sync queue
-│   │   ├── personal-cpi.ts           # CPI calculation engine
-│   │   ├── rate-limiter.ts           # In-memory sliding-window limiter
-│   │   ├── roundup-utils.ts          # Spare change / piggy bank calculator
-│   │   ├── session.ts                # Web Crypto HMAC session tokens
-│   │   └── validations.ts        # Zod validation schemas
-│   └── types/                        # Core Domain Interfaces
-├── supabase/                         # Database Migration Scripts
-│   └── migrations/                   # 8 production SQL migrations with RLS
-└── public/                           # Static assets & Service Worker
-    ├── sw.js                         # Custom Service Worker implementation
-    └── manifest.json                 # Web App Manifest
+│   ├── __tests__/                # 47 test suites (484 unit and integration tests)
+│   │   ├── ai-chat.test.ts
+│   │   ├── bank-statement-parser.test.ts
+│   │   ├── behavioral-finance.test.ts
+│   │   ├── burn-rate-cycle.test.ts
+│   │   ├── offline-pin-security.test.ts
+│   │   ├── personal-cpi.test.ts
+│   │   ├── telegram-webhook.test.ts
+│   │   └── weighted-pacing.test.ts
+│   ├── app/                      # Next.js 16 App Router
+│   │   ├── api/                  # 34 modular REST & Webhook endpoints
+│   │   │   ├── ai/               # /analyze, /chat (Gemini AI Advisor)
+│   │   │   ├── analytics/        # /budget-pace, /personal-cpi
+│   │   │   ├── auth/             # /auth, /webauthn/login, /webauthn/register
+│   │   │   ├── cron/             # /recurring, /digest, /pacing-alerts
+│   │   │   ├── transactions/     # /transactions, /split, /restore, /import-csv, /import-inzhur
+│   │   │   └── webhooks/         # /monobank, /telegram
+│   │   ├── share-target/         # PWA Web Share Target receipt upload screen
+│   │   ├── layout.tsx            # Root shell with PWA metadata and theme providers
+│   │   └── page.tsx              # Primary executive financial dashboard
+│   ├── components/               # Modular UI Component library
+│   │   ├── ai-drawer/            # AI Financial Advisor, chat stream, prompt chips
+│   │   ├── auth/                 # WebAuthn biometric screens & numeric PIN keypad
+│   │   ├── bank-statement/       # File drag-and-drop & parsing preview modals
+│   │   ├── dashboard/            # Analytics widgets and dashboard cards
+│   │   │   ├── budget-summary/   # Hero summary metrics and pacing indicators
+│   │   │   ├── burn-rate/        # Burn Rate trajectory curves & daily bars
+│   │   │   ├── category-breakdown/# Category progress bars & limit modals
+│   │   │   ├── investments/      # Capital allocation, yield metrics, asset breakdown
+│   │   │   ├── mom-comparison/   # Month-over-month trends and Personal CPI
+│   │   │   ├── savings-goals/    # Savings vaults and deposit dialogs
+│   │   │   └── subscription-radar/# Recurring subscription leak detector
+│   │   ├── merchant-rules/       # Custom merchant auto-categorization rules
+│   │   └── split-transaction/    # Multi-category receipt splitting interface
+│   ├── constants/                # Domain constants (categories, icons, color palettes)
+│   ├── hooks/                    # Custom React hooks
+│   │   ├── auth/                 # usePinAuth, useWebAuthn
+│   │   ├── finance-queries/      # TanStack Query selectors & cache keys
+│   │   ├── transaction-mutations/# Optimistic mutation handlers & offline queue
+│   │   └── useBudgetMetrics.ts   # Core aggregated cycle mathematics coordinator
+│   ├── lib/                      # Core business logic and infrastructure services
+│   │   ├── bank-statement/       # Bank statement tokenizers, cleaners, and parsers
+│   │   ├── bot/                  # Telegram bot commands, callbacks, and formatters
+│   │   ├── dashboard-image/      # Serverless infographic card generator (SVG/Canvas)
+│   │   ├── financial-ai-assistant/# Gemini prompt definitions and report generators
+│   │   ├── inzhur/               # Inzhur REIT statement parser and reconciliation
+│   │   ├── pacing/               # Weighted pacing calculations and simulators
+│   │   ├── demo-data.ts          # Realistic mock dataset for interactive demo mode
+│   │   ├── offline-pin.ts        # PBKDF2 cryptographic offline access engine
+│   │   ├── offline-queue.ts      # Offline IndexedDB synchronization queue
+│   │   ├── personal-cpi.ts       # Laspeyres basket inflation index algorithm
+│   │   ├── rate-limiter.ts       # In-memory sliding window rate limiter
+│   │   ├── roundup-utils.ts      # Spare change coin round-up calculations
+│   │   ├── session.ts            # Web Crypto HMAC cryptographic session tokens
+│   │   └── validations.ts        # Zod validation schemas across all entities
+│   ├── proxy.ts                  # Reverse-proxy boundary and security headers
+│   └── types/                    # Domain TypeScript types (Finance, AI, DB, Auth)
+└── supabase/
+    └── migrations/               # 8 production SQL migrations (RLS, indexes, soft-delete, cache)
 ```
+
+---
+
+## 🛡️ Zero-Trust Security Architecture
+
+| Security Layer                     | Implementation Details                                                                                       |
+| :--------------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| **FIDO2 / Hardware Security**      | Passwordless login via biometric sensors and hardware security keys (SimpleWebAuthn v14).                    |
+| **Stateless Sealed Tokens**        | WebAuthn challenges are encrypted in HMAC tokens and verified without database lookups (Zero DB Latency).    |
+| **Clone Attack Prevention**        | Authenticator monotonic counter verification prevents replay attacks and cloned credentials.                 |
+| **Cryptographic Offline PIN**      | Client-side PBKDF2 (100k SHA-256 iterations) with progressive 5-minute lockout after 5 consecutive failures. |
+| **Constant-Time Verification**     | Prevents timing attacks across all tokens and PIN secrets via `crypto.timingSafeEqual`.                      |
+| **Sliding Window Rate Limiter**    | In-memory sliding-window throttling on authentication, AI endpoints, and public webhooks.                    |
+| **Strict Content Security Policy** | Header directive `connect-src 'self'` blocks token exfiltration by malicious third-party scripts.            |
+| **CSV / Formula Injection Shield** | Sanitizes dangerous spreadsheet formula prefixes (`=`, `+`, `-`, `@`, `\t`, `\r`) in all exports.            |
+| **Database Row Level Security**    | 100% of Supabase tables are locked down with RLS; access is only granted to validated sessions.              |
+| **10-Day Trash / Soft Delete**     | Defends against accidental data loss with a 10-day quarantine retention window and 1-click restore.          |
 
 ---
 
 ## 🧪 Testing & Quality Assurance
 
-Quality and reliability are first-class citizens in this project. The entire test suite consists of **484 automated tests** across **47 test suites**, executing in under 10 seconds.
+BudgetGraph OS maintains **100% test coverage across core financial calculations and security protocols**:
 
 ```bash
-# Run all unit and integration tests
+# Run the complete test suite (484 tests)
 npm test
 
-# Run tests in watch mode
-npm run test:watch
-
-# Generate test coverage report
-npm run test:coverage
-
-# Static type inspection
+# Verify strict TypeScript typing (0 errors)
 npx tsc --noEmit
 
-# Code styling verification
+# Verify code style with Prettier
 npm run format:check
+
+# Production build via Next.js Turbopack
+npm run build
 ```
 
-### Test Coverage Highlights:
+### Breakdown of the 47 Test Suites:
 
-- **Cryptographic Algorithms:** Validates PBKDF2 hashing, salt generation, constant-time comparisons, and progressive brute-force lockout timers.
-- **Financial Calculus:** Unit-tested algorithms for weighted pace calculations, runway estimation, and floating-point penny-level accuracy during splits.
-- **Parsers & Ingestion:** Edge cases in PDF/CSV layouts, encoding issues, corrupted records, and formula injection strings.
-- **Telegram & Webhook Pipeline:** Mocked payload verifications for commands, callback queries, and security authorization headers.
-- **Fuzzing Tests (`financial-fuzz.test.ts`):** Random boundary testing on monetary values, date overflows, and extreme inputs.
+- **Cryptography & Security:** Validates PBKDF2 offline PIN hashing, brute-force lockout thresholds, WebAuthn assertion verification, and HMAC session security (`offline-pin-security.test.ts`, `webauthn-speed-security.test.ts`).
+- **Financial Calculus:** Weighted Burn Rate modeling, Personal CPI inflation indexing, penny-accurate transaction splits, and round-up savings rules (`burn-rate-cycle.test.ts`, `weighted-pacing.test.ts`, `personal-cpi.test.ts`, `split-cascade-rollback.test.ts`).
+- **Parsers & Ingestion:** Statement parsing for PrivatBank, Monobank, and Inzhur REIT reports, formula injection defense, and noise stripping (`bank-statement-parser.test.ts`, `inzhur-import.test.ts`, `receipt-pdf-import.test.ts`).
+- **Telegram Webhook & AI:** Command parsing, callback query dispatch, infographic canvas rendering, error fallbacks, and token authentication (`telegram-webhook.test.ts`, `ai-chat.test.ts`, `financial-ai-assistant.test.ts`).
+- **Fuzzing & Boundary Testing:** Randomized property-based testing across edge-case financial numbers and date boundaries (`financial-fuzz.test.ts`).
 
 ---
 
-## 🚀 Getting Started
+## 📡 Key API Endpoints
+
+| Route                             |     Method     | Purpose                                          | Security & Architecture                         |
+| :-------------------------------- | :------------: | :----------------------------------------------- | :---------------------------------------------- |
+| `/api/auth`                       |     `POST`     | Authenticate using PIN code                      | Constant-time comparison, Rate limited          |
+| `/api/auth/webauthn/login`        | `GET` / `POST` | WebAuthn challenge generation & verification     | Stateless sealed HMAC challenge, Counter check  |
+| `/api/auth/webauthn/register`     | `GET` / `POST` | Register a new FIDO2 biometric device            | Session required, WebAuthn registration verify  |
+| `/api/classify`                   |     `POST`     | Sub-second categorizer for Apple Shortcuts       | Bearer secret, AI Rate limiter, Gemini fallback |
+| `/api/ai/analyze`                 |     `POST`     | Comprehensive cycle financial health audit       | Session token, Gemini cascade engine            |
+| `/api/ai/chat`                    |     `POST`     | Conversational financial copilot session         | Streaming SSE response, Session token           |
+| `/api/transactions`               | `GET` / `POST` | Ingest and retrieve financial records            | Zod validation, Optimistic cache sync           |
+| `/api/transactions/split`         |     `POST`     | Split a transaction across multiple categories   | Penny balance exact match verification ($0.01)  |
+| `/api/transactions/restore`       |     `POST`     | Restore a transaction from the soft-delete trash | 10-day safety retention window                  |
+| `/api/transactions/import-csv`    |     `POST`     | Ingest and parse bank statements                 | Memory stream, CSV injection sanitizer          |
+| `/api/transactions/import-inzhur` |     `POST`     | Ingest Inzhur REIT investment reports            | Reconciliation engine, Deduplication            |
+| `/api/webhooks/monobank`          |     `POST`     | Official Monobank webhook integration            | Signature verification, Auto-classification     |
+| `/api/webhooks/telegram`          |     `POST`     | Full-duplex Telegram bot interaction             | Secret token header guard, Canvas generator     |
+| `/api/recurring/radar`            |     `GET`      | Automated subscription leak detection            | Transaction signature pattern engine            |
+| `/api/cron/pacing-alerts`         |     `GET`      | Friday weekend radar & Monday reset alerts       | Vercel Cron Secret, Proactive alert engine      |
+| `/api/cron/digest`                |     `GET`      | Daily evening summary dispatch to Telegram       | Vercel Cron Secret, Canvas graph dispatch       |
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Node.js** 22.0 or higher
-- **npm** 10.0 or higher
-- A **Supabase** account (Free tier works)
-- A **Google AI Studio** API key (Gemini)
+- **Node.js:** version `22.x` or higher
+- **npm:** version `10.x` or higher
+- A **Supabase** account (PostgreSQL) and a **Google Gemini API** key
 
-### 1. Clone & Install
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/mindeclipse/Budget_graphAI.git
 cd Budget_graphAI
+```
+
+### 2. Install Dependencies
+
+```bash
 npm ci --legacy-peer-deps
 ```
 
-### 2. Configure Environment Variables
+### 3. Environment Configuration
 
-Copy `.env.example` or create a `.env.local` file in the project root:
+Create a `.env.local` file in the root directory:
 
-```bash
-# Supabase
+```env
+# Supabase Database Configuration
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# Authentication & Encryption
+# Application Access & Session Cryptography
 APP_ACCESS_PIN=1234
-APP_API_SECRET=your-secure-32-byte-hex-string
+APP_API_SECRET=your-32-byte-secret-key-for-shortcuts-and-hmac
 
-# AI Services
+# Google Gemini API
 GEMINI_API_KEY=your-gemini-api-key
 
-# Telegram Bot (Optional)
+# Telegram Bot Integration (Optional)
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token
 TELEGRAM_CHAT_ID=your-telegram-chat-id
 TELEGRAM_WEBHOOK_SECRET=your-webhook-secret
 
-# Automation Cron
+# Monobank Integration (Optional)
+MONOBANK_TOKEN=your-monobank-personal-token
+
+# Cron Tasks Secret
 CRON_SECRET=your-cron-secret-key
 ```
 
-### 3. Apply Migrations
+### 4. Database Setup
 
-Run the SQL scripts located in `supabase/migrations/` inside your Supabase project's SQL Editor in chronological order.
+Apply the SQL migration scripts located in `supabase/migrations/` using the Supabase SQL Editor to set up schemas, RLS policies, and performance indexes.
 
-### 4. Run Locally
+### 5. Launch Development Server
 
 ```bash
 npm run dev
@@ -336,40 +502,21 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 > [!TIP]
-> **Try Demo Mode:** To preview the application with full mock data and no authentication required, navigate to `http://localhost:3000/?demo=true` or click the **"Спробувати Demo-режим"** link on the login screen.
+> **Interactive Demo Mode:**  
+> BudgetGraph OS includes an offline demo mode for instant testing without configuring a database. Navigate to [http://localhost:3000/?demo=true](http://localhost:3000/?demo=true) or click **"Спробувати Demo-режим"** on the authentication screen to explore fully populated charts, budgets, subscriptions, and investments.
 
 ---
 
-## 📡 API Reference Overview
+## 👨‍💻 Author & Engineering Contacts
 
-The backend is built as modular Next.js Route Handlers with unified error handling and security policies:
+Designed and engineered as a showcase of modern mission-critical web software architecture: from low-level Web Crypto and non-linear algorithms to fluid mobile UX, offline resilience, and generative AI synergy.
 
-| Route                             |             Method             | Description                                       | Security                               |
-| :-------------------------------- | :----------------------------: | :------------------------------------------------ | :------------------------------------- |
-| `/api/auth`                       |             `POST`             | Authenticate using PIN                            | Rate-limited (5/min), Constant-time    |
-| `/api/auth/webauthn/login`        |         `GET`, `POST`          | WebAuthn challenge & verification                 | Stateless sealed cookie, Counter check |
-| `/api/auth/webauthn/register`     |         `GET`, `POST`          | FIDO2 device enrollment                           | Session cookie required                |
-| `/api/classify`                   |             `POST`             | Fast transaction categorizer (Apple Shortcuts)    | Bearer secret, Gemini-Lite fallback    |
-| `/api/ai/analyze`                 |             `POST`             | Comprehensive cycle financial health analysis     | Session auth, Gemini 3.5/3.7           |
-| `/api/ai/chat`                    |             `POST`             | Interactive conversational financial assistant    | Streaming SSE, Rate-limited            |
-| `/api/transactions`               | `GET`, `POST`, `PUT`, `DELETE` | Transaction management                            | Session auth, Zod validation           |
-| `/api/transactions/split`         |             `POST`             | Split single transaction into multiple categories | Transactional, strict balance check    |
-| `/api/transactions/restore`       |             `POST`             | Restore soft-deleted transaction from trash       | 10-day safety window                   |
-| `/api/transactions/import-csv`    |             `POST`             | Parse and ingest Monobank / PrivatBank CSV        | CSV injection sanitizer                |
-| `/api/transactions/import-inzhur` |             `POST`             | Parse Inzhur REIT statement and reconcile         | De-duplication against bank records    |
-| `/api/webhooks/monobank`          |             `POST`             | Real-time Monobank transaction ingestion          | Webhook secret verification            |
-| `/api/webhooks/telegram`          |             `POST`             | Full-duplex Telegram bot interaction              | Telegram secret token header           |
-| `/api/cron/pacing-alerts`         |             `GET`              | Scheduled Friday radar & Monday reset alerts      | Vercel Cron header / Secret            |
-| `/api/cron/digest`                |             `GET`              | Scheduled daily summary dispatch to Telegram      | Vercel Cron header / Secret            |
-
----
-
-## 📄 License
-
-This project is open-source software licensed under the [MIT License](LICENSE).
+- **Lead Engineer:** Yurii Khval ([@mindeclipse](https://github.com/mindeclipse))
+- **Email:** [yukhval@gmail.com](mailto:yukhval@gmail.com)
+- **LinkedIn:** [linkedin.com/in/yuriikhval](https://linkedin.com/in/yuriikhval)
 
 ---
 
 <div align="center">
-  <sub>Engineered with precision, security, and care by <b>Yurii Khval</b> (<a href="https://github.com/mindeclipse">@mindeclipse</a>).</sub>
+  <sub>Crafted with mathematical rigor, uncompromising privacy standards, and passion for elegant code.</sub>
 </div>
