@@ -11,7 +11,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_RLS-21262d?style=for-the-badge&logo=supabase&logoColor=3ecf8e&labelColor=161b22)](https://supabase.com/)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_%7C_3.5_%7C_3.7_Flash-21262d?style=for-the-badge&logo=googlegemini&logoColor=a855f7&labelColor=161b22)](https://ai.google.dev/)
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-21262d?style=for-the-badge&logo=fido&logoColor=60a5fa&labelColor=161b22)](https://fidoalliance.org/)
-[![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
+[![Vitest](<https://img.shields.io/badge/Vitest-492_Passed_(49_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-21262d?style=for-the-badge&logo=pwa&logoColor=fbbf24&labelColor=161b22)](https://web.dev/progressive-web-apps/)
 
 <p align="center">
@@ -33,7 +33,7 @@
 [🧮 FinTech Engine](#-fintech-engine--algorithms) •
 [🤖 AI & Telegram](#-multimodal-ai--telegram-ecosystem) •
 [📁 Directory Structure](#-repository-structure) •
-[🧪 Testing (484 Tests)](#-testing--quality-assurance) •
+[🧪 Testing (492 Tests)](#-testing--quality-assurance) •
 [📡 API Reference](#-key-api-endpoints) •
 [🚀 Quick Start](#-quick-start)
 
@@ -158,7 +158,15 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 - **Sanitized Bank Statement Parsers:** Tokenizes PDF/CSV statements from Monobank and PrivatBank, stripping terminal noise (terminal IDs, city tags, transaction timestamps, EDRPOU) and neutralizing **CSV Formula Injection** (`=`, `@`, `+`, `-`).
 - **Monobank Webhook Integration (`/api/webhooks/monobank`):** Real-time Monobank transaction ingestion with automatic MCC categorization and merchant normalization.
 
-### ⚡ 6. Offline-First PWA & Mobile Ergonomics
+### 🗓️ 6. Financial Calendar & Proactive Event Radar
+
+- **Interactive Horizon Timeline (`src/components/dashboard/modals/FinancialCalendarModal.tsx`):** Triggered instantly from the "X days left" badge on the Monthly Budget card.
+- **Dynamic Cycle Boundaries (`src/lib/cycle-utils.ts`):** Projects nominal 1-month cycle end dates with automatic day-by-day extension if an active cycle remains unclosed, visually separating active from inactive dates.
+- **Cross-Domain Asset Synchronization:** Mappings for recurring subscriptions, bond maturity dates (OVDP), term deposit returns, and recurring Inzhur REIT dividends (10th of every month).
+- **Custom Financial Events (CRUD):** User-defined milestones with completion tracking, category tags, and database persistence in Supabase with RLS.
+- **Proactive Telegram Alert Radar (`/api/cron/calendar-alerts`):** Automated morning cadence scanning horizons of `0 (today) -> 1 -> 3 -> 7` days, with selective muting for channels with native push notifications.
+
+### ⚡ 7. Offline-First PWA & Mobile Ergonomics
 
 - **3-Tier Native Service Worker (`public/sw.js`):**
   - `Network-Only`: For sensitive biometric routes, PIN verification, and exports.
@@ -377,7 +385,7 @@ budget-pwa/
 │   ├── proxy.ts                  # Reverse-proxy boundary and security headers
 │   └── types/                    # Domain TypeScript types (Finance, AI, DB, Auth)
 └── supabase/
-    └── migrations/               # 8 production SQL migrations (RLS, indexes, soft-delete, cache)
+    └── migrations/               # 9 production SQL migrations (RLS, indexes, soft-delete, cache, calendar)
 ```
 
 ---
@@ -404,7 +412,7 @@ budget-pwa/
 BudgetGraph OS maintains **100% test coverage across core financial calculations and security protocols**:
 
 ```bash
-# Run the complete test suite (484 tests)
+# Run the complete test suite (492 tests)
 npm test
 
 # Verify strict TypeScript typing (0 errors)
@@ -417,10 +425,11 @@ npm run format:check
 npm run build
 ```
 
-### Breakdown of the 47 Test Suites:
+### Breakdown of the 49 Test Suites:
 
 - **Cryptography & Security:** Validates PBKDF2 offline PIN hashing, brute-force lockout thresholds, WebAuthn assertion verification, and HMAC session security (`offline-pin-security.test.ts`, `webauthn-speed-security.test.ts`).
-- **Financial Calculus:** Weighted Burn Rate modeling, Personal CPI inflation indexing, penny-accurate transaction splits, and round-up savings rules (`burn-rate-cycle.test.ts`, `weighted-pacing.test.ts`, `personal-cpi.test.ts`, `split-cascade-rollback.test.ts`).
+- **Financial Calculus:** Weighted Burn Rate modeling, Personal CPI inflation indexing, dynamic cycle end-date calculations, penny-accurate transaction splits, and round-up savings rules (`burn-rate-cycle.test.ts`, `weighted-pacing.test.ts`, `personal-cpi.test.ts`, `cycle-utils.test.ts`, `split-cascade-rollback.test.ts`).
+- **Financial Calendar & Alerts:** Cross-domain event aggregation, maturity date projections, auto-extension mechanics, and proactive Telegram radar scheduling (`calendar-events.test.ts`, `calendar-alerts-cron.test.ts`).
 - **Parsers & Ingestion:** Statement parsing for PrivatBank, Monobank, and Inzhur REIT reports, formula injection defense, and noise stripping (`bank-statement-parser.test.ts`, `inzhur-import.test.ts`, `receipt-pdf-import.test.ts`).
 - **Telegram Webhook & AI:** Command parsing, callback query dispatch, infographic canvas rendering, error fallbacks, and token authentication (`telegram-webhook.test.ts`, `ai-chat.test.ts`, `financial-ai-assistant.test.ts`).
 - **Fuzzing & Boundary Testing:** Randomized property-based testing across edge-case financial numbers and date boundaries (`financial-fuzz.test.ts`).
@@ -429,24 +438,26 @@ npm run build
 
 ## 📡 Key API Endpoints
 
-| Route                             |     Method     | Purpose                                          | Security & Architecture                         |
-| :-------------------------------- | :------------: | :----------------------------------------------- | :---------------------------------------------- |
-| `/api/auth`                       |     `POST`     | Authenticate using PIN code                      | Constant-time comparison, Rate limited          |
-| `/api/auth/webauthn/login`        | `GET` / `POST` | WebAuthn challenge generation & verification     | Stateless sealed HMAC challenge, Counter check  |
-| `/api/auth/webauthn/register`     | `GET` / `POST` | Register a new FIDO2 biometric device            | Session required, WebAuthn registration verify  |
-| `/api/classify`                   |     `POST`     | Sub-second categorizer for Apple Shortcuts       | Bearer secret, AI Rate limiter, Gemini fallback |
-| `/api/ai/analyze`                 |     `POST`     | Comprehensive cycle financial health audit       | Session token, Gemini cascade engine            |
-| `/api/ai/chat`                    |     `POST`     | Conversational financial copilot session         | Streaming SSE response, Session token           |
-| `/api/transactions`               | `GET` / `POST` | Ingest and retrieve financial records            | Zod validation, Optimistic cache sync           |
-| `/api/transactions/split`         |     `POST`     | Split a transaction across multiple categories   | Penny balance exact match verification ($0.01)  |
-| `/api/transactions/restore`       |     `POST`     | Restore a transaction from the soft-delete trash | 10-day safety retention window                  |
-| `/api/transactions/import-csv`    |     `POST`     | Ingest and parse bank statements                 | Memory stream, CSV injection sanitizer          |
-| `/api/transactions/import-inzhur` |     `POST`     | Ingest Inzhur REIT investment reports            | Reconciliation engine, Deduplication            |
-| `/api/webhooks/monobank`          |     `POST`     | Official Monobank webhook integration            | Signature verification, Auto-classification     |
-| `/api/webhooks/telegram`          |     `POST`     | Full-duplex Telegram bot interaction             | Secret token header guard, Canvas generator     |
-| `/api/recurring/radar`            |     `GET`      | Automated subscription leak detection            | Transaction signature pattern engine            |
-| `/api/cron/pacing-alerts`         |     `GET`      | Friday weekend radar & Monday reset alerts       | Vercel Cron Secret, Proactive alert engine      |
-| `/api/cron/digest`                |     `GET`      | Daily evening summary dispatch to Telegram       | Vercel Cron Secret, Canvas graph dispatch       |
+| Route                             |                Method               | Purpose                                          | Security & Architecture                         |
+| :-------------------------------- | :---------------------------------: | :----------------------------------------------- | :---------------------------------------------- |
+| `/api/auth`                       |               `POST`                | Authenticate using PIN code                      | Constant-time comparison, Rate limited          |
+| `/api/auth/webauthn/login`        |           `GET` / `POST`            | WebAuthn challenge generation & verification     | Stateless sealed HMAC challenge, Counter check  |
+| `/api/auth/webauthn/register`     |           `GET` / `POST`            | Register a new FIDO2 biometric device            | Session required, WebAuthn registration verify  |
+| `/api/classify`                   |               `POST`                | Sub-second categorizer for Apple Shortcuts       | Bearer secret, AI Rate limiter, Gemini fallback |
+| `/api/ai/analyze`                 |               `POST`                | Comprehensive cycle financial health audit       | Session token, Gemini cascade engine            |
+| `/api/ai/chat`                    |               `POST`                | Conversational financial copilot session         | Streaming SSE response, Session token           |
+| `/api/transactions`               |           `GET` / `POST`            | Ingest and retrieve financial records            | Zod validation, Optimistic cache sync           |
+| `/api/transactions/split`         |               `POST`                | Split a transaction across multiple categories   | Penny balance exact match verification ($0.01)  |
+| `/api/transactions/restore`       |               `POST`                | Restore a transaction from the soft-delete trash | 10-day safety retention window                  |
+| `/api/transactions/import-csv`    |               `POST`                | Ingest and parse bank statements                 | Memory stream, CSV injection sanitizer          |
+| `/api/transactions/import-inzhur` |               `POST`                | Ingest Inzhur REIT investment reports            | Reconciliation engine, Deduplication            |
+| `/api/calendar/events`            | `GET` / `POST` / `PATCH` / `DELETE` | Cross-domain calendar events aggregation & CRUD  | Session required, Zod schema validation, RLS    |
+| `/api/cron/calendar-alerts`       |                `GET`                | Morning Telegram radar for upcoming maturities   | Vercel Cron Secret, Proactive cadence engine    |
+| `/api/webhooks/monobank`          |               `POST`                | Official Monobank webhook integration            | Signature verification, Auto-classification     |
+| `/api/webhooks/telegram`          |               `POST`                | Full-duplex Telegram bot interaction             | Secret token header guard, Canvas generator     |
+| `/api/recurring/radar`            |                `GET`                | Automated subscription leak detection            | Transaction signature pattern engine            |
+| `/api/cron/pacing-alerts`         |                `GET`                | Friday weekend radar & Monday reset alerts       | Vercel Cron Secret, Proactive alert engine      |
+| `/api/cron/digest`                |                `GET`                | Daily evening summary dispatch to Telegram       | Vercel Cron Secret, Canvas graph dispatch       |
 
 ---
 
