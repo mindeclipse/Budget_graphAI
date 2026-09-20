@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useAuthSession } from "@/hooks/useAuthSession";
 import { useFinanceQueries } from "@/hooks/useFinanceQueries";
 import { useBudgetMetrics } from "@/hooks/useBudgetMetrics";
@@ -76,12 +76,16 @@ export default function Dashboard() {
   } = useFinanceQueries(isAuthenticated);
 
   // Демо-режим (для демонстрацій, портфоліо та безпечних скріншотів)
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).get("demo") === "true";
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("demo") === "true") {
+        setIsDemoMode(true);
+      }
     }
-    return false;
-  });
+  }, []);
 
   const demoData = useMemo(
     () => (isDemoMode ? getDemoData() : null),
@@ -409,7 +413,15 @@ export default function Dashboard() {
           </div>
           <button
             type="button"
-            onClick={() => setIsDemoMode(false)}
+            onClick={() => {
+              setIsDemoMode(false);
+              if (
+                typeof window !== "undefined" &&
+                window.location.search.includes("demo=true")
+              ) {
+                window.history.replaceState({}, "", window.location.pathname);
+              }
+            }}
             className="shrink-0 rounded-xl border border-sky-400/40 bg-sky-500/20 px-3 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/30"
           >
             Вийти з демо
