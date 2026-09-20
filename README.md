@@ -71,24 +71,28 @@ Most personal finance trackers suffer from three fundamental structural flaws:
         <p><sub><em>Personal CPI, recurring subscription leak detection, and conversational AI advisor</em></sub></p>
       </td>
       <td width="50%" align="center" valign="top" style="border: none; padding: 8px;">
-        <p><b>🔍 Transaction Intelligence & Context Tags</b></p>
-        <img src="docs/screenshots/desktop-history.png" alt="Transaction Intelligence & History" style="border-radius: 8px; border: 1px solid #30363d; width: 100%;" />
-        <p><sub><em>Fuzzy search, itemized receipt splitting, and context hashtags (#trip, #weekend)</em></sub></p>
-      </td>
-    </tr>
-    <tr style="border: none;">
-      <td width="50%" align="center" valign="top" style="border: none; padding: 8px;">
-        <p><b>📱 Mobile-First PWA Experience</b></p>
-        <img src="docs/screenshots/mobile-pwa.png" alt="BudgetGraph OS Mobile PWA" style="border-radius: 8px; border: 1px solid #30363d; max-width: 250px; width: 60%;" />
-        <p><sub><em>Gesture-driven bottom sheets, iOS Safe Area insets, and full offline resilience</em></sub></p>
-      </td>
-      <td width="50%" align="center" valign="top" style="border: none; padding: 8px;">
         <p><b>💎 Wealth Management & Capital OS</b></p>
         <img src="docs/screenshots/desktop-wealth.png" alt="Wealth Management & Goals" style="border-radius: 8px; border: 1px solid #30363d; width: 100%;" />
         <p><sub><em>Multi-asset portfolio (Inzhur, OVDP), multi-currency vaults, and Cost-Per-Use (CPU)</em></sub></p>
       </td>
     </tr>
   </table>
+</div>
+
+<br />
+
+<div align="center">
+  <img src="docs/screenshots/desktop-history.png" alt="Transaction Intelligence & History" width="900" style="border-radius: 8px; border: 1px solid #30363d;" />
+  <p><b>🔍 Transaction Intelligence & Context Tags</b></p>
+  <p><sub><em>Fuzzy search, itemized receipt splitting, and context hashtags (#trip, #weekend)</em></sub></p>
+</div>
+
+<br />
+
+<div align="center">
+  <img src="docs/screenshots/mobile-pwa.png" alt="BudgetGraph OS Mobile PWA" width="280" style="border-radius: 16px; border: 1px solid #30363d;" />
+  <p><b>📱 Mobile-First PWA Experience</b></p>
+  <p><sub><em>Gesture-driven bottom sheets, iOS Safe Area insets, 3-tier Service Worker caching, and full offline resilience</em></sub></p>
 </div>
 
 ---
@@ -109,11 +113,7 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 
 - **Cycle-First Architecture (`src/lib/cycle-utils.ts`):** Budgets are synchronized with dynamic paycheck cycles (e.g., 10th to 9th of next month) rather than artificial calendar boundaries.
 - **Weighted Pacing & Burn Rate Simulator (`src/lib/weighted-pacing.ts`):**
-
-  ```math
-  \text{Target Daily Burn} = \frac{\text{Remaining Budget}}{\sum_{d \in \text{Remaining Days}} w(d)}
-  ```
-
+  $$\text{Target Daily Burn} = \frac{\text{Remaining Budget}}{\sum_{d \in \text{Remaining Days}} w(d)}$$
   Incorporates weekend spending elasticity ($w_{\text{weekday}} = 1.0$, $w_{\text{weekend}} = 1.35$) to produce an achievable, realistic daily allowance curve.
 
 - **Personal CPI (Personal Inflation Index) (`src/lib/personal-cpi.ts`):** Calculates a Laspeyres-weighted consumer basket inflation rate across expenditure categories compared to previous cycles.
