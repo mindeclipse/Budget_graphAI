@@ -134,7 +134,7 @@ export function PinAuthScreen({
               className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 transition-colors hover:text-sky-400"
             >
               <span>✨</span>
-              <span>Спробувати Demo-режим (для портфоліо)</span>
+              <span>Спробувати Демо-режим</span>
             </button>
           </div>
         )}

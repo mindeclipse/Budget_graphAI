@@ -503,7 +503,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 > [!TIP]
 > **Interactive Demo Mode:**  
-> BudgetGraph OS includes an offline demo mode for instant testing without configuring a database. Navigate to [http://localhost:3000/?demo=true](http://localhost:3000/?demo=true) or click **"Спробувати Demo-режим"** on the authentication screen to explore fully populated charts, budgets, subscriptions, and investments.
+> BudgetGraph OS includes an offline demo mode for instant testing without configuring a database. Navigate to [http://localhost:3000/?demo=true](http://localhost:3000/?demo=true) or click **"Спробувати Демо-режим"** on the authentication screen to explore fully populated charts, budgets, subscriptions, and investments.
 
 ---
 
