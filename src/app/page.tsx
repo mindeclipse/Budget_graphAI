@@ -35,6 +35,7 @@ import {
   WishlistItem,
   CostPerUseItem,
 } from "@/types/finance";
+import { getDemoData } from "@/lib/demo-data";
 
 export default function Dashboard() {
   // 1. Автентифікація та сесія
@@ -74,10 +75,50 @@ export default function Dashboard() {
     deleteCategoryBudgetOptimistic,
   } = useFinanceQueries(isAuthenticated);
 
+  // Демо-режим (для демонстрацій, портфоліо та безпечних скріншотів)
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("demo") === "true";
+    }
+    return false;
+  });
+
+  const demoData = useMemo(
+    () => (isDemoMode ? getDemoData() : null),
+    [isDemoMode]
+  );
+
   // Відфільтровуємо транзакції, виключені з бюджету
+  const effectiveRawTransactions = useMemo(() => {
+    if (isDemoMode && demoData) return demoData.transactions;
+    return rawTransactions;
+  }, [isDemoMode, demoData, rawTransactions]);
+
   const transactions = useMemo(() => {
-    return rawTransactions.filter((t: Transaction) => !t.exclude_from_budget);
-  }, [rawTransactions]);
+    return effectiveRawTransactions.filter(
+      (t: Transaction) => !t.exclude_from_budget
+    );
+  }, [effectiveRawTransactions]);
+
+  const effectiveActiveCycle = useMemo(() => {
+    if (isDemoMode && demoData) return demoData.activeCycle;
+    return activeCycle;
+  }, [isDemoMode, demoData, activeCycle]);
+
+  const effectiveCycles = useMemo(() => {
+    if (isDemoMode && demoData) return demoData.cycles;
+    return cycles;
+  }, [isDemoMode, demoData, cycles]);
+
+  const effectiveRecurring = useMemo(() => {
+    if (isDemoMode && demoData) return demoData.recurring;
+    return recurring;
+  }, [isDemoMode, demoData, recurring]);
+
+  const effectiveRadarData = useMemo(() => {
+    if (isDemoMode && demoData) return demoData.radarData;
+    return radarData;
+  }, [isDemoMode, demoData, radarData]);
 
   // 3. Стан вкладок і періодів
   const [activeTab, setActiveTab] = useState<"overview" | "wealth" | "history">(
@@ -87,25 +128,29 @@ export default function Dashboard() {
 
   // 4. Стан капіталу з TanStack Query
   const savingsGoals = useMemo<SavingsGoal[]>(() => {
+    if (isDemoMode && demoData) return demoData.savingsGoals;
     return Array.isArray(wealthData?.goals) ? wealthData.goals : [];
-  }, [wealthData?.goals]);
+  }, [isDemoMode, demoData, wealthData?.goals]);
 
   const investments = useMemo<InvestmentAsset[]>(() => {
+    if (isDemoMode && demoData) return demoData.investments;
     return Array.isArray(wealthData?.investments) ? wealthData.investments : [];
-  }, [wealthData?.investments]);
+  }, [isDemoMode, demoData, wealthData?.investments]);
 
   const categoryBudgets = useMemo<Record<string, number>>(() => {
+    if (isDemoMode && demoData) return demoData.categoryBudgets;
     return wealthData?.categoryBudgets &&
       typeof wealthData.categoryBudgets === "object"
       ? wealthData.categoryBudgets
       : {};
-  }, [wealthData?.categoryBudgets]);
+  }, [isDemoMode, demoData, wealthData?.categoryBudgets]);
 
   const commercialRates = useMemo<{
     USD: number;
     EUR: number;
     PLN: number;
   }>(() => {
+    if (isDemoMode && demoData) return demoData.commercialRates;
     return (
       wealthData?.rates || {
         USD: 44.0,
@@ -113,24 +158,32 @@ export default function Dashboard() {
         PLN: 11.0,
       }
     );
-  }, [wealthData?.rates]);
+  }, [isDemoMode, demoData, wealthData?.rates]);
 
   // Стан для Wishlist & Cost-per-Use
   const wishlistItems = useMemo<WishlistItem[]>(() => {
+    if (isDemoMode && demoData) return demoData.wishlistItems;
     return wealthData?.wishlist?.items || [];
-  }, [wealthData?.wishlist?.items]);
+  }, [isDemoMode, demoData, wealthData?.wishlist?.items]);
 
   const wishlistSavedAmount = useMemo<number>(() => {
+    if (isDemoMode && demoData) return demoData.wishlistSavedAmount;
     return wealthData?.wishlist?.metrics?.saved_amount ?? 0;
-  }, [wealthData?.wishlist?.metrics?.saved_amount]);
+  }, [isDemoMode, demoData, wealthData?.wishlist?.metrics?.saved_amount]);
 
   const costPerUseItems = useMemo<CostPerUseItem[]>(() => {
+    if (isDemoMode && demoData) return demoData.costPerUseItems;
     return wealthData?.costPerUse?.items || [];
-  }, [wealthData?.costPerUse?.items]);
+  }, [isDemoMode, demoData, wealthData?.costPerUse?.items]);
 
   const costPerUseSavedAmount = useMemo<number>(() => {
+    if (isDemoMode && demoData) return demoData.costPerUseSavedAmount;
     return wealthData?.costPerUse?.metrics?.total_money_saved ?? 0;
-  }, [wealthData?.costPerUse?.metrics?.total_money_saved]);
+  }, [
+    isDemoMode,
+    demoData,
+    wealthData?.costPerUse?.metrics?.total_money_saved,
+  ]);
 
   // 5. Модальні вікна
   const {
@@ -198,10 +251,10 @@ export default function Dashboard() {
     effectiveLimit,
   } = useBudgetMetrics({
     transactions,
-    recurring,
-    budgetLimit: activeCycle?.budget_limit || 30000,
+    recurring: effectiveRecurring,
+    budgetLimit: effectiveActiveCycle?.budget_limit || 30000,
     selectedDate,
-    activeCycle,
+    activeCycle: effectiveActiveCycle,
     usdRate: commercialRates.USD,
   });
 
@@ -212,8 +265,8 @@ export default function Dashboard() {
     cycleCurrentLabel,
     cyclePreviousLabel,
   } = useCycleComparison({
-    cycles,
-    activeCycle,
+    cycles: effectiveCycles,
+    activeCycle: effectiveActiveCycle,
     transactions,
     monthTransactions,
     previousMonthTransactions,
@@ -324,8 +377,8 @@ export default function Dashboard() {
     );
   };
 
-  // Екран автентифікації, якщо користувач не залогінений
-  if (!isAuthenticated) {
+  // Екран автентифікації, якщо користувач не залогінений і не в демо-режимі
+  if (!isAuthenticated && !isDemoMode) {
     return (
       <PinAuthScreen
         isLoading={isAuthenticated === null}
@@ -337,12 +390,33 @@ export default function Dashboard() {
         onBiometricLogin={handleBiometricLogin}
         isBiometricSupported={isBiometricSupported}
         isOnline={isOnline}
+        onEnterDemoMode={() => setIsDemoMode(true)}
       />
     );
   }
 
   return (
     <main className="mx-auto min-h-screen max-w-screen-2xl px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] font-sans text-white antialiased sm:px-8 md:pt-10 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))] lg:px-12">
+      {/* Індикатор демо-режиму для скріншотів і портфоліо */}
+      {isDemoMode && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-500/30 bg-sky-950/40 p-3.5 shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-2 text-xs font-medium text-sky-200">
+            <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-sky-400" />
+            <span>
+              ✨ <b>Демо-режим активний:</b> завантажено демонстраційний датасет
+              для скріншотів (ваша база даних захищена й не змінюється).
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsDemoMode(false)}
+            className="shrink-0 rounded-xl border border-sky-400/40 bg-sky-500/20 px-3 py-1.5 text-xs font-bold text-sky-300 transition-colors hover:bg-sky-500/30"
+          >
+            Вийти з демо
+          </button>
+        </div>
+      )}
+
       <Suspense fallback={null}>
         <QuickActionsListener onAddExpense={openCreateExpense} />
         <ShareTargetListener
@@ -395,8 +469,8 @@ export default function Dashboard() {
           onSelectCategory={setSelectedCategory}
           onSaveCategoryBudget={handleSaveCategoryBudget}
           onDeleteCategoryBudget={handleDeleteCategoryBudget}
-          recurring={recurring}
-          radarData={radarData}
+          recurring={effectiveRecurring}
+          radarData={effectiveRadarData}
           isLoadingRadar={isLoadingRadar}
           onAddRecurring={openAddRecurring}
           onEditRecurring={openEditRecurring}
@@ -408,7 +482,7 @@ export default function Dashboard() {
           recurringTotal={recurringTotal}
           selectedMonthKey={selectedMonthKey}
           commercialRates={commercialRates}
-          activeCycle={activeCycle}
+          activeCycle={effectiveActiveCycle}
           cycleCurrentTransactions={cycleCurrentTransactions}
           cyclePreviousTransactions={cyclePreviousTransactions}
           cycleCurrentLabel={cycleCurrentLabel}
@@ -442,7 +516,7 @@ export default function Dashboard() {
           onOpenTrash={openTrash}
           onOpenMerchantRules={openMerchantRules}
           onOpenTagProject={setSelectedProjectTag}
-          periodLabel={activeCycle?.name || monthLabel}
+          periodLabel={effectiveActiveCycle?.name || monthLabel}
         />
       )}
 
@@ -503,7 +577,7 @@ export default function Dashboard() {
         onSplitSuccess={handleSplitSuccess}
         isCycleModalOpen={isCycleModalOpen}
         onCloseCycleModal={closeCycleModal}
-        activeCycle={activeCycle}
+        activeCycle={effectiveActiveCycle}
         effectiveLimit={effectiveLimit}
         onCycleStarted={invalidateCycles}
         isAiDrawerOpen={isAiDrawerOpen}

@@ -14,6 +14,7 @@ interface PinAuthScreenProps {
   onBiometricLogin: () => void;
   isBiometricSupported?: boolean;
   isOnline?: boolean;
+  onEnterDemoMode?: () => void;
 }
 
 export function PinAuthScreen({
@@ -26,6 +27,7 @@ export function PinAuthScreen({
   onBiometricLogin,
   isBiometricSupported = true,
   isOnline = true,
+  onEnterDemoMode,
 }: PinAuthScreenProps) {
   if (isLoading) {
     return (
@@ -120,6 +122,22 @@ export function PinAuthScreen({
             {isVerifyingPin ? "Перевірка..." : "Розблокувати за PIN"}
           </button>
         </form>
+
+        {onEnterDemoMode && (
+          <div className="border-t border-zinc-900/80 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic("medium");
+                onEnterDemoMode();
+              }}
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 transition-colors hover:text-sky-400"
+            >
+              <span>✨</span>
+              <span>Спробувати Demo-режим (для портфоліо)</span>
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );
