@@ -13,7 +13,6 @@
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-21262d?style=for-the-badge&logo=fido&logoColor=60a5fa&labelColor=161b22)](https://fidoalliance.org/)
 [![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-21262d?style=for-the-badge&logo=pwa&logoColor=fbbf24&labelColor=161b22)](https://web.dev/progressive-web-apps/)
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-21262d?style=for-the-badge&logo=vercel&logoColor=0070f3&labelColor=161b22)](https://budget-graph-ai-w8r2.vercel.app/?demo=true)
 
 <p align="center">
   <b>A high-performance autonomous financial command center and next-generation Wealth OS.</b><br/>
@@ -21,8 +20,8 @@
 </p>
 
 <p align="center">
-  <a href="https://budget-graph-ai-w8r2.vercel.app/?demo=true">
-    <img src="https://img.shields.io/badge/⚡_Launch_Live_Interactive_Demo-budget--graph--ai--w8r2.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="Launch Live Demo" />
+  <a href="https://budget-graph-ai-w8r2.vercel.app/?demo=true" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="Try BudgetGraph OS" />
   </a>
 </p>
 
