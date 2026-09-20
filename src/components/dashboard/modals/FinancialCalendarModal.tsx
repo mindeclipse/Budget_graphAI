@@ -129,21 +129,35 @@ export function FinancialCalendarModal({
   // Навігація по місяцях
   const handlePrevMonth = () => {
     triggerHaptic("selection");
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear((y) => y - 1);
+    const newMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const newYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    setCurrentMonth(newMonth);
+    setCurrentYear(newYear);
+
+    const now = new Date();
+    if (now.getFullYear() === newYear && now.getMonth() === newMonth) {
+      setSelectedDateIso(getLocalDateIso(now));
     } else {
-      setCurrentMonth((m) => m - 1);
+      setSelectedDateIso(
+        `${newYear}-${String(newMonth + 1).padStart(2, "0")}-01`
+      );
     }
   };
 
   const handleNextMonth = () => {
     triggerHaptic("selection");
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear((y) => y + 1);
+    const newMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+    const newYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+    setCurrentMonth(newMonth);
+    setCurrentYear(newYear);
+
+    const now = new Date();
+    if (now.getFullYear() === newYear && now.getMonth() === newMonth) {
+      setSelectedDateIso(getLocalDateIso(now));
     } else {
-      setCurrentMonth((m) => m + 1);
+      setSelectedDateIso(
+        `${newYear}-${String(newMonth + 1).padStart(2, "0")}-01`
+      );
     }
   };
 
@@ -165,7 +179,7 @@ export function FinancialCalendarModal({
     if (startDayOfWeek === -1) startDayOfWeek = 6;
 
     const totalDays = lastDayOfMonth.getDate();
-    const todayIso = getLocalDateIso(today);
+    const todayIso = getLocalDateIso(new Date());
 
     const days: Array<{
       dayNumber: number;
@@ -386,9 +400,12 @@ export function FinancialCalendarModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-md transition-opacity sm:items-center sm:p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-md transition-opacity sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div
-        className="relative flex max-h-[92vh] w-full max-w-xl flex-col rounded-t-3xl border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 shadow-2xl sm:rounded-3xl sm:p-6"
+        className="relative flex max-h-[92vh] w-full max-w-xl flex-col rounded-t-3xl border border-zinc-800 bg-zinc-950 p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] text-zinc-100 shadow-2xl sm:rounded-3xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Заголовок модалки */}
