@@ -14,7 +14,6 @@
 [![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-6da55f?style=for-the-badge&logo=vitest>)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-f59e0b?style=for-the-badge&logo=pwa)](https://web.dev/progressive-web-apps/)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-38bdf8?style=for-the-badge&logo=vercel&logoColor=white)](https://budget-graph-ai-w8r2.vercel.app/?demo=true)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 <p align="center">
   <b>A high-performance autonomous financial command center and next-generation Wealth OS.</b><br/>
