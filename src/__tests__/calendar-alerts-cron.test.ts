@@ -19,13 +19,21 @@ describe("Calendar Alerts Cron (/api/cron/calendar-alerts)", () => {
   });
 
   it("знаходить події на найближчі дні та відправляє радар у Telegram", async () => {
-    const today = new Date();
+    const now = new Date();
+    const kyivIso = now.toLocaleDateString("en-CA", {
+      timeZone: "Europe/Kyiv",
+    });
+    const [kyivYear, kyivMonth, kyivDay] = kyivIso.split("-").map(Number);
+    const today = new Date(kyivYear, kyivMonth - 1, kyivDay);
     const todayDay = today.getDate();
 
     // Дата через 3 дні
     const in3Days = new Date(today);
     in3Days.setDate(today.getDate() + 3);
-    const in3DaysIso = in3Days.toISOString().slice(0, 10);
+    const dy = in3Days.getFullYear();
+    const dm = String(in3Days.getMonth() + 1).padStart(2, "0");
+    const dd = String(in3Days.getDate()).padStart(2, "0");
+    const in3DaysIso = `${dy}-${dm}-${dd}`;
 
     mockFrom.mockImplementation((table: string) => {
       if (table === "budget_cycles") {

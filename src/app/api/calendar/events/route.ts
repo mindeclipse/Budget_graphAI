@@ -169,47 +169,6 @@ export async function GET(req: NextRequest) {
           });
         }
       }
-
-      // Перевірка щомісячних виплат Inzhur / ОВДП за нотатками чи типом REIT
-      if (
-        inv.asset_type === "reit" ||
-        (inv.notes && inv.notes.toLowerCase().includes("щомісяц"))
-      ) {
-        // Зазвичай виплати Inzhur відбуваються в 15-20 числах місяця. Якщо в нотатках вказано день (наприклад, "день 20" або подібне), враховуємо.
-        let payoutDay = 20;
-        const dayMatch = inv.notes?.match(/(\d{1,2})[-. ]*(числа|число|день)/i);
-        if (dayMatch && dayMatch[1]) {
-          payoutDay = Math.min(
-            Math.max(1, parseInt(dayMatch[1], 10)),
-            daysInMonth
-          );
-        }
-        const payoutDayPadded = String(payoutDay).padStart(2, "0");
-        const monthPadded = String(month + 1).padStart(2, "0");
-        const payoutDate = `${year}-${monthPadded}-${payoutDayPadded}`;
-
-        // Розрахунок приблизної щомісячної виплати з yield_percent
-        let monthlyYieldAmount: number | null = null;
-        if (inv.yield_percent && inv.current_value) {
-          monthlyYieldAmount = Math.round(
-            (Number(inv.current_value) * (Number(inv.yield_percent) / 100)) / 12
-          );
-        }
-
-        timelineItems.push({
-          id: `investment-yield-${inv.id}`,
-          title: `💰 Дивіденди/виплата: ${inv.asset_name}`,
-          date: payoutDate,
-          source: "investment",
-          type: "income",
-          amount: monthlyYieldAmount,
-          currency: inv.currency || "UAH",
-          metadata: {
-            assetType: inv.asset_type,
-            yieldPercent: inv.yield_percent,
-          },
-        });
-      }
     });
 
     // 4. Кастомні події (financial_events)

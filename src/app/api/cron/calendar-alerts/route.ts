@@ -53,8 +53,13 @@ export async function GET(req: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin();
 
     // Сьогоднішня дата в локальному часі (Kyiv)
-    const today = new Date();
-    const todayIso = today.toISOString().slice(0, 10);
+    const now = new Date();
+    const kyivIso = now.toLocaleDateString("en-CA", {
+      timeZone: "Europe/Kyiv",
+    }); // "YYYY-MM-DD"
+    const todayIso = kyivIso;
+    const [kyivYear, kyivMonth, kyivDay] = kyivIso.split("-").map(Number);
+    const today = new Date(kyivYear, kyivMonth - 1, kyivDay);
 
     // Розраховуємо цільові дати: 0 (сьогодні), 1 (завтра), 3, 7 днів
     const targetDays = [0, 1, 3, 7];
@@ -62,7 +67,10 @@ export async function GET(req: NextRequest) {
     targetDays.forEach((days) => {
       const d = new Date(today);
       d.setDate(d.getDate() + days);
-      dateMap.set(days, d.toISOString().slice(0, 10));
+      const dy = d.getFullYear();
+      const dm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      dateMap.set(days, `${dy}-${dm}-${dd}`);
     });
 
     const maxHorizonIso = dateMap.get(7)!;

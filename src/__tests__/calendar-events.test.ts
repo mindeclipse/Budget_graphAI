@@ -137,7 +137,6 @@ describe("Calendar Events API (/api/calendar/events)", () => {
       expect(eventIds).toContain("cycle-end-cycle-sept-2026");
       expect(eventIds).toContain("recurring-1");
       expect(eventIds).toContain("investment-maturity-10");
-      expect(eventIds).toContain("investment-yield-11");
       expect(eventIds).toContain("custom-101");
     });
   });

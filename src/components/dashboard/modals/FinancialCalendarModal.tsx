@@ -50,6 +50,13 @@ const MONTH_NAMES_UK = [
 
 const WEEKDAY_NAMES_UK = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
 
+function getLocalDateIso(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function FinancialCalendarModal({
   isOpen,
   onClose,
@@ -59,8 +66,8 @@ export function FinancialCalendarModal({
   const today = useMemo(() => new Date(), []);
   const [currentYear, setCurrentYear] = useState<number>(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(today.getMonth()); // 0-indexed
-  const [selectedDateIso, setSelectedDateIso] = useState<string>(
-    today.toISOString().slice(0, 10)
+  const [selectedDateIso, setSelectedDateIso] = useState<string>(() =>
+    getLocalDateIso(new Date())
   );
 
   const [events, setEvents] = useState<CalendarTimelineItem[]>([]);
@@ -142,9 +149,10 @@ export function FinancialCalendarModal({
 
   const handleGoToday = () => {
     triggerHaptic("light");
-    setCurrentYear(today.getFullYear());
-    setCurrentMonth(today.getMonth());
-    setSelectedDateIso(today.toISOString().slice(0, 10));
+    const now = new Date();
+    setCurrentYear(now.getFullYear());
+    setCurrentMonth(now.getMonth());
+    setSelectedDateIso(getLocalDateIso(now));
   };
 
   // Розрахунок матриці календаря (Понеділок - першим)
@@ -157,6 +165,8 @@ export function FinancialCalendarModal({
     if (startDayOfWeek === -1) startDayOfWeek = 6;
 
     const totalDays = lastDayOfMonth.getDate();
+    const todayIso = getLocalDateIso(today);
+
     const days: Array<{
       dayNumber: number;
       dateIso: string;
@@ -177,12 +187,11 @@ export function FinancialCalendarModal({
         dateIso,
         isCurrentMonth: false,
         isInActiveCycle: false,
-        isToday: dateIso === today.toISOString().slice(0, 10),
+        isToday: dateIso === todayIso,
       });
     }
 
     // Поточний місяць
-    const todayIso = today.toISOString().slice(0, 10);
     const cycleStart = activeCycle?.start_date
       ? activeCycle.start_date.slice(0, 10)
       : null;
@@ -479,7 +488,7 @@ export function FinancialCalendarModal({
         </div>
 
         {/* Сітка календаря */}
-        <div className="border-zinc-850 mb-3 rounded-2xl border bg-zinc-900/40 p-2">
+        <div className="mb-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/30 p-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]">
           {/* Дні тижня */}
           <div className="mb-1 grid grid-cols-7 text-center text-[11px] font-semibold text-zinc-500">
             {WEEKDAY_NAMES_UK.map((d, i) => (
@@ -506,20 +515,18 @@ export function FinancialCalendarModal({
                     triggerHaptic("selection");
                     setSelectedDateIso(cell.dateIso);
                   }}
-                  className={`relative flex min-h-[46px] flex-col items-center justify-between rounded-xl p-1 text-xs transition-all ${
+                  className={`relative flex min-h-[48px] flex-col items-center justify-between rounded-xl p-1 text-xs transition-all ${
                     !cell.isCurrentMonth
-                      ? "text-zinc-600 opacity-40 hover:opacity-75"
+                      ? "text-zinc-600 opacity-30 hover:opacity-60"
                       : cell.isInActiveCycle
                         ? "text-zinc-200"
                         : "text-zinc-400"
                   } ${
-                    cell.isToday
-                      ? "bg-emerald-950/30 font-bold text-white ring-1 ring-emerald-500/80"
-                      : ""
-                  } ${
                     isSelected
-                      ? "bg-zinc-800/90 font-bold shadow-md ring-2 ring-emerald-400"
-                      : "hover:bg-zinc-850/60"
+                      ? "border border-emerald-500/60 bg-emerald-950/70 font-bold text-white shadow-[0_0_12px_rgba(16,185,129,0.18)]"
+                      : cell.isToday
+                        ? "border border-emerald-500/30 bg-emerald-950/20 font-bold text-emerald-400"
+                        : "border border-transparent hover:border-zinc-800 hover:bg-zinc-800/40"
                   }`}
                 >
                   <span className="tabular-nums">{cell.dayNumber}</span>
@@ -574,15 +581,18 @@ export function FinancialCalendarModal({
         </div>
 
         {/* Панель вибраного дня */}
-        <div className="border-zinc-850 flex-1 overflow-y-auto rounded-2xl border bg-zinc-900/50 p-3">
+        <div className="flex-1 overflow-y-auto rounded-2xl border border-zinc-800/80 bg-zinc-900/30 p-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]">
           <div className="mb-2 flex items-center justify-between border-b border-zinc-800/80 pb-2">
             <div>
-              <p className="text-xs font-semibold text-white">
-                {new Date(selectedDateIso).toLocaleDateString("uk-UA", {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "long",
-                })}
+              <p className="text-xs font-semibold text-white capitalize">
+                {(() => {
+                  const [y, m, d] = selectedDateIso.split("-").map(Number);
+                  return new Date(y, m - 1, d).toLocaleDateString("uk-UA", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "long",
+                  });
+                })()}
               </p>
               <div className="flex items-center gap-2 text-[11px]">
                 {dayExpenses > 0 && (
@@ -600,8 +610,11 @@ export function FinancialCalendarModal({
 
             <button
               type="button"
-              onClick={() => setIsAddingEvent((prev) => !prev)}
-              className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-xs font-medium text-zinc-200 transition-colors hover:border-emerald-500 hover:text-white active:scale-95"
+              onClick={() => {
+                triggerHaptic("selection");
+                setIsAddingEvent((prev) => !prev);
+              }}
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-400 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/20 active:scale-95"
             >
               <Plus size={13} />
               <span>{isAddingEvent ? "Скасувати" : "Додати подію"}</span>
@@ -612,7 +625,7 @@ export function FinancialCalendarModal({
           {isAddingEvent && (
             <form
               onSubmit={handleCreateEvent}
-              className="mb-3 rounded-xl border border-zinc-700/80 bg-zinc-950 p-3 text-xs"
+              className="mb-3 rounded-2xl border border-zinc-800/80 bg-zinc-950/80 p-3.5 text-xs shadow-inner"
             >
               <div className="mb-2">
                 <label className="mb-1 block text-zinc-400">
@@ -623,7 +636,7 @@ export function FinancialCalendarModal({
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="напр. Оплата інтернету, Податок ФОП, ОВДП..."
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-white placeholder-zinc-500 focus:border-emerald-500/60 focus:outline-none"
                   autoFocus
                 />
               </div>
@@ -639,7 +652,7 @@ export function FinancialCalendarModal({
                     value={newAmount}
                     onChange={(e) => setNewAmount(e.target.value)}
                     placeholder="0"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-white focus:border-emerald-500/60 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -647,7 +660,7 @@ export function FinancialCalendarModal({
                   <select
                     value={newType}
                     onChange={(e) => setNewType(e.target.value as any)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-white focus:border-emerald-500 focus:outline-none"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-white focus:border-emerald-500/60 focus:outline-none"
                   >
                     <option value="expense">Списання / Витрата</option>
                     <option value="income">Надходження / Дохід</option>
