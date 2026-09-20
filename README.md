@@ -13,6 +13,7 @@
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-4285f4?style=for-the-badge&logo=fido)](https://fidoalliance.org/)
 [![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-6da55f?style=for-the-badge&logo=vitest>)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-f59e0b?style=for-the-badge&logo=pwa)](https://web.dev/progressive-web-apps/)
+[![Demo](https://img.shields.io/badge/Demo-Interactive_Sandbox-38bdf8?style=for-the-badge&logo=googlechrome&logoColor=white)](#-interactive-demo-sandbox)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 <p align="center">
@@ -20,6 +21,7 @@
   Combines passwordless hardware biometrics (FIDO2 / Passkeys), non-linear cycle mathematics (Weighted Burn Rate), automated broker and bank statement reconciliation, inflation defense (Personal CPI), a multimodal AI copilot powered by Google Gemini, and a full-duplex Telegram bot with real-time infographic generation.
 </p>
 
+[✨ Interactive Demo](#-interactive-demo-sandbox) •
 [📱 UI Showcase](#-application-showcase) •
 [✨ Key Features](#-key-capabilities--engineering-features) •
 [📐 Architecture](#-system-architecture) •
@@ -50,6 +52,7 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 - **Non-Linear Financial Mathematics:** Weighted Burn Rate modeling, Personal CPI tracking via the Laspeyres index formula, Cost-Per-Use (CPU) asset amortization, and penny-accurate ($0.01$) transaction split validation.
 - **Multi-Agent Multimodal AI:** Cascade of Google Gemini models (2.5 / 3.5 / 3.7 Flash) for real-time receipt OCR via Web Share Target API, full-cycle financial health audits, and Telegram voice message transcription.
 - **Automated Multi-Source Reconciliation:** High-performance parsers for bank statements (Monobank, PrivatBank) with noise-stripping and REIT broker reports (Inzhur) with bi-directional transfer deduplication.
+- **Interactive In-Memory Sandbox:** Instant zero-setup evaluation populated with realistic financial records (Inzhur REIT distributions, OVDP bonds, Monobank/PrivatBank transactions, and Gemini AI audits) with zero database mutations.
 
 ---
 
@@ -441,26 +444,38 @@ npm run build
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 🎮 Interactive Demo Sandbox (Zero Setup Required)
+
+Want to explore the complete operating system right away without configuring Supabase, external APIs, or environment variables?
+
+```bash
+# 1. Clone the repository and install dependencies
+git clone https://github.com/mindeclipse/Budget_graphAI.git
+cd Budget_graphAI
+npm ci --legacy-peer-deps
+
+# 2. Launch development server
+npm run dev
+```
+
+Open **[http://localhost:3000/?demo=true](http://localhost:3000/?demo=true)** or click **"✨ Спробувати Демо-режим"** at the bottom of the authentication lock screen.
+
+- **Pre-populated Dataset:** Realistic multi-asset portfolios (Inzhur REIT distributions, OVDP bonds, multi-currency vaults), categorized bank statements, recurring subscription radars, and dynamic pacing burn curves.
+- **Zero-Risk & Offline:** Runs entirely in-memory with client-side state caching. No database mutations or cloud credentials needed.
+
+---
+
+### 🛠️ Production Setup (With Cloud Backend)
+
+Follow these steps to deploy BudgetGraph OS with your own private Supabase database and external API integrations:
+
+#### Prerequisites
 
 - **Node.js:** version `22.x` or higher
 - **npm:** version `10.x` or higher
 - A **Supabase** account (PostgreSQL) and a **Google Gemini API** key
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/mindeclipse/Budget_graphAI.git
-cd Budget_graphAI
-```
-
-### 2. Install Dependencies
-
-```bash
-npm ci --legacy-peer-deps
-```
-
-### 3. Environment Configuration
+#### 1. Environment Configuration
 
 Create a `.env.local` file in the root directory:
 
