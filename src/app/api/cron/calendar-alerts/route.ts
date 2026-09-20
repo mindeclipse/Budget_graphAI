@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { timingSafeEqual } from "@/lib/security";
 import { verifySessionToken } from "@/lib/session";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { calculateEstimatedCycleEnd } from "@/lib/cycle-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -117,20 +118,31 @@ export async function GET(req: NextRequest) {
     const foundAlerts: AlertItem[] = [];
     const notifiedCustomEventIds: number[] = [];
 
-    // 1. Перевірка завершення активного циклу
-    if (activeCycle?.end_date) {
-      const endDate = new Date(activeCycle.end_date);
-      const diffMs = endDate.getTime() - new Date(todayIso).getTime();
-      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    // 1. Перевірка завершення активного циклу (фактичного або орієнтовного)
+    if (activeCycle?.start_date) {
+      const { effectiveEndDateIso, isCompleted, isExtended } =
+        calculateEstimatedCycleEnd(
+          activeCycle.start_date,
+          activeCycle.end_date,
+          todayIso
+        );
 
-      if (targetDays.includes(diffDays)) {
-        foundAlerts.push({
-          daysRemaining: diffDays,
-          category: "cycle",
-          title: `Кінець розрахункового циклу «${activeCycle.name}»`,
-          type: "reminder",
-        });
-      }
+      targetDays.forEach((days) => {
+        if (dateMap.get(days) === effectiveEndDateIso) {
+          const title = isCompleted
+            ? `Кінець розрахункового циклу «${activeCycle.name}»`
+            : isExtended
+              ? `Поточний день циклу (продовжено): «${activeCycle.name}»`
+              : `Орієнтовний фініш циклу «${activeCycle.name}»`;
+
+          foundAlerts.push({
+            daysRemaining: days,
+            category: "cycle",
+            title,
+            type: "reminder",
+          });
+        }
+      });
     }
 
     // 2. Перевірка регулярних платежів

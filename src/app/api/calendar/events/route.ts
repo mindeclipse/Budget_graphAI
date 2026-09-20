@@ -7,6 +7,7 @@ import {
   financialEventUpdateSchema,
 } from "@/lib/validations";
 import { CalendarTimelineItem, FinancialEvent } from "@/types/finance";
+import { calculateEstimatedCycleEnd, getKyivDateIso } from "@/lib/cycle-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -58,8 +59,7 @@ export async function GET(req: NextRequest) {
         supabaseAdmin
           .from("budget_cycles")
           .select("id, name, start_date, end_date, budget_limit, is_active")
-          .eq("is_active", true)
-          .maybeSingle(),
+          .order("start_date", { ascending: false }),
         supabaseAdmin
           .from("recurring_templates")
           .select(
@@ -79,40 +79,78 @@ export async function GET(req: NextRequest) {
 
     const timelineItems: CalendarTimelineItem[] = [];
 
-    // 1. Межі активного циклу
-    const activeCycle = cycleRes.data;
-    if (activeCycle) {
-      if (
-        activeCycle.start_date >= startIsoDate &&
-        activeCycle.start_date <= endIsoDate
-      ) {
+    // 1. Межі циклів (початок та орієнтовний або фактичний фініш)
+    const cyclesList = cycleRes.data || [];
+    const activeCycleRaw = cyclesList.find((c) => c.is_active) || null;
+    const todayKyivIso = getKyivDateIso();
+
+    let activeCycleFormatted = null;
+    if (activeCycleRaw) {
+      const { startDateIso, effectiveEndDateIso, isExtended } =
+        calculateEstimatedCycleEnd(
+          activeCycleRaw.start_date,
+          activeCycleRaw.end_date,
+          todayKyivIso
+        );
+
+      activeCycleFormatted = {
+        ...activeCycleRaw,
+        start_date: startDateIso,
+        end_date: effectiveEndDateIso,
+        is_estimated_end: !activeCycleRaw.end_date,
+        is_extended: isExtended,
+      };
+    }
+
+    cyclesList.forEach((c) => {
+      const { startDateIso, effectiveEndDateIso, isCompleted, isExtended } =
+        calculateEstimatedCycleEnd(c.start_date, c.end_date, todayKyivIso);
+
+      // Початок циклу (якщо потрапляє у відображуваний місяць)
+      if (startDateIso >= startIsoDate && startDateIso <= endIsoDate) {
         timelineItems.push({
-          id: `cycle-start-${activeCycle.id}`,
-          title: `🏁 Початок циклу «${activeCycle.name}»`,
-          date: activeCycle.start_date,
+          id: `cycle-start-${c.id}`,
+          title: `🏁 Початок циклу «${c.name}»`,
+          date: startDateIso, // Тільки YYYY-MM-DD для точного матчингу в календарі
           source: "cycle",
           type: "cycle_boundary",
-          amount: activeCycle.budget_limit,
+          amount: c.budget_limit,
           currency: "UAH",
-          metadata: { limit: activeCycle.budget_limit },
+          metadata: {
+            cycleId: c.id,
+            limit: c.budget_limit,
+            isActive: Boolean(c.is_active),
+          },
         });
       }
 
+      // Фініш циклу (орієнтовний або зафіксований)
       if (
-        activeCycle.end_date &&
-        activeCycle.end_date >= startIsoDate &&
-        activeCycle.end_date <= endIsoDate
+        effectiveEndDateIso >= startIsoDate &&
+        effectiveEndDateIso <= endIsoDate
       ) {
+        const endTitle = isCompleted
+          ? `🎯 Фініш циклу «${c.name}»`
+          : isExtended
+            ? `🎯 Поточний день циклу (продовжено): «${c.name}»`
+            : `🎯 Орієнтовний фініш циклу: «${c.name}»`;
+
         timelineItems.push({
-          id: `cycle-end-${activeCycle.id}`,
-          title: `🎯 Фініш циклу «${activeCycle.name}»`,
-          date: activeCycle.end_date,
+          id: `cycle-end-${c.id}`,
+          title: endTitle,
+          date: effectiveEndDateIso, // Тільки YYYY-MM-DD
           source: "cycle",
           type: "cycle_boundary",
           currency: "UAH",
+          metadata: {
+            cycleId: c.id,
+            isActive: Boolean(c.is_active),
+            isEstimated: !isCompleted,
+            isExtended,
+          },
         });
       }
-    }
+    });
 
     // 2. Регулярні платежі & підписки
     const recurringList = recurringRes.data || [];
@@ -259,7 +297,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       month: `${year}-${String(month + 1).padStart(2, "0")}`,
-      activeCycle: activeCycle || null,
+      activeCycle: activeCycleFormatted || null,
       events: timelineItems,
       customEvents: customEvents,
     });

@@ -71,6 +71,7 @@ export function FinancialCalendarModal({
   );
 
   const [events, setEvents] = useState<CalendarTimelineItem[]>([]);
+  const [cycleData, setCycleData] = useState<any>(activeCycle || null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSendingTelegram, setIsSendingTelegram] = useState<boolean>(false);
 
@@ -97,6 +98,9 @@ export function FinancialCalendarModal({
       if (!res.ok) throw new Error("Не вдалося завантажити події");
       const data = await res.json();
       setEvents(data.events || []);
+      if (data.activeCycle) {
+        setCycleData(data.activeCycle);
+      }
     } catch (err: any) {
       console.error(err);
       toast.error("Помилка завантаження календаря");
@@ -169,6 +173,8 @@ export function FinancialCalendarModal({
     setSelectedDateIso(getLocalDateIso(now));
   };
 
+  const currentCycle = cycleData || activeCycle;
+
   // Розрахунок матриці календаря (Понеділок - першим)
   const calendarGrid = useMemo(() => {
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
@@ -205,12 +211,12 @@ export function FinancialCalendarModal({
       });
     }
 
-    // Поточний місяць
-    const cycleStart = activeCycle?.start_date
-      ? activeCycle.start_date.slice(0, 10)
+    // Межі активного циклу
+    const cycleStart = currentCycle?.start_date
+      ? currentCycle.start_date.slice(0, 10)
       : null;
-    const cycleEnd = activeCycle?.end_date
-      ? activeCycle.end_date.slice(0, 10)
+    const cycleEnd = currentCycle?.end_date
+      ? currentCycle.end_date.slice(0, 10)
       : null;
 
     for (let d = 1; d <= totalDays; d++) {
@@ -246,7 +252,7 @@ export function FinancialCalendarModal({
     }
 
     return days;
-  }, [currentYear, currentMonth, today, activeCycle]);
+  }, [currentYear, currentMonth, currentCycle]);
 
   // Групування подій за датою
   const eventsByDate = useMemo(() => {
@@ -449,12 +455,12 @@ export function FinancialCalendarModal({
         </div>
 
         {/* Інформаційна плашка активного циклу */}
-        {activeCycle && (
+        {currentCycle && (
           <div className="mb-3 flex items-center justify-between rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-3 py-2 text-xs">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
               <span className="font-medium text-emerald-300">
-                {activeCycle.name}
+                {currentCycle.name}
               </span>
             </div>
             <div className="flex items-center gap-2 text-zinc-400">
@@ -463,9 +469,24 @@ export function FinancialCalendarModal({
                   Залишилось {daysRemaining} дн.
                 </span>
               )}
-              <span className="text-zinc-500">
-                {activeCycle.start_date.slice(5, 10)} →{" "}
-                {activeCycle.end_date ? activeCycle.end_date.slice(5, 10) : "∞"}
+              <span className="font-mono text-[11px] text-zinc-400">
+                {(() => {
+                  const s = currentCycle.start_date?.slice(0, 10);
+                  const e = currentCycle.end_date?.slice(0, 10);
+                  if (!s) return "";
+                  const sParts = s.split("-");
+                  const sFormatted = `${sParts[2]}.${sParts[1]}`;
+                  if (!e) return `${sFormatted} → ∞`;
+                  const eParts = e.split("-");
+                  const eFormatted = `${eParts[2]}.${eParts[1]}`;
+                  const isEstimated = Boolean(currentCycle.is_estimated_end);
+                  const isExtended = Boolean(currentCycle.is_extended);
+                  return isExtended
+                    ? `${sFormatted} → ${eFormatted} (продовжено)`
+                    : isEstimated
+                      ? `${sFormatted} → ~${eFormatted}`
+                      : `${sFormatted} → ${eFormatted}`;
+                })()}
               </span>
             </div>
           </div>
@@ -536,8 +557,8 @@ export function FinancialCalendarModal({
                     !cell.isCurrentMonth
                       ? "text-zinc-600 opacity-30 hover:opacity-60"
                       : cell.isInActiveCycle
-                        ? "text-zinc-200"
-                        : "text-zinc-400"
+                        ? "bg-emerald-500/[0.04] font-medium text-zinc-100"
+                        : "text-zinc-500"
                   } ${
                     isSelected
                       ? "border border-emerald-500/60 bg-emerald-950/70 font-bold text-white shadow-[0_0_12px_rgba(16,185,129,0.18)]"

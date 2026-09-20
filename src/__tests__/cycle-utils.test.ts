@@ -6,6 +6,8 @@ import {
   filterBudgetTransactions,
   DEFAULT_CYCLE_DURATION_DAYS,
   DEFAULT_BUDGET_LIMIT,
+  calculateEstimatedCycleEnd,
+  getKyivDateIso,
 } from "@/lib/cycle-utils";
 import { BudgetCycle, Transaction } from "@/types/finance";
 
@@ -138,5 +140,60 @@ describe("Cycle Utils Unit Tests", () => {
     const res = filterBudgetTransactions(mockTxs, cycle, true, mockTxs);
     expect(res.length).toBe(1);
     expect(res[0].id).toBe(1);
+  });
+
+  describe("calculateEstimatedCycleEnd", () => {
+    it("визначає орієнтовний кінець рівно через 1 місяць, якщо цикл активний", () => {
+      // Старт 08.09.2026, сьогодні 21.09.2026
+      const res = calculateEstimatedCycleEnd(
+        "2026-09-08T00:00:00.000Z",
+        null,
+        "2026-09-21"
+      );
+
+      expect(res.startDateIso).toBe("2026-09-08");
+      expect(res.nominalEndDateIso).toBe("2026-10-08");
+      expect(res.effectiveEndDateIso).toBe("2026-10-08");
+      expect(res.isCompleted).toBe(false);
+      expect(res.isExtended).toBe(false);
+    });
+
+    it("повертає зафіксовану дату завершення, якщо кнопку Новий цикл натиснуто раніше за 1 місяць", () => {
+      // Старт 08.09.2026, Новий цикл натиснуто 25.09.2026
+      const res = calculateEstimatedCycleEnd(
+        "2026-09-08T00:00:00.000Z",
+        "2026-09-25T14:30:00.000Z",
+        "2026-09-25"
+      );
+
+      expect(res.startDateIso).toBe("2026-09-08");
+      expect(res.nominalEndDateIso).toBe("2026-09-25");
+      expect(res.effectiveEndDateIso).toBe("2026-09-25");
+      expect(res.isCompleted).toBe(true);
+      expect(res.isExtended).toBe(false);
+    });
+
+    it("продовжує цикл щодня до сьогодні, якщо місяць минув, а Новий цикл не розпочато", () => {
+      // Старт 08.09.2026, номінальний кінець мав бути 08.10.2026, але сьогодні 15.10.2026
+      const res = calculateEstimatedCycleEnd(
+        "2026-09-08T00:00:00.000Z",
+        null,
+        "2026-10-15"
+      );
+
+      expect(res.startDateIso).toBe("2026-09-08");
+      expect(res.nominalEndDateIso).toBe("2026-10-08");
+      expect(res.effectiveEndDateIso).toBe("2026-10-15");
+      expect(res.isCompleted).toBe(false);
+      expect(res.isExtended).toBe(true);
+    });
+
+    it("коректно обмежує кінець циклу довжиною наступного місяця (наприклад 31 січня -> 28 лютого)", () => {
+      const res = calculateEstimatedCycleEnd("2026-01-31", null, "2026-02-05");
+
+      expect(res.startDateIso).toBe("2026-01-31");
+      expect(res.nominalEndDateIso).toBe("2026-02-28");
+      expect(res.effectiveEndDateIso).toBe("2026-02-28");
+    });
   });
 });

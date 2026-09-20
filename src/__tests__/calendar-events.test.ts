@@ -30,16 +30,17 @@ describe("Calendar Events API (/api/calendar/events)", () => {
         if (table === "budget_cycles") {
           return {
             select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: {
-                id: "cycle-sept-2026",
-                name: "Вересень 2026",
-                start_date: "2026-09-01",
-                end_date: "2026-09-30",
-                budget_limit: 45000,
-                is_active: true,
-              },
+            order: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: "cycle-sept-2026",
+                  name: "Вересень 2026",
+                  start_date: "2026-09-01",
+                  end_date: "2026-09-30",
+                  budget_limit: 45000,
+                  is_active: true,
+                },
+              ],
               error: null,
             }),
           };
