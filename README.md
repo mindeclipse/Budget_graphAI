@@ -4,16 +4,16 @@
 
 ### _Autonomous Personal Finance & Wealth Operating System_
 
-[![Next.js](<https://img.shields.io/badge/Next.js-16.3.4_(Turbopack)-black?style=for-the-badge&logo=next.js>)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19.2.8-61dafb?style=for-the-badge&logo=react)](https://react.dev/)
-[![TypeScript](<https://img.shields.io/badge/TypeScript-5.9.3_(Strict)-3178c6?style=for-the-badge&logo=typescript>)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-38bdf8?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_RLS-3ecf8e?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_%7C_3.5_%7C_3.7_Flash-8e75ff?style=for-the-badge&logo=googlegemini)](https://ai.google.dev/)
-[![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-4285f4?style=for-the-badge&logo=fido)](https://fidoalliance.org/)
-[![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-6da55f?style=for-the-badge&logo=vitest>)](https://vitest.dev/)
-[![PWA](https://img.shields.io/badge/PWA-Offline--First-f59e0b?style=for-the-badge&logo=pwa)](https://web.dev/progressive-web-apps/)
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-38bdf8?style=for-the-badge&logo=vercel&logoColor=white)](https://budget-graph-ai-w8r2.vercel.app/?demo=true)
+[![Next.js](<https://img.shields.io/badge/Next.js-16.3.4_(Turbopack)-21262d?style=for-the-badge&logo=next.js&logoColor=white&labelColor=161b22>)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2.8-21262d?style=for-the-badge&logo=react&logoColor=61dafb&labelColor=161b22)](https://react.dev/)
+[![TypeScript](<https://img.shields.io/badge/TypeScript-5.9.3_(Strict)-21262d?style=for-the-badge&logo=typescript&logoColor=3178c6&labelColor=161b22>)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4.0-21262d?style=for-the-badge&logo=tailwindcss&logoColor=38bdf8&labelColor=161b22)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_RLS-21262d?style=for-the-badge&logo=supabase&logoColor=3ecf8e&labelColor=161b22)](https://supabase.com/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_%7C_3.5_%7C_3.7_Flash-21262d?style=for-the-badge&logo=googlegemini&logoColor=a855f7&labelColor=161b22)](https://ai.google.dev/)
+[![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-21262d?style=for-the-badge&logo=fido&logoColor=60a5fa&labelColor=161b22)](https://fidoalliance.org/)
+[![Vitest](<https://img.shields.io/badge/Vitest-484_Passed_(47_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
+[![PWA](https://img.shields.io/badge/PWA-Offline--First-21262d?style=for-the-badge&logo=pwa&logoColor=fbbf24&labelColor=161b22)](https://web.dev/progressive-web-apps/)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-21262d?style=for-the-badge&logo=vercel&logoColor=0070f3&labelColor=161b22)](https://budget-graph-ai-w8r2.vercel.app/?demo=true)
 
 <p align="center">
   <b>A high-performance autonomous financial command center and next-generation Wealth OS.</b><br/>
