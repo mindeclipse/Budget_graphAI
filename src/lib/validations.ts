@@ -215,3 +215,31 @@ export const costPerUseActionSchema = z.object({
   action: z.literal("log_use"),
   increment: z.number().int().positive().default(1),
 });
+
+export const financialEventCreateSchema = z.object({
+  title: z.string().trim().min(1, "Назва події обов'язкова").max(200),
+  amount: z
+    .number()
+    .positive("Сума повинна бути більшою за нуль")
+    .nullable()
+    .optional(),
+  currency: z.enum(["UAH", "USD", "EUR", "PLN"]).default("UAH"),
+  event_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Дата повинна бути у форматі РРРР-ММ-ДД"),
+  is_recurring: z.boolean().default(false),
+  category: z.string().trim().max(100).nullable().optional(),
+  event_type: z.enum(["expense", "income", "reminder"]).default("reminder"),
+  notify_days_before: z
+    .array(z.number().int().min(0).max(30))
+    .default([7, 3, 1]),
+  is_completed: z.boolean().default(false),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+
+export const financialEventUpdateSchema = financialEventCreateSchema
+  .partial()
+  .extend({
+    id: z.coerce.number().int().positive("ID обов'язковий"),
+    last_notified_at: z.string().nullable().optional(),
+  });

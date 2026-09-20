@@ -3,17 +3,20 @@
 import { useState, memo } from "react";
 import { AlertTriangle, Pencil, Check, Calendar } from "lucide-react";
 import { BudgetMetricsResult } from "@/hooks/useBudgetMetrics";
+import { triggerHaptic } from "@/lib/haptics";
 
 interface BudgetLimitCardProps {
   effectiveLimit: number;
   budgetMetrics: BudgetMetricsResult;
   onSaveBudget: (newLimit: number) => void | Promise<void>;
+  onOpenCalendar?: () => void;
 }
 
 export const BudgetLimitCard = memo(function BudgetLimitCard({
   effectiveLimit,
   budgetMetrics,
   onSaveBudget,
+  onOpenCalendar,
 }: BudgetLimitCardProps) {
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [tempBudgetInput, setTempBudgetInput] = useState(
@@ -182,21 +185,34 @@ export const BudgetLimitCard = memo(function BudgetLimitCard({
             )}
         </div>
 
-        <div className="col-span-2 flex items-center gap-1.5 text-zinc-400 sm:col-span-1">
-          <Calendar size={13} className="shrink-0 text-zinc-500" />
-          <span>
-            {budgetMetrics.isCurrentMonth ? (
-              <>
-                Залишилось{" "}
-                <strong className="tabular-nums">
-                  {budgetMetrics.daysRemaining}
-                </strong>{" "}
-                дн.
-              </>
-            ) : (
-              "Архівний період"
-            )}
-          </span>
+        <div className="col-span-2 flex items-center sm:col-span-1">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic("light");
+              onOpenCalendar?.();
+            }}
+            title="Відкрити фінансовий календар циклу"
+            className="group hover:bg-zinc-850 -ml-2 flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1 text-left text-zinc-400 transition-all hover:border-zinc-800 hover:text-white active:scale-95"
+          >
+            <Calendar
+              size={13}
+              className="shrink-0 text-zinc-500 transition-colors group-hover:text-emerald-400"
+            />
+            <span>
+              {budgetMetrics.isCurrentMonth ? (
+                <>
+                  Залишилось{" "}
+                  <strong className="text-zinc-200 tabular-nums group-hover:text-white">
+                    {budgetMetrics.daysRemaining}
+                  </strong>{" "}
+                  дн.
+                </>
+              ) : (
+                "Архівний період"
+              )}
+            </span>
+          </button>
         </div>
       </div>
     </section>

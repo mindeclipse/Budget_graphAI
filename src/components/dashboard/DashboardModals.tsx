@@ -78,6 +78,13 @@ const TagProjectModal = dynamic(
   () => import("@/components/TagProjectModal").then((m) => m.TagProjectModal),
   { ssr: false }
 );
+const FinancialCalendarModal = dynamic(
+  () =>
+    import("@/components/dashboard/modals/FinancialCalendarModal").then(
+      (m) => m.FinancialCalendarModal
+    ),
+  { ssr: false }
+);
 
 export interface DashboardModalsProps {
   // Category detail
@@ -170,6 +177,11 @@ export interface DashboardModalsProps {
   isMerchantRulesOpen: boolean;
   onCloseMerchantRules: () => void;
 
+  // Financial Calendar modal
+  isCalendarOpen?: boolean;
+  onCloseCalendar?: () => void;
+  daysRemaining?: number;
+
   // Generic transaction selection setter
   onSelectTransaction: (tx: Transaction | null) => void;
 }
@@ -239,6 +251,10 @@ export function DashboardModals({
 
   isMerchantRulesOpen,
   onCloseMerchantRules,
+
+  isCalendarOpen,
+  onCloseCalendar,
+  daysRemaining,
 
   onSelectTransaction,
 }: DashboardModalsProps) {
@@ -355,6 +371,15 @@ export function DashboardModals({
         <MerchantRulesModal
           isOpen={isMerchantRulesOpen}
           onClose={onCloseMerchantRules}
+        />
+      )}
+
+      {isCalendarOpen && (
+        <FinancialCalendarModal
+          isOpen={isCalendarOpen}
+          onClose={onCloseCalendar || (() => {})}
+          activeCycle={activeCycle}
+          daysRemaining={daysRemaining}
         />
       )}
     </>

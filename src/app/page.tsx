@@ -212,6 +212,9 @@ export default function Dashboard() {
     isMerchantRulesOpen,
     openMerchantRules,
     closeMerchantRules,
+    isCalendarOpen,
+    openCalendar,
+    closeCalendar,
     isAiDrawerOpen,
     aiInitialPrompt,
     openAiDrawer,
@@ -481,6 +484,7 @@ export default function Dashboard() {
         effectiveLimit={effectiveLimit}
         budgetMetrics={budgetMetrics}
         onSaveBudget={handleSaveBudgetLimit}
+        onOpenCalendar={openCalendar}
       />
 
       {/* Навігація між вкладками для десктопу */}
@@ -641,6 +645,9 @@ export default function Dashboard() {
         onCloseTrash={closeTrash}
         isMerchantRulesOpen={isMerchantRulesOpen}
         onCloseMerchantRules={closeMerchantRules}
+        isCalendarOpen={isCalendarOpen}
+        onCloseCalendar={closeCalendar}
+        daysRemaining={budgetMetrics.daysRemaining}
         onSelectTransaction={setSelectedTx}
       />
 

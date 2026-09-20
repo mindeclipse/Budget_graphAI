@@ -15,6 +15,7 @@ export function useDashboardModals() {
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isMerchantRulesOpen, setIsMerchantRulesOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   // 2. AI аналіз
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
@@ -73,6 +74,9 @@ export function useDashboardModals() {
     () => setIsMerchantRulesOpen(false),
     []
   );
+
+  const openCalendar = useCallback(() => setIsCalendarOpen(true), []);
+  const closeCalendar = useCallback(() => setIsCalendarOpen(false), []);
 
   const openAiDrawer = useCallback((prompt?: string) => {
     setAiInitialPrompt(prompt);
@@ -136,6 +140,12 @@ export function useDashboardModals() {
     openMerchantRules,
     closeMerchantRules,
     setIsMerchantRulesOpen,
+
+    // Calendar
+    isCalendarOpen,
+    openCalendar,
+    closeCalendar,
+    setIsCalendarOpen,
 
     // AI Drawer
     isAiDrawerOpen,

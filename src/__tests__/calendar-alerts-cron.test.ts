@@ -1,0 +1,128 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GET } from "@/app/api/cron/calendar-alerts/route";
+import { NextRequest } from "next/server";
+
+vi.mock("@/lib/telegram", () => ({
+  sendTelegramMessage: vi.fn().mockResolvedValue(true),
+}));
+
+const mockFrom = vi.fn();
+vi.mock("@/lib/supabase-admin", () => ({
+  getSupabaseAdmin: () => ({
+    from: mockFrom,
+  }),
+}));
+
+describe("Calendar Alerts Cron (/api/cron/calendar-alerts)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("знаходить події на найближчі дні та відправляє радар у Telegram", async () => {
+    const today = new Date();
+    const todayDay = today.getDate();
+
+    // Дата через 3 дні
+    const in3Days = new Date(today);
+    in3Days.setDate(today.getDate() + 3);
+    const in3DaysIso = in3Days.toISOString().slice(0, 10);
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "budget_cycles") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: {
+              id: "cycle-test",
+              name: "Тестовий цикл",
+              end_date: in3DaysIso,
+            },
+            error: null,
+          }),
+        };
+      }
+      if (table === "recurring_templates") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: 1,
+                title: "Spotify Family",
+                amount: 199,
+                currency: "UAH",
+                day_of_month: todayDay, // сьогодні!
+                is_active: true,
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      if (table === "investments") {
+        return {
+          select: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: 5,
+                asset_name: "ОВДП UA4000",
+                asset_type: "bonds",
+                invested_amount: 20000,
+                current_value: 23000,
+                currency: "UAH",
+                maturity_date: in3DaysIso, // через 3 дні!
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      if (table === "financial_events") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: 201,
+                title: "Податок ФОП",
+                amount: 1600,
+                currency: "UAH",
+                event_date: in3DaysIso,
+                notify_days_before: [7, 3, 1],
+                is_completed: false,
+                event_type: "expense",
+              },
+            ],
+            error: null,
+          }),
+          update: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+      };
+    });
+
+    const { sendTelegramMessage } = await import("@/lib/telegram");
+
+    const req = new NextRequest(
+      "http://localhost:3000/api/cron/calendar-alerts?force=true"
+    );
+    const res = await GET(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.sent).toBe(true);
+    expect(json.alertsCount).toBeGreaterThanOrEqual(2);
+
+    expect(sendTelegramMessage).toHaveBeenCalled();
+    const sentMessage = vi.mocked(sendTelegramMessage).mock.calls[0][0];
+    expect(sentMessage).toContain("Фінансовий радар");
+    expect(sentMessage).toContain("Spotify Family");
+    expect(sentMessage).toContain("ОВДП UA4000");
+  });
+});

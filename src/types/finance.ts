@@ -142,3 +142,34 @@ export interface WidgetSummaryResponse {
   } | null;
   updatedAt: string;
 }
+
+export interface FinancialEvent {
+  id: number;
+  title: string;
+  amount?: number | null;
+  currency: string;
+  event_date: string;
+  is_recurring: boolean;
+  category?: string | null;
+  event_type: "expense" | "income" | "reminder";
+  notify_days_before: number[];
+  is_completed: boolean;
+  last_notified_at?: string | null;
+  notes?: string | null;
+  created_at?: string;
+}
+
+export type CalendarItemSource =
+  "cycle" | "recurring" | "investment" | "custom";
+
+export interface CalendarTimelineItem {
+  id: string;
+  title: string;
+  date: string;
+  source: CalendarItemSource;
+  type: "expense" | "income" | "cycle_boundary" | "reminder";
+  amount?: number | null;
+  currency?: string;
+  isCompleted?: boolean;
+  metadata?: Record<string, any>;
+}
