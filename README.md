@@ -21,7 +21,7 @@
 
 <p align="center">
   <a href="https://budget-graph-ai-w8r2.vercel.app/?demo=true" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="Try BudgetGraph OS" />
+    <img src="https://img.shields.io/badge/Live_Demo-Try_BudgetGraph_OS-21262d?style=for-the-badge&logo=vercel&logoColor=0070f3&labelColor=161b22" alt="Try BudgetGraph OS" />
   </a>
 </p>
 
