@@ -197,6 +197,10 @@ export async function PATCH(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  return PATCH(req);
+}
+
 export async function DELETE(req: Request) {
   try {
     if (!(await checkAuthSession())) {

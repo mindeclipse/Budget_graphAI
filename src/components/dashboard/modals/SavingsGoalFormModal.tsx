@@ -84,7 +84,7 @@ export function SavingsGoalFormModal({
     try {
       if (isEditing && goal) {
         const res = await fetch("/api/savings-goals", {
-          method: "PUT",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: goal.id,
