@@ -218,6 +218,8 @@ export default function Dashboard() {
     isInzhurImportOpen,
     closeInzhurImport,
     isCreateExpenseOpen,
+    createTxInitialType,
+    createTxInitialCategory,
     openCreateExpense,
     closeCreateExpense,
     isTrashOpen,
@@ -583,7 +585,7 @@ export default function Dashboard() {
           setPrefillCostPerUse={setPrefillCostPerUse}
           capitalTransactions={capitalTransactions}
           onSelectTransaction={setSelectedTx}
-          onAddCapital={openCreateExpense}
+          onAddCapital={() => openCreateExpense("income", "Інвестиції")}
           onOpenImportInvestment={() => openImportModal("investment")}
           onDepositSavingsGoalOptimistic={depositSavingsGoalOptimistic}
           onUpsertSavingsGoalOptimistic={upsertSavingsGoalOptimistic}
@@ -609,6 +611,8 @@ export default function Dashboard() {
         onCloseProjectTag={() => setSelectedProjectTag(null)}
         isCreateExpenseOpen={isCreateExpenseOpen}
         onCloseCreateExpense={closeCreateExpense}
+        createTxInitialType={createTxInitialType}
+        createTxInitialCategory={createTxInitialCategory}
         isAddingRecurring={isAddingRecurring}
         editingRecurring={editingRecurring}
         onCloseRecurring={closeRecurringModal}

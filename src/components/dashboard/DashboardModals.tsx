@@ -100,6 +100,8 @@ export interface DashboardModalsProps {
   // Create transaction drawer
   isCreateExpenseOpen: boolean;
   onCloseCreateExpense: () => void;
+  createTxInitialType?: "expense" | "income";
+  createTxInitialCategory?: string;
 
   // Recurring modal
   isAddingRecurring: boolean;
@@ -202,6 +204,8 @@ export function DashboardModals({
 
   isCreateExpenseOpen,
   onCloseCreateExpense,
+  createTxInitialType,
+  createTxInitialCategory,
 
   isAddingRecurring,
   editingRecurring,
@@ -287,6 +291,8 @@ export function DashboardModals({
       <CreateTransactionDrawer
         isOpen={isCreateExpenseOpen}
         onClose={onCloseCreateExpense}
+        initialType={createTxInitialType}
+        initialCategory={createTxInitialCategory}
       />
 
       {isAddingRecurring && (

@@ -49,7 +49,19 @@ export function SwipeableTransactionCard({
   const IconComponent = CATEGORY_ICONS[transaction.category_name] || HelpCircle;
   const iconColor = CATEGORY_COLORS[transaction.category_name] || "#71717A";
 
-  const isIncome = transaction.type === "income";
+  const isIncome =
+    transaction.type === "income" ||
+    (transaction.type === "investment" &&
+      (transaction.tags?.includes("дебет") ||
+        transaction.tags?.includes("купон") ||
+        transaction.tags?.includes("дохід") ||
+        transaction.tags?.includes("дивіденди") ||
+        transaction.tags?.includes("зарахування") ||
+        transaction.merchant_raw?.toLowerCase().includes("нарахування") ||
+        transaction.merchant_raw?.toLowerCase().includes("поповнення") ||
+        transaction.merchant_raw?.toLowerCase().includes("купон") ||
+        transaction.merchant_raw?.toLowerCase().includes("дивіденд") ||
+        transaction.merchant_raw?.toLowerCase().includes("виплата")));
   const hasSplitItems =
     Array.isArray(transaction.metadata?.receipt_items) &&
     transaction.metadata.receipt_items.length > 1;

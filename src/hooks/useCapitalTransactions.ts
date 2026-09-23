@@ -22,7 +22,7 @@ export function useCapitalTransactions({
 
     // 1. Спеціальні investment-транзакції брокера
     for (const t of investmentTransactions) {
-      if (!t.exclude_from_budget) {
+      if (!t.deleted_at) {
         txMap.set(t.id, t);
       }
     }
@@ -33,7 +33,7 @@ export function useCapitalTransactions({
 
     // 2. Операції капіталу із загального списку транзакцій
     for (const t of rawTransactions) {
-      if (t.exclude_from_budget) continue;
+      if (t.deleted_at) continue;
 
       const isCapital =
         t.type === "investment" ||
@@ -42,7 +42,10 @@ export function useCapitalTransactions({
         t.tags?.some(
           (tag: string) =>
             tag.toLowerCase().includes("капітал") ||
-            tag.toLowerCase().includes("інвест")
+            tag.toLowerCase().includes("інвест") ||
+            tag.toLowerCase().includes("купон") ||
+            tag.toLowerCase().includes("овдп") ||
+            tag.toLowerCase().includes("reit")
         );
 
       if (!isCapital) continue;

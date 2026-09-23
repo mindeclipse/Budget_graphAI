@@ -10,25 +10,47 @@ export function CapitalHistoryItemRow({
   tx,
   onSelect,
 }: CapitalHistoryItemRowProps) {
-  const isDeposit =
-    tx.category_name?.toLowerCase().includes("заощадж") ||
-    tx.merchant_raw?.toLowerCase().includes("скарбнич") ||
-    tx.tags?.includes("дебет") ||
-    tx.merchant_raw?.toLowerCase().includes("нарахування") ||
-    tx.merchant_raw?.toLowerCase().includes("поповнення");
-
-  const isCredit =
+  const isOutflow =
+    tx.type === "expense" ||
     tx.tags?.includes("кредит") ||
+    tx.tags?.includes("витрата") ||
+    tx.tags?.includes("списання") ||
     tx.merchant_raw?.toLowerCase().includes("купівля") ||
     tx.merchant_raw?.toLowerCase().includes("сплата");
 
+  const isInflow =
+    tx.type === "income" ||
+    tx.tags?.includes("дебет") ||
+    tx.tags?.includes("купон") ||
+    tx.tags?.includes("дохід") ||
+    tx.tags?.includes("дивіденди") ||
+    tx.tags?.includes("зарахування") ||
+    tx.merchant_raw?.toLowerCase().includes("нарахування") ||
+    tx.merchant_raw?.toLowerCase().includes("поповнення") ||
+    tx.merchant_raw?.toLowerCase().includes("купон") ||
+    tx.merchant_raw?.toLowerCase().includes("дивіденд") ||
+    tx.merchant_raw?.toLowerCase().includes("виплата");
+
+  const isPositive = isInflow || !isOutflow;
+
+  const isDeposit =
+    tx.category_name?.toLowerCase().includes("заощадж") ||
+    tx.merchant_raw?.toLowerCase().includes("скарбнич") ||
+    tx.tags?.includes("скарбничка") ||
+    tx.tags?.includes("заощадження");
+
   const isReit =
     tx.tags?.includes("reit") ||
-    tx.merchant_raw?.toLowerCase().includes("reit");
+    tx.merchant_raw?.toLowerCase().includes("reit") ||
+    tx.merchant_raw?.toLowerCase().includes("інжур") ||
+    tx.merchant_raw?.toLowerCase().includes("inzhur");
 
   const isBonds =
     tx.tags?.includes("овдп") ||
-    tx.merchant_raw?.toLowerCase().includes("овдп");
+    tx.tags?.includes("облігації") ||
+    tx.merchant_raw?.toLowerCase().includes("овдп") ||
+    tx.merchant_raw?.toLowerCase().includes("облігац") ||
+    tx.merchant_raw?.toLowerCase().includes("купон");
 
   const isInzhur = tx.source === "inzhur_statement";
 
@@ -99,10 +121,10 @@ export function CapitalHistoryItemRow({
       <div className="shrink-0 text-right whitespace-nowrap">
         <span
           className={`text-xs font-bold whitespace-nowrap tabular-nums ${
-            isCredit ? "text-zinc-200" : "text-emerald-400"
+            !isPositive ? "text-zinc-300" : "text-emerald-400"
           }`}
         >
-          {isCredit ? "−" : "+"}
+          {!isPositive ? "−" : "+"}
           {Number(tx.amount).toLocaleString("uk-UA")}&nbsp;
           {tx.currency === "USD" ? "$" : "₴"}
         </span>

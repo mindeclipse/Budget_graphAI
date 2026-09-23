@@ -19,6 +19,9 @@ import {
   Tv,
   Wrench,
   Truck,
+  PiggyBank,
+  Gift,
+  Coins,
   LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +46,17 @@ export const CATEGORIES = [
 
 export type CategoryType = (typeof CATEGORIES)[number];
 
+export const INCOME_CATEGORIES = [
+  "Інвестиції",
+  "Зарплата/ФОП",
+  "Заощадження",
+  "Повернення / Кешбек",
+  "Подарунок",
+  "Інше",
+] as const;
+
+export type IncomeCategoryType = (typeof INCOME_CATEGORIES)[number];
+
 export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   // Актуальні категорії (для вибору в UI)
   Продукти: ShoppingCart,
@@ -60,6 +74,9 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Покупки: Package,
   Інвестиції: TrendingUp,
   "Зарплата/ФОП": Briefcase,
+  Заощадження: PiggyBank,
+  "Повернення / Кешбек": Coins,
+  Подарунок: Gift,
   Інше: HelpCircle,
 
   // Архівні / сумісні категорії з минулих місяців / виписок Привату
@@ -92,6 +109,9 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Покупки: "#06B6D4", // Циан
   Інвестиції: "#22C55E", // Зелений
   "Зарплата/ФОП": "#34D399", // М'ятний
+  Заощадження: "#10B981", // Смарагдовий
+  "Повернення / Кешбек": "#F59E0B", // Бурштиновий
+  Подарунок: "#EC4899", // Рожевий
   Інше: "#71717A", // Сірий
 
   // Архівні / сумісні категорії

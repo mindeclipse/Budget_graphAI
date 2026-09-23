@@ -13,6 +13,12 @@ export function useDashboardModals() {
   const [importModalFile, setImportModalFile] = useState<File | null>(null);
   const [isInzhurImportOpen, setIsInzhurImportOpen] = useState(false);
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
+  const [createTxInitialType, setCreateTxInitialType] = useState<
+    "expense" | "income"
+  >("expense");
+  const [createTxInitialCategory, setCreateTxInitialCategory] = useState<
+    string | undefined
+  >(undefined);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [isMerchantRulesOpen, setIsMerchantRulesOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -60,7 +66,14 @@ export function useDashboardModals() {
   const openInzhurImport = useCallback(() => setIsInzhurImportOpen(true), []);
   const closeInzhurImport = useCallback(() => setIsInzhurImportOpen(false), []);
 
-  const openCreateExpense = useCallback(() => setIsCreateExpenseOpen(true), []);
+  const openCreateExpense = useCallback(
+    (type: "expense" | "income" = "expense", category?: string) => {
+      setCreateTxInitialType(type);
+      setCreateTxInitialCategory(category);
+      setIsCreateExpenseOpen(true);
+    },
+    []
+  );
   const closeCreateExpense = useCallback(
     () => setIsCreateExpenseOpen(false),
     []
@@ -125,6 +138,8 @@ export function useDashboardModals() {
 
     // Create Expense
     isCreateExpenseOpen,
+    createTxInitialType,
+    createTxInitialCategory,
     openCreateExpense,
     closeCreateExpense,
     setIsCreateExpenseOpen,
