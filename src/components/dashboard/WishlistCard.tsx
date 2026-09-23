@@ -15,6 +15,9 @@ export const WishlistCard = memo(function WishlistCard({
   savedAmount = 0,
   onRefresh,
   onConvertToCostPerUse,
+  onAddOptimistic,
+  onResolveOptimistic,
+  onDeleteOptimistic,
 }: WishlistCardProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filter, setFilter] = useState<WishlistFilterType>("all");
@@ -40,6 +43,12 @@ export const WishlistCard = memo(function WishlistCard({
     extendDays = 7,
     item?: WishlistItem
   ) => {
+    if (action === "saved" || action === "purchased") {
+      onResolveOptimistic?.(id, action);
+    }
+    if (action === "purchased" && item && onConvertToCostPerUse) {
+      onConvertToCostPerUse(item);
+    }
     try {
       const res = await fetch("/api/wishlist", {
         method: "POST",
@@ -48,17 +57,15 @@ export const WishlistCard = memo(function WishlistCard({
       });
       if (!res.ok) throw new Error("Помилка оновлення статусу");
       await onRefresh();
-
-      if (action === "purchased" && item && onConvertToCostPerUse) {
-        onConvertToCostPerUse(item);
-      }
     } catch (err) {
       console.error(err);
+      await onRefresh();
     }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("Ви дійсно хочете видалити це бажання?")) return;
+    onDeleteOptimistic?.(id);
     try {
       const res = await fetch(`/api/wishlist?id=${id}`, {
         method: "DELETE",
@@ -67,6 +74,7 @@ export const WishlistCard = memo(function WishlistCard({
       await onRefresh();
     } catch (err) {
       console.error(err);
+      await onRefresh();
     }
   };
 
@@ -165,6 +173,7 @@ export const WishlistCard = memo(function WishlistCard({
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={onRefresh}
+        onAddOptimistic={onAddOptimistic}
       />
     </div>
   );

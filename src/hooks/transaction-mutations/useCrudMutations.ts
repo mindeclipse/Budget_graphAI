@@ -42,6 +42,10 @@ export function useCrudMutations() {
                     newTxData.merchant_raw ??
                     item.merchant_raw,
                   tags: newTxData.tags ?? item.tags,
+                  exclude_from_budget:
+                    newTxData.exclude_from_budget !== undefined
+                      ? newTxData.exclude_from_budget
+                      : item.exclude_from_budget,
                   metadata:
                     newTxData.metadata !== undefined
                       ? (newTxData.metadata as any)
@@ -66,8 +70,18 @@ export function useCrudMutations() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({
+        queryKey: ["transactions"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["analytics"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["wealth", "summary"],
+        refetchType: "all",
+      });
     },
   });
 
@@ -152,6 +166,13 @@ export function useCrudMutations() {
         (old = []) => [optimisticTx, ...old]
       );
 
+      if (newTx.type === "investment") {
+        queryClient.setQueriesData<Transaction[]>(
+          { queryKey: ["transactions", "investment"] },
+          (old = []) => [optimisticTx, ...old]
+        );
+      }
+
       triggerHaptic("success");
       return { previousData };
     },
@@ -175,8 +196,22 @@ export function useCrudMutations() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+      queryClient.invalidateQueries({
+        queryKey: ["transactions"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["transactions", "investment"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["analytics"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["wealth", "summary"],
+        refetchType: "all",
+      });
     },
   });
 

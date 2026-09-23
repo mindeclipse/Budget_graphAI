@@ -19,7 +19,7 @@ function getSafeErrorMessage(error: any): string {
     : error?.message || "Помилка сервера";
 }
 
-export async function GET() {
+export async function GET(req?: Request) {
   try {
     if (!(await checkAuthSession())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,7 +45,7 @@ export async function GET() {
       supabaseAdmin
         .from("investments")
         .select(
-          "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, created_at"
+          "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, coupons, quantity, coupon_amount, is_archived, created_at"
         )
         .order("id", { ascending: true }),
       supabaseAdmin
@@ -134,6 +134,11 @@ export async function GET() {
       categoryBudgetsMap[b.category_name] = Number(b.monthly_limit);
     });
 
+    const reqCache =
+      req?.headers?.get("cache-control") || req?.headers?.get("pragma") || "";
+    const isNoCache =
+      reqCache.includes("no-cache") || reqCache.includes("no-store");
+
     return NextResponse.json(
       {
         success: true,
@@ -162,7 +167,9 @@ export async function GET() {
       },
       {
         headers: {
-          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+          "Cache-Control": isNoCache
+            ? "private, no-cache, no-store, max-age=0, must-revalidate"
+            : "private, max-age=60, stale-while-revalidate=300",
         },
       }
     );

@@ -15,6 +15,9 @@ export const CostPerUseCard = memo(function CostPerUseCard({
   onRefresh,
   prefillItem = null,
   onClearPrefill,
+  onAddOptimistic,
+  onIncrementOptimistic,
+  onDeleteOptimistic,
 }: CostPerUseCardProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(Boolean(prefillItem));
   const [loggingId, setLoggingId] = useState<number | null>(null);
@@ -36,6 +39,7 @@ export const CostPerUseCard = memo(function CostPerUseCard({
 
   const handleLogUse = async (id: number) => {
     setLoggingId(id);
+    onIncrementOptimistic?.(id);
     try {
       const res = await fetch("/api/cost-per-use", {
         method: "POST",
@@ -46,6 +50,7 @@ export const CostPerUseCard = memo(function CostPerUseCard({
       await onRefresh();
     } catch (err) {
       console.error(err);
+      await onRefresh();
     } finally {
       setLoggingId(null);
     }
@@ -53,6 +58,7 @@ export const CostPerUseCard = memo(function CostPerUseCard({
 
   const handleDelete = async (id: number) => {
     if (!confirm("Ви дійсно хочете видалити цей актив із трекера?")) return;
+    onDeleteOptimistic?.(id);
     try {
       const res = await fetch(`/api/cost-per-use?id=${id}`, {
         method: "DELETE",
@@ -61,6 +67,7 @@ export const CostPerUseCard = memo(function CostPerUseCard({
       await onRefresh();
     } catch (err) {
       console.error(err);
+      await onRefresh();
     }
   };
 
@@ -130,6 +137,7 @@ export const CostPerUseCard = memo(function CostPerUseCard({
         onClose={handleCloseModal}
         onSuccess={onRefresh}
         prefillItem={prefillItem}
+        onAddOptimistic={onAddOptimistic}
       />
     </div>
   );

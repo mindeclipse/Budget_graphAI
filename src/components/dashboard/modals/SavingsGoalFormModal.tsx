@@ -11,6 +11,7 @@ export interface SavingsGoalFormModalProps {
   goal?: SavingsGoal | null;
   onClose: () => void;
   onRefresh: () => void | Promise<void>;
+  onUpsertOptimistic?: (goal: any) => void;
 }
 
 export function SavingsGoalFormModal({
@@ -18,6 +19,7 @@ export function SavingsGoalFormModal({
   goal,
   onClose,
   onRefresh,
+  onUpsertOptimistic,
 }: SavingsGoalFormModalProps) {
   const [mounted, setMounted] = useState(false);
   const isEditing = Boolean(goal);
@@ -78,6 +80,16 @@ export function SavingsGoalFormModal({
       targetVal = parsedTarget;
     }
 
+    onUpsertOptimistic?.({
+      id: isEditing && goal ? goal.id : undefined,
+      name: name.trim(),
+      target_amount: targetVal,
+      current_amount: currentVal,
+      currency,
+      target_date: targetDate || null,
+    });
+    onClose();
+
     setIsSubmitting(true);
     setError("");
 
@@ -119,10 +131,10 @@ export function SavingsGoalFormModal({
         }
       }
 
-      onClose();
       await onRefresh();
     } catch (err: any) {
       setError(err.message || "Помилка збереження скарбнички");
+      await onRefresh();
     } finally {
       setIsSubmitting(false);
     }

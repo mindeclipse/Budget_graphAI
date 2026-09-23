@@ -9,6 +9,11 @@ interface NewCycleModalProps {
   onClose: () => void;
   onCycleStarted: () => void;
   defaultLimit?: number;
+  onCreateCycleOptimistic?: (cycle: {
+    name: string;
+    budget_limit: number;
+    start_date: string;
+  }) => void;
 }
 
 export function NewCycleModal({
@@ -16,6 +21,7 @@ export function NewCycleModal({
   onClose,
   onCycleStarted,
   defaultLimit = DEFAULT_BUDGET_LIMIT,
+  onCreateCycleOptimistic,
 }: NewCycleModalProps) {
   const [name, setName] = useState(
     `Зарплатний цикл ${new Date().toLocaleDateString("uk-UA", { month: "long" })}`
@@ -58,26 +64,31 @@ export function NewCycleModal({
       return;
     }
 
+    const cyclePayload = {
+      name: name.trim().slice(0, 100) || "Новий цикл",
+      budget_limit: limit,
+      start_date: parsedDate.toISOString(),
+    };
+
+    onCreateCycleOptimistic?.(cyclePayload);
+    onClose();
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/cycles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim().slice(0, 100) || "Новий цикл",
-          budget_limit: limit,
-          start_date: parsedDate.toISOString(),
-        }),
+        body: JSON.stringify(cyclePayload),
       });
 
       if (!res.ok) throw new Error("Не вдалося запустити цикл");
 
       onCycleStarted();
-      onClose();
     } catch (err) {
       console.error(err);
       alert("Помилка створення циклу");
+      onCycleStarted();
     } finally {
       setLoading(false);
     }

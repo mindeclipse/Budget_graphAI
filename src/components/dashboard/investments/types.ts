@@ -4,6 +4,8 @@ export interface InvestmentsCardProps {
   investments: InvestmentAsset[];
   rates?: { USD: number; EUR: number; PLN: number };
   onRefresh: () => void | Promise<void>;
+  onUpsertOptimistic?: (asset: any) => void;
+  onDeleteOptimistic?: (assetId: number) => void;
 }
 
 export const ASSET_TYPE_LABELS: Record<

@@ -37,6 +37,12 @@ export interface SavingsGoal {
   created_at: string;
 }
 
+export interface BondCoupon {
+  id?: string;
+  amount: number;
+  date: string;
+}
+
 export interface InvestmentAsset {
   id: number;
   asset_name: string;
@@ -47,6 +53,10 @@ export interface InvestmentAsset {
   yield_percent?: number | null;
   maturity_date?: string | null;
   notes?: string | null;
+  coupons?: BondCoupon[];
+  quantity?: number | null;
+  coupon_amount?: number | null;
+  is_archived?: boolean;
   created_at: string;
 }
 

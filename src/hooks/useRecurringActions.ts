@@ -15,10 +15,12 @@ export interface UseRecurringActionsProps {
     tx: any,
     options?: { onSuccess?: () => void; onError?: (err: any) => void }
   ) => void;
-  invalidateRecurring: () => void;
-  invalidateRadar: () => void;
+  invalidateRecurring: () => void | Promise<any>;
+  invalidateRadar: () => void | Promise<any>;
   openEditRecurring: (item: RecurringItem) => void;
   closeRecurringModal: () => void;
+  upsertRecurringOptimistic?: (item: any) => void;
+  deleteRecurringOptimistic?: (id: number) => void;
 }
 
 export function useRecurringActions({
@@ -29,6 +31,8 @@ export function useRecurringActions({
   invalidateRadar,
   openEditRecurring,
   closeRecurringModal,
+  upsertRecurringOptimistic,
+  deleteRecurringOptimistic,
 }: UseRecurringActionsProps) {
   const [isExecutingRecurring, setIsExecutingRecurring] = useState<
     number | null
@@ -42,6 +46,9 @@ export function useRecurringActions({
     category_name: string;
     day_of_month: number;
   }) => {
+    upsertRecurringOptimistic?.(formData);
+    closeRecurringModal();
+
     try {
       if (formData.id) {
         const res = await fetch("/api/recurring", {
@@ -60,19 +67,26 @@ export function useRecurringActions({
         if (!res.ok) throw new Error("Помилка створення шаблону");
       }
 
-      invalidateRecurring();
-      invalidateRadar();
-      closeRecurringModal();
+      await invalidateRecurring();
+      await invalidateRadar();
     } catch (err) {
       console.error("Помилка збереження регулярного платежу:", err);
+      await invalidateRecurring();
     }
   };
 
   const handleDeleteRecurring = async (id: number) => {
-    await fetch(`/api/recurring?id=${id}`, { method: "DELETE" });
-    invalidateRecurring();
-    invalidateRadar();
+    deleteRecurringOptimistic?.(id);
     closeRecurringModal();
+
+    try {
+      await fetch(`/api/recurring?id=${id}`, { method: "DELETE" });
+      await invalidateRecurring();
+      await invalidateRadar();
+    } catch (err) {
+      console.error("Помилка видалення регулярного платежу:", err);
+      await invalidateRecurring();
+    }
   };
 
   const handleExecuteRecurring = async (item: RecurringItem) => {

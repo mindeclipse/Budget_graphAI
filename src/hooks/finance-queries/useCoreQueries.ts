@@ -3,6 +3,14 @@ import { Transaction, RecurringItem } from "@/types/finance";
 import { SubscriptionRadarResult } from "@/lib/subscription-radar";
 import { FINANCE_KEYS, DateRangeFilter, CyclesResponse } from "./keys";
 
+const FRESH_FETCH_OPTIONS: RequestInit = {
+  cache: "no-store",
+  headers: {
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  },
+};
+
 export function useTransactionsQuery(
   isAuthenticated: boolean | null,
   dateRange?: DateRangeFilter
@@ -19,7 +27,7 @@ export function useTransactionsQuery(
         ? `/api/transactions?${queryString}`
         : "/api/transactions";
 
-      const res = await fetch(url);
+      const res = await fetch(url, FRESH_FETCH_OPTIONS);
       if (!res.ok) {
         throw new Error("Не вдалося завантажити транзакції");
       }
@@ -39,7 +47,10 @@ export function useInvestmentTransactionsQuery(
   return useQuery({
     queryKey: FINANCE_KEYS.investmentTransactions,
     queryFn: async () => {
-      const res = await fetch("/api/transactions?type=investment");
+      const res = await fetch(
+        "/api/transactions?type=investment",
+        FRESH_FETCH_OPTIONS
+      );
       if (!res.ok) {
         throw new Error("Не вдалося завантажити інвестиційні транзакції");
       }
@@ -57,7 +68,7 @@ export function useRecurringQuery(isAuthenticated: boolean | null) {
   return useQuery({
     queryKey: FINANCE_KEYS.recurring,
     queryFn: async () => {
-      const res = await fetch("/api/recurring");
+      const res = await fetch("/api/recurring", FRESH_FETCH_OPTIONS);
       if (!res.ok) {
         throw new Error("Не вдалося завантажити шаблони витрат");
       }
@@ -90,7 +101,7 @@ export function useRadarQuery(isAuthenticated: boolean | null) {
         ? `/api/recurring/radar?dismissed=${encodeURIComponent(dismissed)}`
         : "/api/recurring/radar";
 
-      const res = await fetch(url);
+      const res = await fetch(url, FRESH_FETCH_OPTIONS);
       if (!res.ok) throw new Error("Не вдалося завантажити радар підписок");
       return (await res.json()) as SubscriptionRadarResult;
     },
@@ -105,7 +116,7 @@ export function useCyclesQuery(isAuthenticated: boolean | null) {
   return useQuery({
     queryKey: FINANCE_KEYS.cycles,
     queryFn: async (): Promise<CyclesResponse> => {
-      const res = await fetch("/api/cycles");
+      const res = await fetch("/api/cycles", FRESH_FETCH_OPTIONS);
       if (!res.ok) throw new Error("Не вдалося завантажити розрахункові цикли");
       const data = await res.json();
       return {
@@ -124,7 +135,7 @@ export function useWealthSummaryQuery(isAuthenticated: boolean | null) {
   return useQuery({
     queryKey: FINANCE_KEYS.wealthSummary,
     queryFn: async () => {
-      const res = await fetch("/api/wealth/summary");
+      const res = await fetch("/api/wealth/summary", FRESH_FETCH_OPTIONS);
       if (!res.ok) throw new Error("Не вдалося завантажити фінансовий огляд");
       return await res.json();
     },

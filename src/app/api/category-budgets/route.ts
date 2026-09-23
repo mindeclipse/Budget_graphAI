@@ -34,7 +34,8 @@ export async function GET() {
       { budgets: data || [] },
       {
         headers: {
-          "Cache-Control": "private, max-age=120, stale-while-revalidate=600",
+          "Cache-Control":
+            "private, no-cache, no-store, max-age=0, must-revalidate",
         },
       }
     );

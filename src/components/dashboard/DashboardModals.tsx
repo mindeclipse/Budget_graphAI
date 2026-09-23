@@ -143,6 +143,11 @@ export interface DashboardModalsProps {
   activeCycle: BudgetCycle | null;
   effectiveLimit: number;
   onCycleStarted: () => void;
+  onCreateCycleOptimistic?: (cycle: {
+    name: string;
+    budget_limit: number;
+    start_date: string;
+  }) => void;
 
   // AI Drawer
   isAiDrawerOpen: boolean;
@@ -223,6 +228,7 @@ export function DashboardModals({
   activeCycle,
   effectiveLimit,
   onCycleStarted,
+  onCreateCycleOptimistic,
 
   isAiDrawerOpen,
   onCloseAiDrawer,
@@ -326,6 +332,7 @@ export function DashboardModals({
             activeCycle?.budget_limit || effectiveLimit || FALLBACK_BUDGET_LIMIT
           }
           onCycleStarted={onCycleStarted}
+          onCreateCycleOptimistic={onCreateCycleOptimistic}
         />
       )}
 

@@ -9,12 +9,14 @@ export interface SavingsDepositModalProps {
   goal: SavingsGoal | null;
   onClose: () => void;
   onRefresh: () => void | Promise<void>;
+  onDepositOptimistic?: (goalId: number, amount: number) => void;
 }
 
 export function SavingsDepositModal({
   goal,
   onClose,
   onRefresh,
+  onDepositOptimistic,
 }: SavingsDepositModalProps) {
   const [mounted, setMounted] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
@@ -32,10 +34,12 @@ export function SavingsDepositModal({
     const addVal = parseFloat(depositAmount);
     if (isNaN(addVal) || addVal <= 0) return;
 
+    onDepositOptimistic?.(goal.id, addVal);
+    setDepositAmount("");
+    onClose();
+
     setIsSubmitting(true);
     try {
-      const newAmount = (Number(goal.current_amount) || 0) + addVal;
-
       const res = await fetch("/api/savings-goals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,12 +51,10 @@ export function SavingsDepositModal({
       });
 
       if (!res.ok) throw new Error("Помилка поповнення");
-
-      setDepositAmount("");
-      onClose();
       await onRefresh();
     } catch (err) {
       console.error("Помилка поповнення скарбнички:", err);
+      await onRefresh();
     } finally {
       setIsSubmitting(false);
     }

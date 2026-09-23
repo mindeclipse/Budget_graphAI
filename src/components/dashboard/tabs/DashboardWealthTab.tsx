@@ -52,7 +52,7 @@ export interface DashboardWealthTabProps {
   };
   totalSpent: number;
   effectiveLimit: number;
-  onRefreshWealth: () => void;
+  onRefreshWealth: () => void | Promise<void>;
   wishlistItems: WishlistItem[];
   wishlistSavedAmount: number;
   costPerUseItems: CostPerUseItem[];
@@ -63,6 +63,20 @@ export interface DashboardWealthTabProps {
   onSelectTransaction: (tx: Transaction) => void;
   onAddCapital: () => void;
   onOpenImportInvestment: () => void;
+  onDepositSavingsGoalOptimistic?: (goalId: number, amount: number) => void;
+  onUpsertSavingsGoalOptimistic?: (goal: any) => void;
+  onDeleteSavingsGoalOptimistic?: (goalId: number) => void;
+  onUpsertInvestmentOptimistic?: (asset: any) => void;
+  onDeleteInvestmentOptimistic?: (assetId: number) => void;
+  onAddWishlistOptimistic?: (item: any) => void;
+  onResolveWishlistOptimistic?: (
+    id: number,
+    status: "saved" | "purchased"
+  ) => void;
+  onDeleteWishlistOptimistic?: (id: number) => void;
+  onAddCostPerUseOptimistic?: (item: any) => void;
+  onIncrementCostPerUseOptimistic?: (id: number) => void;
+  onDeleteCostPerUseOptimistic?: (id: number) => void;
 }
 
 export function DashboardWealthTab({
@@ -82,6 +96,17 @@ export function DashboardWealthTab({
   onSelectTransaction,
   onAddCapital,
   onOpenImportInvestment,
+  onDepositSavingsGoalOptimistic,
+  onUpsertSavingsGoalOptimistic,
+  onDeleteSavingsGoalOptimistic,
+  onUpsertInvestmentOptimistic,
+  onDeleteInvestmentOptimistic,
+  onAddWishlistOptimistic,
+  onResolveWishlistOptimistic,
+  onDeleteWishlistOptimistic,
+  onAddCostPerUseOptimistic,
+  onIncrementCostPerUseOptimistic,
+  onDeleteCostPerUseOptimistic,
 }: DashboardWealthTabProps) {
   return (
     <div className="space-y-6">
@@ -99,11 +124,16 @@ export function DashboardWealthTab({
           monthlyBurnRate={totalSpent > 0 ? totalSpent : effectiveLimit}
           rates={commercialRates}
           onRefresh={onRefreshWealth}
+          onDepositOptimistic={onDepositSavingsGoalOptimistic}
+          onUpsertOptimistic={onUpsertSavingsGoalOptimistic}
+          onDeleteOptimistic={onDeleteSavingsGoalOptimistic}
         />
         <InvestmentsCard
           investments={investments}
           rates={commercialRates}
           onRefresh={onRefreshWealth}
+          onUpsertOptimistic={onUpsertInvestmentOptimistic}
+          onDeleteOptimistic={onDeleteInvestmentOptimistic}
         />
       </div>
 
@@ -124,6 +154,9 @@ export function DashboardWealthTab({
               purchase_date: new Date().toISOString().split("T")[0],
             });
           }}
+          onAddOptimistic={onAddWishlistOptimistic}
+          onResolveOptimistic={onResolveWishlistOptimistic}
+          onDeleteOptimistic={onDeleteWishlistOptimistic}
         />
         <CostPerUseCard
           items={costPerUseItems}
@@ -131,6 +164,9 @@ export function DashboardWealthTab({
           onRefresh={onRefreshWealth}
           prefillItem={prefillCostPerUse}
           onClearPrefill={() => setPrefillCostPerUse(null)}
+          onAddOptimistic={onAddCostPerUseOptimistic}
+          onIncrementOptimistic={onIncrementCostPerUseOptimistic}
+          onDeleteOptimistic={onDeleteCostPerUseOptimistic}
         />
       </div>
 

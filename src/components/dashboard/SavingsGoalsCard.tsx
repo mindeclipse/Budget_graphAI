@@ -22,6 +22,9 @@ export const SavingsGoalsCard = memo(function SavingsGoalsCard({
   monthlyBurnRate = 35000,
   rates = { USD: 44.0, EUR: 48.0, PLN: 11.0 },
   onRefresh,
+  onDepositOptimistic,
+  onUpsertOptimistic,
+  onDeleteOptimistic,
 }: SavingsGoalsCardProps) {
   const [goalToDeposit, setGoalToDeposit] = useState<SavingsGoal | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -31,6 +34,7 @@ export const SavingsGoalsCard = memo(function SavingsGoalsCard({
 
   const handleDeleteGoal = async (id: number) => {
     if (!confirm("Видалити цю ціль заощаджень?")) return;
+    onDeleteOptimistic?.(id);
     try {
       const res = await fetch(`/api/savings-goals?id=${id}`, {
         method: "DELETE",
@@ -39,6 +43,7 @@ export const SavingsGoalsCard = memo(function SavingsGoalsCard({
       await onRefresh();
     } catch (err) {
       console.error(err);
+      await onRefresh();
     }
   };
 
@@ -98,6 +103,7 @@ export const SavingsGoalsCard = memo(function SavingsGoalsCard({
         goal={goalToDeposit}
         onClose={() => setGoalToDeposit(null)}
         onRefresh={onRefresh}
+        onDepositOptimistic={onDepositOptimistic}
       />
 
       <SavingsGoalFormModal
@@ -108,6 +114,7 @@ export const SavingsGoalsCard = memo(function SavingsGoalsCard({
           setGoalToEdit(null);
         }}
         onRefresh={onRefresh}
+        onUpsertOptimistic={onUpsertOptimistic}
       />
     </div>
   );

@@ -2,6 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { FINANCE_KEYS, DateRangeFilter } from "./keys";
 import { PersonalCpiReport } from "@/lib/personal-cpi";
 
+const FRESH_FETCH_OPTIONS: RequestInit = {
+  cache: "no-store",
+  headers: {
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+  },
+};
+
 /**
  * Окремий хук для запиту аналітики темпу витрат (на вимогу)
  */
@@ -17,7 +25,8 @@ export function useBudgetPaceQuery(
       if (dateRange?.to) params.set("to", dateRange.to);
 
       const res = await fetch(
-        `/api/analytics/budget-pace?${params.toString()}`
+        `/api/analytics/budget-pace?${params.toString()}`,
+        FRESH_FETCH_OPTIONS
       );
       if (!res.ok) throw new Error("Не вдалося завантажити аналітику темпу");
       const data = await res.json();
@@ -49,7 +58,8 @@ export function usePersonalCpiQuery(
       if (options?.to) params.set("to", options.to);
 
       const res = await fetch(
-        `/api/analytics/personal-cpi?${params.toString()}`
+        `/api/analytics/personal-cpi?${params.toString()}`,
+        FRESH_FETCH_OPTIONS
       );
       if (!res.ok) throw new Error("Не вдалося завантажити індекс інфляції");
       const data = await res.json();

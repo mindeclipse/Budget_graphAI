@@ -20,7 +20,7 @@ function getSafeErrorMessage(error: any): string {
     : error?.message || "Помилка сервера";
 }
 
-export async function GET() {
+export async function GET(req?: Request) {
   try {
     if (!(await checkAuthSession())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,11 +35,19 @@ export async function GET() {
       .order("day_of_month", { ascending: true });
 
     if (error) throw error;
+
+    const reqCache =
+      req?.headers?.get("cache-control") || req?.headers?.get("pragma") || "";
+    const isNoCache =
+      reqCache.includes("no-cache") || reqCache.includes("no-store");
+
     return NextResponse.json(
       { items: data || [] },
       {
         headers: {
-          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+          "Cache-Control": isNoCache
+            ? "private, no-cache, no-store, max-age=0, must-revalidate"
+            : "private, max-age=60, stale-while-revalidate=300",
         },
       }
     );

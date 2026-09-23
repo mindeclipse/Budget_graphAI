@@ -10,6 +10,7 @@ interface AddCostPerUseModalProps {
   onClose: () => void;
   onSuccess: () => Promise<void> | void;
   prefillItem?: Partial<CostPerUseItem> | null;
+  onAddOptimistic?: (item: any) => void;
 }
 
 export function AddCostPerUseModal({
@@ -17,6 +18,7 @@ export function AddCostPerUseModal({
   onClose,
   onSuccess,
   prefillItem = null,
+  onAddOptimistic,
 }: AddCostPerUseModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,37 +61,40 @@ export function AddCostPerUseModal({
     e.preventDefault();
     if (!itemName.trim() || !purchasePrice || isSubmitting) return;
 
+    const payload = {
+      item_name: itemName.trim(),
+      purchase_price: parseFloat(purchasePrice),
+      currency,
+      category_name: categoryName || "Інше",
+      purchase_date: purchaseDate,
+      total_uses: totalUses ? parseInt(totalUses, 10) : 1,
+      benchmark_cost_per_use: benchmarkCost ? parseFloat(benchmarkCost) : null,
+      target_cost_per_use: targetCost ? parseFloat(targetCost) : null,
+      notes: notes.trim() || null,
+    };
+
+    onAddOptimistic?.(payload);
+    setItemName("");
+    setPurchasePrice("");
+    setBenchmarkCost("");
+    setTargetCost("");
+    setNotes("");
+    onClose();
+
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/cost-per-use", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          item_name: itemName.trim(),
-          purchase_price: parseFloat(purchasePrice),
-          currency,
-          category_name: categoryName || "Інше",
-          purchase_date: purchaseDate,
-          total_uses: totalUses ? parseInt(totalUses, 10) : 1,
-          benchmark_cost_per_use: benchmarkCost
-            ? parseFloat(benchmarkCost)
-            : null,
-          target_cost_per_use: targetCost ? parseFloat(targetCost) : null,
-          notes: notes.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) throw new Error("Помилка додавання речі");
 
-      setItemName("");
-      setPurchasePrice("");
-      setBenchmarkCost("");
-      setTargetCost("");
-      setNotes("");
-      onClose();
       await onSuccess();
     } catch (err) {
       console.error(err);
+      await onSuccess();
     } finally {
       setIsSubmitting(false);
     }

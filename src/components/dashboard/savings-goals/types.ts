@@ -31,6 +31,9 @@ export interface SavingsGoalsCardProps {
   monthlyBurnRate?: number;
   rates?: { USD: number; EUR: number; PLN: number };
   onRefresh: () => void | Promise<void>;
+  onDepositOptimistic?: (goalId: number, amount: number) => void;
+  onUpsertOptimistic?: (goal: any) => void;
+  onDeleteOptimistic?: (goalId: number) => void;
 }
 
 export function calculateSavingsMetrics(

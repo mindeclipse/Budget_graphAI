@@ -8,6 +8,9 @@ export interface WishlistCardProps {
   savedAmount?: number;
   onRefresh: () => void | Promise<void>;
   onConvertToCostPerUse?: (item: WishlistItem) => void;
+  onAddOptimistic?: (item: any) => void;
+  onResolveOptimistic?: (id: number, status: "saved" | "purchased") => void;
+  onDeleteOptimistic?: (id: number) => void;
 }
 
 export function calculateRemainingDays(endDateStr: string, totalDays: number) {

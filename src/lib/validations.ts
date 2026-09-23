@@ -92,6 +92,12 @@ export const savingsGoalUpdateSchema = savingsGoalSchema.partial().extend({
   id: z.coerce.number().int().positive("ID повинен бути додатним числом"),
 });
 
+export const bondCouponSchema = z.object({
+  id: z.string().optional(),
+  amount: z.coerce.number().positive("Сума купону має бути більшою за нуль"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Формат дати YYYY-MM-DD"),
+});
+
 export const investmentAssetSchema = z.object({
   asset_name: z.string().trim().min(1, "Назва активу обов'язкова").max(150),
   asset_type: z.enum(["bonds", "stocks", "crypto", "deposit", "reit", "other"]),
@@ -101,6 +107,24 @@ export const investmentAssetSchema = z.object({
   yield_percent: z.number().nullable().optional(),
   maturity_date: z.string().nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
+  coupons: z.array(bondCouponSchema).optional().default([]),
+  quantity: z.preprocess(
+    (val) => (val === "" || val === undefined ? null : val),
+    z.coerce
+      .number()
+      .positive("Кількість має бути більшою за нуль")
+      .nullable()
+      .optional()
+  ),
+  coupon_amount: z.preprocess(
+    (val) => (val === "" || val === undefined ? null : val),
+    z.coerce
+      .number()
+      .positive("Сума купона має бути більшою за нуль")
+      .nullable()
+      .optional()
+  ),
+  is_archived: z.boolean().optional().default(false),
 });
 
 export const investmentAssetUpdateSchema = investmentAssetSchema

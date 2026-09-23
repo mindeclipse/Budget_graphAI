@@ -8,12 +8,14 @@ interface AddWishlistModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => Promise<void> | void;
+  onAddOptimistic?: (item: any) => void;
 }
 
 export function AddWishlistModal({
   isOpen,
   onClose,
   onSuccess,
+  onAddOptimistic,
 }: AddWishlistModalProps) {
   const [mounted, setMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,33 +39,38 @@ export function AddWishlistModal({
     e.preventDefault();
     if (!title.trim() || !estimatedPrice || isSubmitting) return;
 
+    const payload = {
+      title: title.trim(),
+      estimated_price: parseFloat(estimatedPrice),
+      currency,
+      category_name: categoryName || "Інше",
+      url: url.trim() || null,
+      notes: notes.trim() || null,
+      cooling_days: coolingDays,
+    };
+
+    onAddOptimistic?.(payload);
+    setTitle("");
+    setEstimatedPrice("");
+    setUrl("");
+    setNotes("");
+    setCoolingDays(14);
+    onClose();
+
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/wishlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          estimated_price: parseFloat(estimatedPrice),
-          currency,
-          category_name: categoryName || "Інше",
-          url: url.trim() || null,
-          notes: notes.trim() || null,
-          cooling_days: coolingDays,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) throw new Error("Помилка додавання бажання");
 
-      setTitle("");
-      setEstimatedPrice("");
-      setUrl("");
-      setNotes("");
-      setCoolingDays(14);
-      onClose();
       await onSuccess();
     } catch (err) {
       console.error(err);
+      await onSuccess();
     } finally {
       setIsSubmitting(false);
     }

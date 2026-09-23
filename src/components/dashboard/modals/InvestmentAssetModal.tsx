@@ -19,6 +19,7 @@ export interface InvestmentAssetModalProps {
   asset?: InvestmentAsset | null;
   onClose: () => void;
   onRefresh: () => void | Promise<void>;
+  onUpsertOptimistic?: (asset: any) => void;
 }
 
 export function InvestmentAssetModal({
@@ -26,6 +27,7 @@ export function InvestmentAssetModal({
   asset,
   onClose,
   onRefresh,
+  onUpsertOptimistic,
 }: InvestmentAssetModalProps) {
   const [mounted, setMounted] = useState(false);
   const hiddenDatePickerRef = useRef<HTMLInputElement>(null);
@@ -131,6 +133,9 @@ export function InvestmentAssetModal({
         notes: notes.trim() || null,
       };
 
+      onUpsertOptimistic?.(payload);
+      onClose();
+
       const res = await fetch("/api/investments", {
         method: asset ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,10 +147,10 @@ export function InvestmentAssetModal({
         throw new Error(data.error || "Помилка збереження активу");
       }
 
-      onClose();
       await onRefresh();
     } catch (err: any) {
       setFormError(err.message || "Помилка сервера при збереженні");
+      await onRefresh();
     } finally {
       setIsSubmitting(false);
     }

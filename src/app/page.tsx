@@ -71,8 +71,22 @@ export default function Dashboard() {
     invalidateCycles,
     invalidateWealth,
     updateActiveCycleLimitOptimistic,
+    createCycleOptimistic,
     updateCategoryBudgetOptimistic,
     deleteCategoryBudgetOptimistic,
+    depositSavingsGoalOptimistic,
+    upsertSavingsGoalOptimistic,
+    deleteSavingsGoalOptimistic,
+    upsertInvestmentOptimistic,
+    deleteInvestmentOptimistic,
+    addWishlistOptimistic,
+    resolveWishlistOptimistic,
+    deleteWishlistOptimistic,
+    addCostPerUseOptimistic,
+    incrementCostPerUseOptimistic,
+    deleteCostPerUseOptimistic,
+    upsertRecurringOptimistic,
+    deleteRecurringOptimistic,
   } = useFinanceQueries(isAuthenticated);
 
   // Демо-режим (для демонстрації та безпечного ознайомлення з можливостями системи)
@@ -364,6 +378,8 @@ export default function Dashboard() {
     invalidateRadar,
     openEditRecurring,
     closeRecurringModal,
+    upsertRecurringOptimistic,
+    deleteRecurringOptimistic,
   });
 
   // Форматування відображення витрат
@@ -569,6 +585,17 @@ export default function Dashboard() {
           onSelectTransaction={setSelectedTx}
           onAddCapital={openCreateExpense}
           onOpenImportInvestment={() => openImportModal("investment")}
+          onDepositSavingsGoalOptimistic={depositSavingsGoalOptimistic}
+          onUpsertSavingsGoalOptimistic={upsertSavingsGoalOptimistic}
+          onDeleteSavingsGoalOptimistic={deleteSavingsGoalOptimistic}
+          onUpsertInvestmentOptimistic={upsertInvestmentOptimistic}
+          onDeleteInvestmentOptimistic={deleteInvestmentOptimistic}
+          onAddWishlistOptimistic={addWishlistOptimistic}
+          onResolveWishlistOptimistic={resolveWishlistOptimistic}
+          onDeleteWishlistOptimistic={deleteWishlistOptimistic}
+          onAddCostPerUseOptimistic={addCostPerUseOptimistic}
+          onIncrementCostPerUseOptimistic={incrementCostPerUseOptimistic}
+          onDeleteCostPerUseOptimistic={deleteCostPerUseOptimistic}
         />
       )}
 
@@ -610,6 +637,7 @@ export default function Dashboard() {
         activeCycle={effectiveActiveCycle}
         effectiveLimit={effectiveLimit}
         onCycleStarted={invalidateCycles}
+        onCreateCycleOptimistic={createCycleOptimistic}
         isAiDrawerOpen={isAiDrawerOpen}
         onCloseAiDrawer={closeAiDrawer}
         aiAnalysis={aiAnalysis}

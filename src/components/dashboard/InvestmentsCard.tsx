@@ -32,6 +32,8 @@ export const InvestmentsCard = memo(function InvestmentsCard({
   investments,
   rates = { USD: 44.0, EUR: 48.0, PLN: 11.0 },
   onRefresh,
+  onUpsertOptimistic,
+  onDeleteOptimistic,
 }: InvestmentsCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [assetToEdit, setAssetToEdit] = useState<InvestmentAsset | null>(null);
@@ -72,6 +74,7 @@ export const InvestmentsCard = memo(function InvestmentsCard({
 
   const handleDeleteAsset = async (id: number) => {
     if (!confirm("Видалити цей інвестиційний актив?")) return;
+    onDeleteOptimistic?.(id);
     try {
       const res = await fetch(`/api/investments?id=${id}`, {
         method: "DELETE",
@@ -80,6 +83,7 @@ export const InvestmentsCard = memo(function InvestmentsCard({
       await onRefresh();
     } catch (err) {
       console.error("Помилка видалення активу:", err);
+      await onRefresh();
     }
   };
 
@@ -146,6 +150,7 @@ export const InvestmentsCard = memo(function InvestmentsCard({
           setAssetToEdit(null);
         }}
         onRefresh={onRefresh}
+        onUpsertOptimistic={onUpsertOptimistic}
       />
     </div>
   );

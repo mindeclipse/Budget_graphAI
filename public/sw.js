@@ -1,5 +1,5 @@
 // Service Worker for BudgetGraph PWA
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `budget-static-${CACHE_VERSION}`;
 const DATA_CACHE = `budget-data-${CACHE_VERSION}`;
 
@@ -195,14 +195,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. GET API запити даних (transactions, cycles, recurring, currency, wealth): Network-First з кеш fallback
-  if (
-    url.pathname.startsWith("/api/transactions") ||
-    url.pathname.startsWith("/api/cycles") ||
-    url.pathname.startsWith("/api/recurring") ||
-    url.pathname.startsWith("/api/currency") ||
-    url.pathname.startsWith("/api/wealth")
-  ) {
+  // 3. GET API запити даних: Network-First з кеш fallback у DATA_CACHE
+  if (url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(request)
         .then((response) => {

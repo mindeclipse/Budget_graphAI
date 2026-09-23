@@ -30,7 +30,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from("investments")
       .select(
-        "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, created_at"
+        "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, coupons, quantity, coupon_amount, is_archived, created_at"
       )
       .order("id", { ascending: true });
 
@@ -39,7 +39,8 @@ export async function GET() {
       { investments: data || [] },
       {
         headers: {
-          "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+          "Cache-Control":
+            "private, no-cache, no-store, max-age=0, must-revalidate",
         },
       }
     );

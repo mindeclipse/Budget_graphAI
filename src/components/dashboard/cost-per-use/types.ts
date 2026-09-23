@@ -6,6 +6,9 @@ export interface CostPerUseCardProps {
   onRefresh: () => void | Promise<void>;
   prefillItem?: Partial<CostPerUseItem> | null;
   onClearPrefill?: () => void;
+  onAddOptimistic?: (item: any) => void;
+  onIncrementOptimistic?: (id: number) => void;
+  onDeleteOptimistic?: (id: number) => void;
 }
 
 export interface CostPerUseItemMetrics {
