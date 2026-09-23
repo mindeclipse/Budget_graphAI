@@ -196,6 +196,19 @@ export const wishlistItemSchema = z.object({
     .max(365)
     .default(14),
   cooling_end_date: z.string().optional(),
+  initial_price: z.number().positive().max(100_000_000).nullable().optional(),
+  target_price: z.number().positive().max(100_000_000).nullable().optional(),
+  price_history: z
+    .array(
+      z.object({
+        date: z.string(),
+        price: z.number(),
+        source: z.enum(["manual", "auto"]).optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .optional(),
+  savings_goal_id: z.number().int().positive().nullable().optional(),
 });
 
 export const wishlistItemUpdateSchema = wishlistItemSchema.partial().extend({
@@ -206,8 +219,18 @@ export const wishlistItemUpdateSchema = wishlistItemSchema.partial().extend({
 
 export const wishlistResolveSchema = z.object({
   id: z.coerce.number().int().positive("ID обов'язковий"),
-  action: z.enum(["saved", "purchased", "extend"]),
+  action: z.enum([
+    "saved",
+    "purchased",
+    "extend",
+    "update_price",
+    "link_savings_goal",
+  ]),
   extend_days: z.number().int().positive().optional(),
+  new_price: z.number().positive().optional(),
+  price_source: z.enum(["manual", "auto"]).optional(),
+  price_notes: z.string().max(200).optional(),
+  savings_goal_id: z.number().int().positive().nullable().optional(),
 });
 
 export const costPerUseSchema = z.object({

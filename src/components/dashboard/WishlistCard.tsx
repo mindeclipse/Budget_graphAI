@@ -13,6 +13,7 @@ export type { WishlistCardProps };
 export const WishlistCard = memo(function WishlistCard({
   items,
   savedAmount = 0,
+  savingsGoals = [],
   onRefresh,
   onConvertToCostPerUse,
   onAddOptimistic,
@@ -162,6 +163,7 @@ export const WishlistCard = memo(function WishlistCard({
                 item={item}
                 onResolve={handleResolve}
                 onDelete={handleDelete}
+                onRefresh={onRefresh}
               />
             ))
           )}
@@ -174,6 +176,7 @@ export const WishlistCard = memo(function WishlistCard({
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={onRefresh}
         onAddOptimistic={onAddOptimistic}
+        savingsGoals={savingsGoals}
       />
     </div>
   );

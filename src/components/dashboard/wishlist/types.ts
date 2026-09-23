@@ -1,4 +1,4 @@
-import { WishlistItem } from "@/types/finance";
+import { WishlistItem, SavingsGoal } from "@/types/finance";
 
 export type WishlistFilterType =
   "all" | "cooling" | "ready" | "saved" | "purchased";
@@ -6,6 +6,7 @@ export type WishlistFilterType =
 export interface WishlistCardProps {
   items: WishlistItem[];
   savedAmount?: number;
+  savingsGoals?: SavingsGoal[];
   onRefresh: () => void | Promise<void>;
   onConvertToCostPerUse?: (item: WishlistItem) => void;
   onAddOptimistic?: (item: any) => void;

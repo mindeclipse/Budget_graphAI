@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
+import { X } from "lucide-react";
 import { CapitalYieldMetrics } from "@/components/dashboard/CapitalYieldMetrics";
 import { SavingsGoalsCard } from "@/components/dashboard/SavingsGoalsCard";
 import { InvestmentsCard } from "@/components/dashboard/InvestmentsCard";
 import { WishlistCard } from "@/components/dashboard/WishlistCard";
 import { CostPerUseCard } from "@/components/dashboard/CostPerUseCard";
+import { AssetAllocationCard } from "@/components/dashboard/AssetAllocationCard";
 import {
   InvestmentAsset,
   SavingsGoal,
@@ -108,6 +111,8 @@ export function DashboardWealthTab({
   onIncrementCostPerUseOptimistic,
   onDeleteCostPerUseOptimistic,
 }: DashboardWealthTabProps) {
+  const [isCostPerUseModalOpen, setIsCostPerUseModalOpen] = useState(false);
+
   return (
     <div className="space-y-6">
       {/* Зведена аналітика капіталу: Середньозважена доходність (%) та Прогноз річного прибутку (грн) */}
@@ -137,11 +142,12 @@ export function DashboardWealthTab({
         />
       </div>
 
-      {/* Ряд 2: Поведінкова психологія та усвідомлені покупки */}
+      {/* Ряд 2: Лист очікування (з трекером цін) та Алокація активів (Заміна Окупності) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <WishlistCard
           items={wishlistItems}
           savedAmount={wishlistSavedAmount}
+          savingsGoals={savingsGoals}
           onRefresh={onRefreshWealth}
           onConvertToCostPerUse={(wish) => {
             setPrefillCostPerUse({
@@ -153,20 +159,18 @@ export function DashboardWealthTab({
               total_uses: 1,
               purchase_date: new Date().toISOString().split("T")[0],
             });
+            setIsCostPerUseModalOpen(true);
           }}
           onAddOptimistic={onAddWishlistOptimistic}
           onResolveOptimistic={onResolveWishlistOptimistic}
           onDeleteOptimistic={onDeleteWishlistOptimistic}
         />
-        <CostPerUseCard
-          items={costPerUseItems}
-          totalMoneySaved={costPerUseSavedAmount}
-          onRefresh={onRefreshWealth}
-          prefillItem={prefillCostPerUse}
-          onClearPrefill={() => setPrefillCostPerUse(null)}
-          onAddOptimistic={onAddCostPerUseOptimistic}
-          onIncrementOptimistic={onIncrementCostPerUseOptimistic}
-          onDeleteOptimistic={onDeleteCostPerUseOptimistic}
+        <AssetAllocationCard
+          investments={investments}
+          savingsGoals={savingsGoals}
+          rates={commercialRates}
+          costPerUseItemCount={costPerUseItems.length}
+          onOpenCostPerUse={() => setIsCostPerUseModalOpen(true)}
         />
       </div>
 
@@ -177,6 +181,44 @@ export function DashboardWealthTab({
         onAddCapital={onAddCapital}
         onImportInzhur={onOpenImportInvestment}
       />
+
+      {/* Модальне вікно для Окупності речей (Cost-per-Use) */}
+      {(isCostPerUseModalOpen || prefillCostPerUse) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div
+            className="fixed inset-0"
+            onClick={() => {
+              setIsCostPerUseModalOpen(false);
+              setPrefillCostPerUse(null);
+            }}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-zinc-800 bg-zinc-900 p-2 shadow-2xl">
+            <div className="flex justify-end pt-2 pr-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCostPerUseModalOpen(false);
+                  setPrefillCostPerUse(null);
+                }}
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <CostPerUseCard
+              items={costPerUseItems}
+              totalMoneySaved={costPerUseSavedAmount}
+              onRefresh={onRefreshWealth}
+              prefillItem={prefillCostPerUse}
+              onClearPrefill={() => setPrefillCostPerUse(null)}
+              onAddOptimistic={onAddCostPerUseOptimistic}
+              onIncrementOptimistic={onIncrementCostPerUseOptimistic}
+              onDeleteOptimistic={onDeleteCostPerUseOptimistic}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

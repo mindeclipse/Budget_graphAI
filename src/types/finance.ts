@@ -87,6 +87,13 @@ export interface RecurringItem {
   is_active: boolean;
 }
 
+export interface PriceHistoryPoint {
+  date: string;
+  price: number;
+  source?: "manual" | "auto";
+  notes?: string;
+}
+
 export interface WishlistItem {
   id: number;
   title: string;
@@ -99,6 +106,11 @@ export interface WishlistItem {
   cooling_end_date: string;
   status: "cooling" | "ready" | "purchased" | "saved";
   resolved_at?: string | null;
+  initial_price?: number | null;
+  target_price?: number | null;
+  price_history?: PriceHistoryPoint[];
+  savings_goal_id?: number | null;
+  savings_goal?: SavingsGoal | null;
   created_at: string;
 }
 
