@@ -11,7 +11,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_RLS-21262d?style=for-the-badge&logo=supabase&logoColor=3ecf8e&labelColor=161b22)](https://supabase.com/)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_%7C_3.5_%7C_3.7_Flash-21262d?style=for-the-badge&logo=googlegemini&logoColor=a855f7&labelColor=161b22)](https://ai.google.dev/)
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-21262d?style=for-the-badge&logo=fido&logoColor=60a5fa&labelColor=161b22)](https://fidoalliance.org/)
-[![Vitest](<https://img.shields.io/badge/Vitest-507_Passed_(50_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
+[![Vitest](<https://img.shields.io/badge/Vitest-513_Passed_(51_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-21262d?style=for-the-badge&logo=pwa&logoColor=fbbf24&labelColor=161b22)](https://web.dev/progressive-web-apps/)
 
 <p align="center">
@@ -33,7 +33,7 @@
 [🧮 FinTech Engine](#-fintech-engine--algorithms) •
 [🤖 AI & Telegram](#-multimodal-ai--telegram-ecosystem) •
 [📁 Directory Structure](#-repository-structure) •
-[🧪 Testing (507 Tests)](#-testing--quality-assurance) •
+[🧪 Testing (513 Tests)](#-testing--quality-assurance) •
 [📡 API Reference](#-key-api-endpoints) •
 [🚀 Quick Start](#-quick-start)
 
@@ -412,7 +412,7 @@ budget-pwa/
 BudgetGraph OS maintains **100% test coverage across core financial calculations and security protocols**:
 
 ```bash
-# Run the complete test suite (507 tests)
+# Run the complete test suite (513 tests)
 npm test
 
 # Verify strict TypeScript typing (0 errors)
@@ -425,11 +425,12 @@ npm run format:check
 npm run build
 ```
 
-### Breakdown of the 50 Test Suites:
+### Breakdown of the 51 Test Suites:
 
 - **Cryptography & Security:** Validates PBKDF2 offline PIN hashing, brute-force lockout thresholds, WebAuthn assertion verification, and HMAC session security (`offline-pin-security.test.ts`, `webauthn-speed-security.test.ts`).
 - **Financial Calculus:** Weighted Burn Rate modeling, Personal CPI inflation indexing, dynamic cycle end-date calculations, penny-accurate transaction splits, and round-up savings rules (`burn-rate-cycle.test.ts`, `weighted-pacing.test.ts`, `personal-cpi.test.ts`, `cycle-utils.test.ts`, `split-cascade-rollback.test.ts`).
-- **Investment Portfolio & OVDP Bonds:** Validates bond coupon payout calculations, principal body isolation, dynamic P&L factoring, maturity auto-archiving, and 30-7-3-1 day reminder cadence (`investments-helpers.test.ts`, `calendar-alerts-cron.test.ts`).
+- **Investment Portfolio & OVDP Bonds:** Validates bond coupon payout schedules, face value isolation (1 000 ₴/bond), dynamic received-coupon P&L calculation, maturity auto-archiving, and 30-7-3-1 day reminder cadence (`investments-helpers.test.ts`, `calendar-alerts-cron.test.ts`, `capital-transactions.test.ts`).
+- **Capital Transactions & Dual-Mode Flow:** Validates bond coupon inflows, dividend payouts, broker transfers reconciliation, zero living burn-rate distortion, and dual-mode transaction drawer mechanics (`capital-transactions.test.ts`, `inzhur-import.test.ts`).
 - **Financial Calendar & Alerts:** Cross-domain event aggregation, maturity date projections, auto-extension mechanics, and proactive Telegram radar scheduling (`calendar-events.test.ts`, `calendar-alerts-cron.test.ts`).
 - **Parsers & Ingestion:** Statement parsing for PrivatBank, Monobank, and Inzhur REIT reports, formula injection defense, and noise stripping (`bank-statement-parser.test.ts`, `inzhur-import.test.ts`, `receipt-pdf-import.test.ts`).
 - **Telegram Webhook & AI:** Command parsing, callback query dispatch, infographic canvas rendering, error fallbacks, and token authentication (`telegram-webhook.test.ts`, `ai-chat.test.ts`, `financial-ai-assistant.test.ts`).
