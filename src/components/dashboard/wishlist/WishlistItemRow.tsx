@@ -214,24 +214,24 @@ export function WishlistItemRow({
               <Clock className="h-3 w-3" />
               Залишилось: {diffDays} дн ({progressPercent}%)
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => onResolve(item.id, "extend", 7)}
-                className="text-[10px] text-slate-400 underline hover:text-violet-300"
+                className="rounded-md border border-slate-700/50 bg-slate-800/40 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-violet-300"
                 title="Відкласти на тиждень"
               >
                 +7дн
               </button>
               <button
                 onClick={() => onResolve(item.id, "extend", 30)}
-                className="text-[10px] text-slate-400 underline hover:text-violet-300"
+                className="rounded-md border border-slate-700/50 bg-slate-800/40 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-violet-300"
                 title="Відкласти на місяць"
               >
                 +30дн
               </button>
               <button
                 onClick={() => onDelete(item.id)}
-                className="text-slate-500 hover:text-rose-400"
+                className="rounded p-1 text-slate-500 hover:text-rose-400"
                 title="Видалити"
               >
                 <Trash2 className="h-3 w-3" />
@@ -271,7 +271,7 @@ export function WishlistItemRow({
             </button>
             <button
               onClick={() => onResolve(item.id, "extend", 30)}
-              className="ml-auto text-[10px] text-slate-400 underline hover:text-slate-200"
+              className="ml-auto rounded-md border border-slate-700/50 bg-slate-800/40 px-2 py-1 text-[10px] font-medium text-slate-400 transition-colors hover:border-slate-600 hover:bg-slate-800 hover:text-slate-200"
             >
               +30 дн подумати
             </button>
