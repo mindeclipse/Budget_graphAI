@@ -5,6 +5,7 @@ import {
   parseFlexibleNumber,
   sortInvestments,
   calculateTotalCoupons,
+  calculateReceivedCoupons,
   calculateAssetPnl,
   isAssetArchived,
 } from "@/components/dashboard/InvestmentsCard";
@@ -270,7 +271,7 @@ describe("InvestmentsCard helpers", () => {
     });
   });
 
-  describe("calculateTotalCoupons", () => {
+  describe("calculateTotalCoupons & calculateReceivedCoupons", () => {
     it("повертає 0, якщо у активу немає купонів або масив порожній", () => {
       const assetNoCoupons: InvestmentAsset = {
         id: 1,
@@ -282,15 +283,17 @@ describe("InvestmentsCard helpers", () => {
         created_at: "2026-01-01T00:00:00Z",
       };
       expect(calculateTotalCoupons(assetNoCoupons)).toBe(0);
+      expect(calculateReceivedCoupons(assetNoCoupons)).toBe(0);
 
       const assetEmptyCoupons: InvestmentAsset = {
         ...assetNoCoupons,
         coupons: [],
       };
       expect(calculateTotalCoupons(assetEmptyCoupons)).toBe(0);
+      expect(calculateReceivedCoupons(assetEmptyCoupons)).toBe(0);
     });
 
-    it("коректно підсумовує купонні виплати", () => {
+    it("підсумовує всі купони за замовчуванням", () => {
       const bond: InvestmentAsset = {
         id: 1,
         asset_name: "ОВДП UA4000",
@@ -306,36 +309,68 @@ describe("InvestmentsCard helpers", () => {
       };
       expect(calculateTotalCoupons(bond)).toBe(7500);
     });
-  });
 
-  describe("calculateAssetPnl - Розрахунок P&L з купонами", () => {
-    it("зберігає тіло (current_value) та додає купони до фінансового результату", () => {
-      const bondWithCoupons: InvestmentAsset = {
-        id: 10,
-        asset_name: "ОВДП UA4000238976",
+    it("фільтрує виключно фактично отримані купони (date <= today) при onlyReceived: true", () => {
+      const bond: InvestmentAsset = {
+        id: 1,
+        asset_name: "ОВДП UA4000237416",
         asset_type: "bonds",
-        invested_amount: 100000,
-        current_value: 101000, // поточне тіло
+        invested_amount: 49597.8,
+        current_value: 51857.19,
         currency: "UAH",
         coupons: [
-          { id: "1", amount: 7500, date: "2026-04-15" },
-          { id: "2", amount: 7500, date: "2026-10-15" },
+          { id: "c1", amount: 4005.75, date: "2026-05-20" }, // минулий
+          { id: "c2", amount: 4005.75, date: "2026-11-18" }, // майбутній
         ],
         created_at: "2026-01-01T00:00:00Z",
       };
 
-      const { diff, pct, totalCoupons, isProfit } =
-        calculateAssetPnl(bondWithCoupons);
+      const today = "2026-09-24";
+      // Всього за графіком: 8011.50
+      expect(
+        calculateTotalCoupons(bond, { onlyReceived: false, todayIso: today })
+      ).toBe(8011.5);
+      // Тільки отримані на сьогодні: 4005.75
+      expect(
+        calculateTotalCoupons(bond, { onlyReceived: true, todayIso: today })
+      ).toBe(4005.75);
+      expect(calculateReceivedCoupons(bond, today)).toBe(4005.75);
+    });
+  });
 
-      // totalCoupons = 15000
-      expect(totalCoupons).toBe(15000);
-      // diff = (101000 + 15000) - 100000 = 16000
-      expect(diff).toBe(16000);
-      // pct = (16000 / 100000) * 100 = 16.0%
-      expect(pct).toBe("16.0");
-      expect(isProfit).toBe(true);
-      // Поточна вартість (тіло) не мутується і залишається 101000
-      expect(bondWithCoupons.current_value).toBe(101000);
+  describe("calculateAssetPnl - Розрахунок P&L з купонами", () => {
+    it("враховує у поточному P&L тільки фактично отримані купони і не завищує прибуток наперед", () => {
+      const bondWithCoupons: InvestmentAsset = {
+        id: 10,
+        asset_name: "ОВДП UA4000237416",
+        asset_type: "bonds",
+        invested_amount: 49597.8,
+        current_value: 51857.19, // поточна оцінка банку
+        currency: "UAH",
+        coupons: [
+          { id: "1", amount: 4005.75, date: "2026-05-20" }, // виплачено
+          { id: "2", amount: 4005.75, date: "2026-11-18" }, // очікується в майбутньому
+        ],
+        maturity_date: "2026-11-18",
+        created_at: "2026-01-01T00:00:00Z",
+      };
+
+      // Станом на 2026-09-24 купон від 18.11.2026 ще не надійшов
+      const res = calculateAssetPnl(bondWithCoupons, "2026-09-24");
+
+      expect(res.receivedCoupons).toBe(4005.75);
+      expect(res.upcomingCoupons).toBe(4005.75);
+      expect(res.allScheduledCoupons).toBe(8011.5);
+      // diff = (51857.19 + 4005.75) - 49597.80 = 6265.14
+      expect(res.diff).toBeCloseTo(6265.14, 2);
+      // pct = (6265.14 / 49597.80) * 100 = 12.6%
+      expect(res.pct).toBe("12.6");
+      expect(res.isProfit).toBe(true);
+
+      // Станом на дату після погашення (2026-11-19) актив стає архівним і враховуються обидва купони
+      const resAfterMaturity = calculateAssetPnl(bondWithCoupons, "2026-11-19");
+      expect(resAfterMaturity.receivedCoupons).toBe(8011.5);
+      expect(resAfterMaturity.upcomingCoupons).toBe(0);
     });
 
     it("працює стандартно для активів без купонів (акції, крипта)", () => {

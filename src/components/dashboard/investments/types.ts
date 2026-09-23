@@ -69,31 +69,97 @@ export function sortInvestments(assets: InvestmentAsset[]): InvestmentAsset[] {
 }
 
 /**
- * Рахує сумарну виплату купонів для активу (для ОВДП).
+ * Отримує сьогоднішню дату у форматі YYYY-MM-DD для часового поясу Києва.
  */
-export function calculateTotalCoupons(asset: InvestmentAsset): number {
+export function getKyivTodayIso(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Kyiv" });
+}
+
+/**
+ * Рахує сумарну виплату купонів для активу (для ОВДП).
+ * @param asset Інвестиційний актив
+ * @param options.onlyReceived Якщо true, враховує тільки купони з датою <= сьогодні (за замовчуванням false)
+ * @param options.todayIso Опціональна дата сьогодні для детермінованого тестування
+ */
+export function calculateTotalCoupons(
+  asset: InvestmentAsset,
+  options?: { onlyReceived?: boolean; todayIso?: string }
+): number {
   if (!asset.coupons || !Array.isArray(asset.coupons)) return 0;
-  return asset.coupons.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+  const onlyReceived = options?.onlyReceived ?? false;
+  const today = options?.todayIso || getKyivTodayIso();
+
+  return asset.coupons.reduce((sum, c) => {
+    const amount = Number(c.amount) || 0;
+    if (onlyReceived) {
+      const couponDate = (c.date || "").slice(0, 10);
+      if (couponDate && couponDate > today) {
+        return sum; // Пропускаємо майбутні, ще не виплачені купони
+      }
+    }
+    return sum + amount;
+  }, 0);
+}
+
+/**
+ * Рахує фактично отримані купони (дата <= сьогодні).
+ */
+export function calculateReceivedCoupons(
+  asset: InvestmentAsset,
+  todayIso?: string
+): number {
+  return calculateTotalCoupons(asset, { onlyReceived: true, todayIso });
 }
 
 /**
  * Розраховує фінансовий результат (P&L та %) для інвестиційного активу.
- * Для ОВДП до прибутку додаються отримані купонні виплати, при цьому
+ * Для ОВДП до прибутку додаються виключно ФАКТИЧНО ОТРИМАНІ купони (дата <= сьогодні,
+ * або всі купони, якщо актив уже в архіві / термін минув), при цьому
  * поточна ринкова вартість (тіло) залишається незмінною.
  */
-export function calculateAssetPnl(asset: InvestmentAsset): {
+export function calculateAssetPnl(
+  asset: InvestmentAsset,
+  todayIso?: string
+): {
   diff: number;
   pct: string;
   totalCoupons: number;
+  receivedCoupons: number;
+  upcomingCoupons: number;
+  allScheduledCoupons: number;
   isProfit: boolean;
 } {
+  const today = todayIso || getKyivTodayIso();
   const investedVal = Number(asset.invested_amount) || 0;
   const currentVal = Number(asset.current_value) || 0;
-  const totalCoupons = calculateTotalCoupons(asset);
-  const diff = currentVal + totalCoupons - investedVal;
+
+  const allScheduledCoupons = calculateTotalCoupons(asset, {
+    onlyReceived: false,
+    todayIso: today,
+  });
+
+  const isArchived = isAssetArchived(asset, today);
+  // Якщо актив вже в архіві / термін минув, усі купони вважаються завершеними/отриманими
+  const receivedCoupons = isArchived
+    ? allScheduledCoupons
+    : calculateTotalCoupons(asset, { onlyReceived: true, todayIso: today });
+
+  const upcomingCoupons = Math.max(0, allScheduledCoupons - receivedCoupons);
+
+  // Для розрахунку P&L використовуємо тільки фактично отримані купони
+  const diff = currentVal + receivedCoupons - investedVal;
   const pct = investedVal > 0 ? ((diff / investedVal) * 100).toFixed(1) : "0";
   const isProfit = diff >= 0;
-  return { diff, pct, totalCoupons, isProfit };
+
+  return {
+    diff,
+    pct,
+    totalCoupons: receivedCoupons, // Для сумісності з попереднім інтерфейсом
+    receivedCoupons,
+    upcomingCoupons,
+    allScheduledCoupons,
+    isProfit,
+  };
 }
 
 /**
@@ -106,9 +172,7 @@ export function isAssetArchived(
 ): boolean {
   if (asset.is_archived) return true;
   if (asset.asset_type === "bonds" && asset.maturity_date) {
-    const today =
-      todayIso ||
-      new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Kyiv" });
+    const today = todayIso || getKyivTodayIso();
     const matIso = asset.maturity_date.slice(0, 10);
     if (matIso < today) return true;
   }

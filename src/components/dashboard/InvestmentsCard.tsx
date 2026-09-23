@@ -17,6 +17,7 @@ import {
   ASSET_TYPE_ORDER,
   sortInvestments,
   calculateTotalCoupons,
+  calculateReceivedCoupons,
   isAssetArchived,
   calculateAssetPnl,
   PortfolioSummaryHeader,
@@ -29,6 +30,7 @@ export {
   formatIsoToDisplayDate,
   sortInvestments,
   calculateTotalCoupons,
+  calculateReceivedCoupons,
   isAssetArchived,
   calculateAssetPnl,
   ASSET_TYPE_LABELS,
@@ -76,7 +78,7 @@ export const InvestmentsCard = memo(function InvestmentsCard({
       activeInvestments.forEach((asset) => {
         inv += convertToUah(asset.invested_amount, asset.currency, rates);
         cur += convertToUah(asset.current_value, asset.currency, rates);
-        const couponsVal = calculateTotalCoupons(asset);
+        const couponsVal = calculateTotalCoupons(asset, { onlyReceived: true });
         if (couponsVal > 0) {
           couponsTotal += convertToUah(couponsVal, asset.currency, rates);
         }

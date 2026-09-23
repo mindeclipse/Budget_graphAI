@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { Transaction, InvestmentAsset, SavingsGoal } from "@/types/finance";
+import { calculateAssetPnl } from "@/components/dashboard/investments/types";
 
 interface ExportExcelOptions {
   transactions: Transaction[];
@@ -119,12 +120,8 @@ export function exportFinancialDataToExcel({
     const investRows = investments.map((inv) => {
       const invested = Number(inv.invested_amount) || 0;
       const current = Number(inv.current_value) || 0;
-      const totalCoupons = Array.isArray(inv.coupons)
-        ? inv.coupons.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
-        : 0;
-      const pnl = current + totalCoupons - invested;
-      const pnlPercent =
-        invested > 0 ? ((pnl / invested) * 100).toFixed(1) + "%" : "0%";
+      const { diff: pnl, pct, receivedCoupons } = calculateAssetPnl(inv);
+      const pnlPercent = pct + "%";
 
       let typeLabel: string = inv.asset_type;
       if (inv.asset_type === "bonds") typeLabel = "ОВДП";
@@ -138,7 +135,7 @@ export function exportFinancialDataToExcel({
         Тип: typeLabel,
         "Вкладено (Cost)": invested,
         "Поточна вартість (Тіло)": current,
-        "Отримано купонів": totalCoupons > 0 ? totalCoupons : "",
+        "Отримано купонів": receivedCoupons > 0 ? receivedCoupons : "",
         "Прибуток / Збиток (P&L)": pnl,
         "Дохідність (%)": pnlPercent,
         Валюта: inv.currency,

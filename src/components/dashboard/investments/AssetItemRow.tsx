@@ -10,7 +10,8 @@ interface AssetItemRowProps {
 
 export function AssetItemRow({ asset, onEdit, onDelete }: AssetItemRowProps) {
   const currentVal = Number(asset.current_value) || 0;
-  const { diff, pct, totalCoupons, isProfit } = calculateAssetPnl(asset);
+  const { diff, pct, receivedCoupons, upcomingCoupons, isProfit } =
+    calculateAssetPnl(asset);
   const cfg = ASSET_TYPE_LABELS[asset.asset_type] || ASSET_TYPE_LABELS.other;
 
   return (
@@ -34,14 +35,25 @@ export function AssetItemRow({ asset, onEdit, onDelete }: AssetItemRowProps) {
               {currentVal.toLocaleString()} {asset.currency}
             </strong>
           </span>
-          {totalCoupons > 0 && (
+          {receivedCoupons > 0 ? (
             <span
               className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-400"
-              title={`Отримано купонів: ${totalCoupons.toLocaleString()} ${asset.currency}`}
+              title={`Отримано купонів: ${receivedCoupons.toLocaleString()} ${asset.currency}${
+                upcomingCoupons > 0
+                  ? ` (ще очікується: ${upcomingCoupons.toLocaleString()} ${asset.currency})`
+                  : ""
+              }`}
             >
-              Купони: +{totalCoupons.toLocaleString()} {asset.currency}
+              Купони: +{receivedCoupons.toLocaleString()} {asset.currency}
             </span>
-          )}
+          ) : upcomingCoupons > 0 ? (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-md bg-zinc-800/80 px-1.5 py-0.5 font-medium text-zinc-400"
+              title={`Заплановано в графіку: ${upcomingCoupons.toLocaleString()} ${asset.currency}`}
+            >
+              Очікується: +{upcomingCoupons.toLocaleString()} {asset.currency}
+            </span>
+          ) : null}
           {asset.yield_percent && (
             <span className="flex items-center gap-0.5 font-medium text-emerald-400">
               <Percent size={10} /> {asset.yield_percent}%

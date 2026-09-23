@@ -72,11 +72,20 @@ export const InvestmentAssetFormFields: React.FC<
       ? Math.round(quantityNum * couponAmountNum * 100) / 100
       : 0;
 
-  // Сума всіх вже доданих купонів
-  const totalCouponsSum = coupons.reduce(
-    (sum, c) => sum + (Number(c.amount) || 0),
-    0
-  );
+  const todayIso = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Europe/Kyiv",
+  });
+
+  // Сума купонів: фактично отримані vs очікувані в майбутньому
+  const receivedCouponsSum = coupons
+    .filter((c) => (c.date || "").slice(0, 10) <= todayIso)
+    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+  const upcomingCouponsSum = coupons
+    .filter((c) => (c.date || "").slice(0, 10) > todayIso)
+    .reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+  const totalCouponsSum = receivedCouponsSum + upcomingCouponsSum;
 
   const handleAddEmptyCoupon = () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -286,9 +295,19 @@ export const InvestmentAssetFormFields: React.FC<
               </span>
             </div>
             {totalCouponsSum > 0 && (
-              <span className="rounded-lg bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
-                Всього купонів: +{totalCouponsSum.toLocaleString()} {currency}
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                {receivedCouponsSum > 0 && (
+                  <span className="rounded-lg bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-400">
+                    Отримано: +{receivedCouponsSum.toLocaleString()} {currency}
+                  </span>
+                )}
+                {upcomingCouponsSum > 0 && (
+                  <span className="rounded-lg bg-zinc-800 px-2 py-0.5 font-semibold text-zinc-400">
+                    Очікується: +{upcomingCouponsSum.toLocaleString()}{" "}
+                    {currency}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -301,7 +320,7 @@ export const InvestmentAssetFormFields: React.FC<
               <input
                 type="text"
                 inputMode="numeric"
-                placeholder="напр. 30"
+                placeholder="напр. 49"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
@@ -315,34 +334,47 @@ export const InvestmentAssetFormFields: React.FC<
               <input
                 type="text"
                 inputMode="decimal"
-                placeholder="напр. 75.50"
+                placeholder="напр. 81.75 (не номінал 1000)"
                 value={couponAmount}
                 onChange={(e) => setCouponAmount(e.target.value)}
                 className="w-full rounded-xl border border-zinc-700/80 bg-zinc-900 px-3 py-2 text-sm text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
               />
+              <span className="mt-0.5 block text-[10px] text-zinc-500">
+                Розмір 1 виплати на 1 шт, а не номінал 1000 ₴
+              </span>
             </div>
           </div>
 
           {/* Розрахована виплата */}
           {calculatedPayout > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-xs">
-              <span className="flex items-center gap-1.5 text-zinc-300">
-                <Calculator size={13} className="text-indigo-400" />
-                <span>
-                  Виплата за випуск:{" "}
-                  <strong className="text-white">
-                    {quantityNum} шт × {couponAmountNum} ={" "}
-                    {calculatedPayout.toLocaleString()} {currency}
-                  </strong>
+            <div className="space-y-1.5 rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-2.5 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 text-zinc-300">
+                  <Calculator size={13} className="text-indigo-400" />
+                  <span>
+                    Купонна виплата за випуск:{" "}
+                    <strong className="text-white">
+                      {quantityNum} шт × {couponAmountNum} ={" "}
+                      {calculatedPayout.toLocaleString()} {currency}
+                    </strong>
+                  </span>
                 </span>
-              </span>
-              <button
-                type="button"
-                onClick={handleAddCalculatedCoupon}
-                className="rounded-lg bg-indigo-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition-all hover:bg-indigo-600 active:scale-95"
-              >
-                + Додати цю виплату
-              </button>
+                <button
+                  type="button"
+                  onClick={handleAddCalculatedCoupon}
+                  className="rounded-lg bg-indigo-500 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm transition-all hover:bg-indigo-600 active:scale-95"
+                >
+                  + Додати цю виплату
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-400">
+                ℹ️ Погашення номіналу тіла (
+                {quantityNum > 0
+                  ? `${quantityNum} шт × 1000 ₴ = ${(quantityNum * 1000).toLocaleString()} ₴`
+                  : "напр. 49 000 ₴"}
+                ) відбувається окремо при погашенні й у купони{" "}
+                <strong>не додається</strong>.
+              </p>
             </div>
           )}
 
@@ -369,43 +401,63 @@ export const InvestmentAssetFormFields: React.FC<
               </p>
             ) : (
               <div className="max-h-44 [scrollbar-width:thin] space-y-2 overflow-y-auto pr-1">
-                {coupons.map((coupon, idx) => (
-                  <div
-                    key={coupon.id || idx}
-                    className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/80 p-2"
-                  >
-                    <div className="flex-1">
-                      <input
-                        type="date"
-                        value={coupon.date}
-                        onChange={(e) =>
-                          handleUpdateCoupon(idx, "date", e.target.value)
-                        }
-                        className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                      />
-                    </div>
-                    <div className="w-28 sm:w-32">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="Сума купона"
-                        value={coupon.amount || ""}
-                        onChange={(e) =>
-                          handleUpdateCoupon(idx, "amount", e.target.value)
-                        }
-                        className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-white placeholder-zinc-600 focus:border-indigo-500 focus:outline-none"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCoupon(idx)}
-                      className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-rose-400"
-                      title="Видалити виплату"
+                {coupons.map((coupon, idx) => {
+                  const isReceived =
+                    coupon.date && coupon.date.slice(0, 10) <= todayIso;
+                  return (
+                    <div
+                      key={coupon.id || idx}
+                      className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/80 p-2"
                     >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="date"
+                            value={coupon.date}
+                            onChange={(e) =>
+                              handleUpdateCoupon(idx, "date", e.target.value)
+                            }
+                            className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                          />
+                          <span
+                            className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold ${
+                              isReceived
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-zinc-800 text-zinc-400"
+                            }`}
+                            title={
+                              isReceived
+                                ? "Вже виплачено (враховується у поточному P&L)"
+                                : "Заплановано на майбутнє (буде враховано після настання дати)"
+                            }
+                          >
+                            {isReceived ? "виплачено" : "очікується"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-24 sm:w-28">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Сума"
+                          value={coupon.amount || ""}
+                          onChange={(e) =>
+                            handleUpdateCoupon(idx, "amount", e.target.value)
+                          }
+                          className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-white placeholder-zinc-600 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCoupon(idx)}
+                        className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-rose-400"
+                        title="Видалити виплату"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
