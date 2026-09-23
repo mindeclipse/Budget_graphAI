@@ -14,6 +14,9 @@ export function ServiceWorkerRegister() {
           scope: "/",
         });
 
+        // Trigger immediate check for new service worker release
+        registration.update().catch(() => {});
+
         registration.addEventListener("updatefound", () => {
           const installingWorker = registration.installing;
           if (installingWorker) {
