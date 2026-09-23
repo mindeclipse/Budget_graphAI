@@ -9,7 +9,6 @@ import {
   ShieldAlert,
   CalendarDays,
   Landmark,
-  Sparkles,
 } from "lucide-react";
 import { useTransactionMutations } from "@/hooks/useTransactionMutations";
 import { CATEGORIES, INCOME_CATEGORIES } from "@/constants/categories";
@@ -347,16 +346,9 @@ export function CreateTransactionDrawer({
 
             {/* Заклад або опис */}
             <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label className="block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-                  {isIncome ? "Джерело / Призначення" : "Заклад / Опис"}
-                </label>
-                {isCapital && (
-                  <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-                    <Sparkles size={11} /> Швидкі шаблони
-                  </span>
-                )}
-              </div>
+              <label className="mb-1.5 block text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+                {isIncome ? "Джерело / Призначення" : "Заклад / Опис"}
+              </label>
               <input
                 type="text"
                 placeholder={
