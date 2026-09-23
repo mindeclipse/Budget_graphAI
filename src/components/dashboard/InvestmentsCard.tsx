@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, memo } from "react";
-import { TrendingUp, Plus } from "lucide-react";
+import { TrendingUp, Plus, Archive } from "lucide-react";
 import { InvestmentAsset } from "@/types/finance";
 import { parseFlexibleNumber } from "@/lib/normalize";
 import { convertToUah } from "@/lib/portfolio-analytics";
@@ -10,11 +10,15 @@ import {
   parseDateInputToIso,
   formatIsoToDisplayDate,
 } from "@/components/dashboard/modals/InvestmentAssetModal";
+import { ArchivedBondsModal } from "@/components/dashboard/modals/ArchivedBondsModal";
 import {
   InvestmentsCardProps,
   ASSET_TYPE_LABELS,
   ASSET_TYPE_ORDER,
   sortInvestments,
+  calculateTotalCoupons,
+  isAssetArchived,
+  calculateAssetPnl,
   PortfolioSummaryHeader,
   InvestmentAssetsList,
 } from "./investments";
@@ -24,6 +28,9 @@ export {
   parseDateInputToIso,
   formatIsoToDisplayDate,
   sortInvestments,
+  calculateTotalCoupons,
+  isAssetArchived,
+  calculateAssetPnl,
   ASSET_TYPE_LABELS,
   ASSET_TYPE_ORDER,
 };
@@ -36,6 +43,7 @@ export const InvestmentsCard = memo(function InvestmentsCard({
   onDeleteOptimistic,
 }: InvestmentsCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [assetToEdit, setAssetToEdit] = useState<InvestmentAsset | null>(null);
 
   // Сортований список активів
@@ -43,16 +51,38 @@ export const InvestmentsCard = memo(function InvestmentsCard({
     return sortInvestments(investments);
   }, [investments]);
 
-  // Підрахунок загального капіталу інвестицій у гривні
+  // Розділення на активні та архівні (погашені) активи
+  const { activeInvestments, archivedInvestments } = useMemo(() => {
+    const active: InvestmentAsset[] = [];
+    const archived: InvestmentAsset[] = [];
+    sortedInvestments.forEach((asset) => {
+      if (isAssetArchived(asset)) {
+        archived.push(asset);
+      } else {
+        active.push(asset);
+      }
+    });
+    return { activeInvestments: active, archivedInvestments: archived };
+  }, [sortedInvestments]);
+
+  // Підрахунок загального капіталу активних інвестицій у гривні
+  // Поточна вартість (тіло) залишається незмінною, а купони додаються до загального прибутку
   const { totalInvestedUah, totalPortfolioUah, profitUah, profitPercent } =
     useMemo(() => {
       let inv = 0;
       let cur = 0;
-      investments.forEach((asset) => {
+      let couponsTotal = 0;
+
+      activeInvestments.forEach((asset) => {
         inv += convertToUah(asset.invested_amount, asset.currency, rates);
         cur += convertToUah(asset.current_value, asset.currency, rates);
+        const couponsVal = calculateTotalCoupons(asset);
+        if (couponsVal > 0) {
+          couponsTotal += convertToUah(couponsVal, asset.currency, rates);
+        }
       });
-      const prof = cur - inv;
+
+      const prof = cur + couponsTotal - inv;
       const pct = inv > 0 ? (prof / inv) * 100 : 0;
       return {
         totalInvestedUah: inv,
@@ -60,17 +90,17 @@ export const InvestmentsCard = memo(function InvestmentsCard({
         profitUah: prof,
         profitPercent: pct,
       };
-    }, [investments, rates]);
+    }, [activeInvestments, rates]);
 
-  // Розподіл активів за типами
+  // Розподіл активів за типами (лише активні позиції)
   const typeDistribution = useMemo(() => {
     const dist: Record<string, number> = {};
-    investments.forEach((asset) => {
+    activeInvestments.forEach((asset) => {
       const uah = convertToUah(asset.current_value, asset.currency, rates);
       dist[asset.asset_type] = (dist[asset.asset_type] || 0) + uah;
     });
     return dist;
-  }, [investments, rates]);
+  }, [activeInvestments, rates]);
 
   const handleDeleteAsset = async (id: number) => {
     if (!confirm("Видалити цей інвестиційний актив?")) return;
@@ -115,14 +145,32 @@ export const InvestmentsCard = memo(function InvestmentsCard({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20"
-        >
-          <Plus size={14} />
-          <span>Новий актив</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Кнопка Архіву погашених ОВДП / активів */}
+          <button
+            type="button"
+            onClick={() => setIsArchiveOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-zinc-700/80 bg-zinc-800/50 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            title="Архів погашених ОВДП та активів"
+          >
+            <Archive size={14} className="text-zinc-400" />
+            <span className="hidden sm:inline">Архів</span>
+            {archivedInvestments.length > 0 && (
+              <span className="py-0.2 rounded-full bg-zinc-700 px-1.5 text-[10px] font-semibold text-zinc-200">
+                {archivedInvestments.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20"
+          >
+            <Plus size={14} />
+            <span>Новий актив</span>
+          </button>
+        </div>
       </div>
 
       {/* Головні цифри портфеля */}
@@ -136,7 +184,7 @@ export const InvestmentsCard = memo(function InvestmentsCard({
 
       {/* Список активів */}
       <InvestmentAssetsList
-        assets={sortedInvestments}
+        assets={activeInvestments}
         onEdit={openEditModal}
         onDelete={handleDeleteAsset}
       />
@@ -151,6 +199,16 @@ export const InvestmentsCard = memo(function InvestmentsCard({
         }}
         onRefresh={onRefresh}
         onUpsertOptimistic={onUpsertOptimistic}
+      />
+
+      {/* Модалка архіву погашених активів */}
+      <ArchivedBondsModal
+        isOpen={isArchiveOpen}
+        onClose={() => setIsArchiveOpen(false)}
+        archivedAssets={archivedInvestments}
+        onRefresh={onRefresh}
+        onUpsertOptimistic={onUpsertOptimistic}
+        onDeleteOptimistic={onDeleteOptimistic}
       />
     </div>
   );

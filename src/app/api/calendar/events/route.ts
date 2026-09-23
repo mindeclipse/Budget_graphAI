@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
         supabaseAdmin
           .from("investments")
           .select(
-            "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes"
+            "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, coupons, quantity, coupon_amount, is_archived"
           ),
         supabaseAdmin
           .from("financial_events")
@@ -206,6 +206,30 @@ export async function GET(req: NextRequest) {
             },
           });
         }
+      }
+
+      // Купонні виплати ОВДП
+      if (inv.asset_type === "bonds" && Array.isArray(inv.coupons)) {
+        inv.coupons.forEach((c: any, cIdx: number) => {
+          if (c.date && Number(c.amount) > 0) {
+            const cDate = c.date.slice(0, 10);
+            if (cDate >= startIsoDate && cDate <= endIsoDate) {
+              timelineItems.push({
+                id: `investment-coupon-${inv.id}-${c.id || cIdx}`,
+                title: `💰 Купон ОВДП: ${inv.asset_name}`,
+                date: cDate,
+                source: "investment",
+                type: "income",
+                amount: Number(c.amount),
+                currency: inv.currency || "UAH",
+                metadata: {
+                  assetType: inv.asset_type,
+                  isCoupon: true,
+                },
+              });
+            }
+          }
+        });
       }
 
       // Щомісячні дивіденди Inzhur REIT (10 числа) або активи із зазначеним днем у notes

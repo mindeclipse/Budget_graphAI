@@ -1,6 +1,6 @@
 import { Percent, Calendar, Edit2, Trash2 } from "lucide-react";
 import { InvestmentAsset } from "@/types/finance";
-import { ASSET_TYPE_LABELS } from "./types";
+import { ASSET_TYPE_LABELS, calculateAssetPnl } from "./types";
 
 interface AssetItemRowProps {
   asset: InvestmentAsset;
@@ -9,11 +9,8 @@ interface AssetItemRowProps {
 }
 
 export function AssetItemRow({ asset, onEdit, onDelete }: AssetItemRowProps) {
-  const investedVal = Number(asset.invested_amount) || 0;
   const currentVal = Number(asset.current_value) || 0;
-  const diff = currentVal - investedVal;
-  const pct = investedVal > 0 ? ((diff / investedVal) * 100).toFixed(1) : "0";
-  const isProfit = diff >= 0;
+  const { diff, pct, totalCoupons, isProfit } = calculateAssetPnl(asset);
   const cfg = ASSET_TYPE_LABELS[asset.asset_type] || ASSET_TYPE_LABELS.other;
 
   return (
@@ -37,6 +34,14 @@ export function AssetItemRow({ asset, onEdit, onDelete }: AssetItemRowProps) {
               {currentVal.toLocaleString()} {asset.currency}
             </strong>
           </span>
+          {totalCoupons > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 font-medium text-emerald-400"
+              title={`Отримано купонів: ${totalCoupons.toLocaleString()} ${asset.currency}`}
+            >
+              Купони: +{totalCoupons.toLocaleString()} {asset.currency}
+            </span>
+          )}
           {asset.yield_percent && (
             <span className="flex items-center gap-0.5 font-medium text-emerald-400">
               <Percent size={10} /> {asset.yield_percent}%

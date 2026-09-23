@@ -236,6 +236,56 @@ describe("Validations - Zod Schemas", () => {
         }).success
       ).toBe(false);
     });
+
+    it("валідує ОВДП з купонами, кількістю, сумою купона та статусом архіву", () => {
+      const validBond = {
+        asset_name: "ОВДП UA4000238976",
+        asset_type: "bonds",
+        invested_amount: 100000,
+        current_value: 100000,
+        currency: "UAH",
+        yield_percent: 17.2,
+        maturity_date: "2027-04-15",
+        quantity: 100,
+        coupon_amount: 86,
+        is_archived: false,
+        coupons: [
+          { amount: 8600, date: "2026-10-15" },
+          { amount: 8600, date: "2027-04-15" },
+        ],
+      };
+      const result = investmentAssetSchema.safeParse(validBond);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.quantity).toBe(100);
+        expect(result.data.coupon_amount).toBe(86);
+        expect(result.data.coupons?.length).toBe(2);
+      }
+    });
+
+    it("відхиляє некоректний формат дати або від'ємну суму купону", () => {
+      const invalidCouponBond = {
+        asset_name: "ОВДП",
+        asset_type: "bonds",
+        invested_amount: 1000,
+        current_value: 1000,
+        coupons: [{ amount: -100, date: "2026-10-15" }],
+      };
+      expect(investmentAssetSchema.safeParse(invalidCouponBond).success).toBe(
+        false
+      );
+
+      const invalidDateBond = {
+        asset_name: "ОВДП",
+        asset_type: "bonds",
+        invested_amount: 1000,
+        current_value: 1000,
+        coupons: [{ amount: 100, date: "15.10.2026" }], // має бути YYYY-MM-DD
+      };
+      expect(investmentAssetSchema.safeParse(invalidDateBond).success).toBe(
+        false
+      );
+    });
   });
 
   describe("categoryBudgetSchema", () => {

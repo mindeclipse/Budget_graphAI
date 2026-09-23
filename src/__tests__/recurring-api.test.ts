@@ -42,7 +42,7 @@ describe("/api/recurring API Handlers", () => {
       mockCookieGet.mockReturnValue(undefined);
       mockVerifySessionToken.mockResolvedValue({ valid: false });
 
-      const res = await GET();
+      const res = await GET(new Request("http://localhost/api/recurring"));
       expect(res.status).toBe(401);
       const json = await res.json();
       expect(json.error).toBe("Unauthorized");
@@ -69,7 +69,7 @@ describe("/api/recurring API Handlers", () => {
       mockSelect.mockReturnValue({ order: mockOrder });
       mockFrom.mockReturnValue({ select: mockSelect });
 
-      const res = await GET();
+      const res = await GET(new Request("http://localhost/api/recurring"));
       expect(res.status).toBe(200);
 
       expect(mockFrom).toHaveBeenCalledWith("recurring_templates");
@@ -101,7 +101,7 @@ describe("/api/recurring API Handlers", () => {
       mockSelect.mockReturnValue({ order: mockOrder });
       mockFrom.mockReturnValue({ select: mockSelect });
 
-      const res = await GET();
+      const res = await GET(new Request("http://localhost/api/recurring"));
       expect(res.status).toBe(500);
       const json = await res.json();
       expect(json.error).toBeDefined();

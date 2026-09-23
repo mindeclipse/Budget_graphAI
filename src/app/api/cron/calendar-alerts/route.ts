@@ -62,8 +62,9 @@ export async function GET(req: NextRequest) {
     const [kyivYear, kyivMonth, kyivDay] = kyivIso.split("-").map(Number);
     const today = new Date(kyivYear, kyivMonth - 1, kyivDay);
 
-    // Розраховуємо цільові дати: 0 (сьогодні), 1 (завтра), 3, 7 днів
-    const targetDays = [0, 1, 3, 7];
+    // Розраховуємо цільові дати: 0 (сьогодні), 1 (завтра), 3, 7, 30 днів (система 30-7-3-1)
+    const targetDays = [0, 1, 3, 7, 30];
+    const standardDays = [0, 1, 3, 7];
     const dateMap = new Map<number, string>();
     targetDays.forEach((days) => {
       const d = new Date(today);
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
       dateMap.set(days, `${dy}-${dm}-${dd}`);
     });
 
-    const maxHorizonIso = dateMap.get(7)!;
+    const maxHorizonIso = dateMap.get(30)!;
 
     // Паралельні запити до бази
     const [cycleRes, recurringRes, investRes, customEventsRes] =
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
         supabaseAdmin
           .from("investments")
           .select(
-            "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes"
+            "id, asset_name, asset_type, invested_amount, current_value, currency, yield_percent, maturity_date, notes, coupons, quantity, coupon_amount, is_archived"
           ),
         supabaseAdmin
           .from("financial_events")
@@ -127,7 +128,7 @@ export async function GET(req: NextRequest) {
           todayIso
         );
 
-      targetDays.forEach((days) => {
+      standardDays.forEach((days) => {
         if (dateMap.get(days) === effectiveEndDateIso) {
           const title = isCompleted
             ? `Кінець розрахункового циклу «${activeCycle.name}»`
@@ -146,7 +147,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Перевірка регулярних платежів
-    targetDays.forEach((days) => {
+    standardDays.forEach((days) => {
       const targetDate = new Date(today);
       targetDate.setDate(targetDate.getDate() + days);
       const dayOfMonth = targetDate.getDate();
@@ -165,8 +166,11 @@ export async function GET(req: NextRequest) {
       });
     });
 
-    // 3. Перевірка інвестицій (погашення чи виплати)
+    // 3. Перевірка інвестицій (погашення чи купонні виплати ОВДП за системою 30-7-3-1)
     investmentsList.forEach((inv) => {
+      if (inv.is_archived) return;
+
+      // 3.1. Погашення за maturity_date (30, 7, 3, 1, 0)
       if (inv.maturity_date) {
         const matIso = inv.maturity_date.slice(0, 10);
         targetDays.forEach((days) => {
@@ -186,6 +190,27 @@ export async function GET(req: NextRequest) {
               amount: Number(inv.current_value || inv.invested_amount),
               currency: inv.currency || "UAH",
               type: "income",
+            });
+          }
+        });
+      }
+
+      // 3.2. Купонні виплати ОВДП (30, 7, 3, 1, 0)
+      if (inv.asset_type === "bonds" && Array.isArray(inv.coupons)) {
+        inv.coupons.forEach((coupon: any) => {
+          if (coupon.date && Number(coupon.amount) > 0) {
+            const couponIso = coupon.date.slice(0, 10);
+            targetDays.forEach((days) => {
+              if (dateMap.get(days) === couponIso) {
+                foundAlerts.push({
+                  daysRemaining: days,
+                  category: "investment",
+                  title: `Купонна виплата ОВДП: ${inv.asset_name}`,
+                  amount: Number(coupon.amount),
+                  currency: inv.currency || "UAH",
+                  type: "income",
+                });
+              }
             });
           }
         });
@@ -236,7 +261,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Сортуємо: спочатку сьогодні, потім завтра, 3, 5, 7 днів
+    // Сортуємо: спочатку сьогодні, потім завтра, 3, 5, 7, 30 днів
     foundAlerts.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
     // Групуємо за днями
@@ -251,6 +276,7 @@ export async function GET(req: NextRequest) {
       if (days === 1) return "⏳ <b>ЗАВТРА (через 1 день):</b>";
       if (days === 3) return "🗓 <b>Через 3 дні:</b>";
       if (days === 7) return "📆 <b>Через 7 днів (тиждень):</b>";
+      if (days === 30) return "📅 <b>Через 30 днів (місяць):</b>";
       return `📌 <b>Через ${days} дн.:</b>`;
     };
 

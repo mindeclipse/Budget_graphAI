@@ -4,6 +4,9 @@ import {
   formatIsoToDisplayDate,
   parseFlexibleNumber,
   sortInvestments,
+  calculateTotalCoupons,
+  calculateAssetPnl,
+  isAssetArchived,
 } from "@/components/dashboard/InvestmentsCard";
 import { InvestmentAsset } from "@/types/finance";
 
@@ -264,6 +267,140 @@ describe("InvestmentsCard helpers", () => {
       const copy = [...original];
       sortInvestments(original);
       expect(original).toEqual(copy);
+    });
+  });
+
+  describe("calculateTotalCoupons", () => {
+    it("повертає 0, якщо у активу немає купонів або масив порожній", () => {
+      const assetNoCoupons: InvestmentAsset = {
+        id: 1,
+        asset_name: "ОВДП",
+        asset_type: "bonds",
+        invested_amount: 10000,
+        current_value: 10000,
+        currency: "UAH",
+        created_at: "2026-01-01T00:00:00Z",
+      };
+      expect(calculateTotalCoupons(assetNoCoupons)).toBe(0);
+
+      const assetEmptyCoupons: InvestmentAsset = {
+        ...assetNoCoupons,
+        coupons: [],
+      };
+      expect(calculateTotalCoupons(assetEmptyCoupons)).toBe(0);
+    });
+
+    it("коректно підсумовує купонні виплати", () => {
+      const bond: InvestmentAsset = {
+        id: 1,
+        asset_name: "ОВДП UA4000",
+        asset_type: "bonds",
+        invested_amount: 50000,
+        current_value: 50000,
+        currency: "UAH",
+        coupons: [
+          { id: "c1", amount: 3750, date: "2026-03-24" },
+          { id: "c2", amount: 3750, date: "2026-09-24" },
+        ],
+        created_at: "2026-01-01T00:00:00Z",
+      };
+      expect(calculateTotalCoupons(bond)).toBe(7500);
+    });
+  });
+
+  describe("calculateAssetPnl - Розрахунок P&L з купонами", () => {
+    it("зберігає тіло (current_value) та додає купони до фінансового результату", () => {
+      const bondWithCoupons: InvestmentAsset = {
+        id: 10,
+        asset_name: "ОВДП UA4000238976",
+        asset_type: "bonds",
+        invested_amount: 100000,
+        current_value: 101000, // поточне тіло
+        currency: "UAH",
+        coupons: [
+          { id: "1", amount: 7500, date: "2026-04-15" },
+          { id: "2", amount: 7500, date: "2026-10-15" },
+        ],
+        created_at: "2026-01-01T00:00:00Z",
+      };
+
+      const { diff, pct, totalCoupons, isProfit } =
+        calculateAssetPnl(bondWithCoupons);
+
+      // totalCoupons = 15000
+      expect(totalCoupons).toBe(15000);
+      // diff = (101000 + 15000) - 100000 = 16000
+      expect(diff).toBe(16000);
+      // pct = (16000 / 100000) * 100 = 16.0%
+      expect(pct).toBe("16.0");
+      expect(isProfit).toBe(true);
+      // Поточна вартість (тіло) не мутується і залишається 101000
+      expect(bondWithCoupons.current_value).toBe(101000);
+    });
+
+    it("працює стандартно для активів без купонів (акції, крипта)", () => {
+      const stock: InvestmentAsset = {
+        id: 20,
+        asset_name: "S&P 500 ETF",
+        asset_type: "stocks",
+        invested_amount: 40000,
+        current_value: 46000,
+        currency: "USD",
+        created_at: "2026-01-01T00:00:00Z",
+      };
+
+      const { diff, pct, totalCoupons, isProfit } = calculateAssetPnl(stock);
+      expect(totalCoupons).toBe(0);
+      expect(diff).toBe(6000);
+      expect(pct).toBe("15.0");
+      expect(isProfit).toBe(true);
+    });
+  });
+
+  describe("isAssetArchived - Статус архівності активів", () => {
+    it("повертає true, якщо встановлено is_archived = true", () => {
+      const asset: InvestmentAsset = {
+        id: 1,
+        asset_name: "Старий актив",
+        asset_type: "bonds",
+        invested_amount: 1000,
+        current_value: 1000,
+        currency: "UAH",
+        is_archived: true,
+        created_at: "2025-01-01T00:00:00Z",
+      };
+      expect(isAssetArchived(asset)).toBe(true);
+    });
+
+    it("автоматично архірує ОВДП, дата погашення яких раніше поточної", () => {
+      const maturedBond: InvestmentAsset = {
+        id: 2,
+        asset_name: "Погашений ОВДП",
+        asset_type: "bonds",
+        invested_amount: 20000,
+        current_value: 20000,
+        currency: "UAH",
+        maturity_date: "2026-01-15",
+        created_at: "2025-01-01T00:00:00Z",
+      };
+
+      // Передаємо дату, пізнішу за дату погашення
+      expect(isAssetArchived(maturedBond, "2026-09-23")).toBe(true);
+    });
+
+    it("залишає активними ОВДП з майбутньою датою погашення", () => {
+      const activeBond: InvestmentAsset = {
+        id: 3,
+        asset_name: "Активний ОВДП",
+        asset_type: "bonds",
+        invested_amount: 30000,
+        current_value: 30000,
+        currency: "UAH",
+        maturity_date: "2027-11-20",
+        created_at: "2026-01-01T00:00:00Z",
+      };
+
+      expect(isAssetArchived(activeBond, "2026-09-23")).toBe(false);
     });
   });
 });

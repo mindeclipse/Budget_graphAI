@@ -119,7 +119,10 @@ export function exportFinancialDataToExcel({
     const investRows = investments.map((inv) => {
       const invested = Number(inv.invested_amount) || 0;
       const current = Number(inv.current_value) || 0;
-      const pnl = current - invested;
+      const totalCoupons = Array.isArray(inv.coupons)
+        ? inv.coupons.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
+        : 0;
+      const pnl = current + totalCoupons - invested;
       const pnlPercent =
         invested > 0 ? ((pnl / invested) * 100).toFixed(1) + "%" : "0%";
 
@@ -134,7 +137,8 @@ export function exportFinancialDataToExcel({
         Актив: inv.asset_name,
         Тип: typeLabel,
         "Вкладено (Cost)": invested,
-        "Поточна вартість": current,
+        "Поточна вартість (Тіло)": current,
+        "Отримано купонів": totalCoupons > 0 ? totalCoupons : "",
         "Прибуток / Збиток (P&L)": pnl,
         "Дохідність (%)": pnlPercent,
         Валюта: inv.currency,
@@ -149,7 +153,8 @@ export function exportFinancialDataToExcel({
       { wch: 24 },
       { wch: 14 },
       { wch: 16 },
-      { wch: 16 },
+      { wch: 22 },
+      { wch: 18 },
       { wch: 22 },
       { wch: 14 },
       { wch: 8 },

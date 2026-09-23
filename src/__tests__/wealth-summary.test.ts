@@ -44,7 +44,7 @@ describe("GET /api/wealth/summary - Batched Wealth Data API", () => {
     mockCookieGet.mockReturnValue(undefined);
     mockVerifySessionToken.mockResolvedValue({ valid: false });
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/wealth/summary"));
     expect(res.status).toBe(401);
 
     const json = await res.json();
@@ -154,7 +154,7 @@ describe("GET /api/wealth/summary - Batched Wealth Data API", () => {
       };
     });
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/wealth/summary"));
     expect(res.status).toBe(200);
 
     // Перевірка захисного заголовка приватного кешу

@@ -19,7 +19,7 @@ function getSafeErrorMessage(error: any): string {
     : error?.message || "Помилка сервера";
 }
 
-export async function GET(req?: Request) {
+export async function GET(req: Request) {
   try {
     if (!(await checkAuthSession())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

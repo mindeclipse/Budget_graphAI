@@ -67,3 +67,50 @@ export function sortInvestments(assets: InvestmentAsset[]): InvestmentAsset[] {
     return (a.asset_name || "").localeCompare(b.asset_name || "", "uk-UA");
   });
 }
+
+/**
+ * Рахує сумарну виплату купонів для активу (для ОВДП).
+ */
+export function calculateTotalCoupons(asset: InvestmentAsset): number {
+  if (!asset.coupons || !Array.isArray(asset.coupons)) return 0;
+  return asset.coupons.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+}
+
+/**
+ * Розраховує фінансовий результат (P&L та %) для інвестиційного активу.
+ * Для ОВДП до прибутку додаються отримані купонні виплати, при цьому
+ * поточна ринкова вартість (тіло) залишається незмінною.
+ */
+export function calculateAssetPnl(asset: InvestmentAsset): {
+  diff: number;
+  pct: string;
+  totalCoupons: number;
+  isProfit: boolean;
+} {
+  const investedVal = Number(asset.invested_amount) || 0;
+  const currentVal = Number(asset.current_value) || 0;
+  const totalCoupons = calculateTotalCoupons(asset);
+  const diff = currentVal + totalCoupons - investedVal;
+  const pct = investedVal > 0 ? ((diff / investedVal) * 100).toFixed(1) : "0";
+  const isProfit = diff >= 0;
+  return { diff, pct, totalCoupons, isProfit };
+}
+
+/**
+ * Перевіряє, чи є актив архівним (погашеним або вручну перенесеним у архів).
+ * ОВДП з минулою датою погашення автоматично вважаються архівними.
+ */
+export function isAssetArchived(
+  asset: InvestmentAsset,
+  todayIso?: string
+): boolean {
+  if (asset.is_archived) return true;
+  if (asset.asset_type === "bonds" && asset.maturity_date) {
+    const today =
+      todayIso ||
+      new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Kyiv" });
+    const matIso = asset.maturity_date.slice(0, 10);
+    if (matIso < today) return true;
+  }
+  return false;
+}

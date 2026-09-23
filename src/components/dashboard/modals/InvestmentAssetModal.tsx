@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { InvestmentAsset } from "@/types/finance";
+import { InvestmentAsset, BondCoupon } from "@/types/finance";
 import { parseFlexibleNumber } from "@/lib/normalize";
 import {
   parseDateInputToIso,
@@ -43,6 +43,10 @@ export function InvestmentAssetModal({
   const [yieldPct, setYieldPct] = useState("");
   const [maturityDateInput, setMaturityDateInput] = useState("");
   const [notes, setNotes] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [couponAmount, setCouponAmount] = useState("");
+  const [coupons, setCoupons] = useState<BondCoupon[]>([]);
+  const [isArchived, setIsArchived] = useState(false);
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -62,6 +66,10 @@ export function InvestmentAssetModal({
       setYieldPct(asset.yield_percent ? String(asset.yield_percent) : "");
       setMaturityDateInput(formatIsoToDisplayDate(asset.maturity_date));
       setNotes(asset.notes || "");
+      setQuantity(asset.quantity ? String(asset.quantity) : "");
+      setCouponAmount(asset.coupon_amount ? String(asset.coupon_amount) : "");
+      setCoupons(Array.isArray(asset.coupons) ? asset.coupons : []);
+      setIsArchived(Boolean(asset.is_archived));
     } else {
       setName("");
       setAssetType("bonds");
@@ -71,6 +79,10 @@ export function InvestmentAssetModal({
       setYieldPct("");
       setMaturityDateInput("");
       setNotes("");
+      setQuantity("");
+      setCouponAmount("");
+      setCoupons([]);
+      setIsArchived(false);
     }
     setFormError("");
   }, [isOpen, asset]);
@@ -117,6 +129,24 @@ export function InvestmentAssetModal({
       }
     }
 
+    const quantityNum = quantity.trim() ? parseFlexibleNumber(quantity) : null;
+    const couponAmountNum = couponAmount.trim()
+      ? parseFlexibleNumber(couponAmount)
+      : null;
+
+    const cleanedCoupons: BondCoupon[] =
+      assetType === "bonds"
+        ? coupons
+            .filter((c) => c.date && Number(c.amount) > 0)
+            .map((c) => ({
+              id:
+                c.id ||
+                `c-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              date: c.date.trim(),
+              amount: Number(c.amount),
+            }))
+        : [];
+
     setIsSubmitting(true);
     setFormError("");
 
@@ -131,6 +161,16 @@ export function InvestmentAssetModal({
         yield_percent: parsedYield,
         maturity_date: parsedMaturity,
         notes: notes.trim() || null,
+        coupons: cleanedCoupons,
+        quantity:
+          assetType === "bonds" && quantityNum && quantityNum > 0
+            ? quantityNum
+            : null,
+        coupon_amount:
+          assetType === "bonds" && couponAmountNum && couponAmountNum > 0
+            ? couponAmountNum
+            : null,
+        is_archived: isArchived,
       };
 
       onUpsertOptimistic?.(payload);
@@ -193,6 +233,12 @@ export function InvestmentAssetModal({
               setNotes={setNotes}
               clearError={() => setFormError("")}
               hiddenDatePickerRef={hiddenDatePickerRef}
+              quantity={quantity}
+              setQuantity={setQuantity}
+              couponAmount={couponAmount}
+              setCouponAmount={setCouponAmount}
+              coupons={coupons}
+              setCoupons={setCoupons}
             />
           </div>
 
