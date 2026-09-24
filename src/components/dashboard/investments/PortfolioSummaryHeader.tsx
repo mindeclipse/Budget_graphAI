@@ -7,6 +7,7 @@ interface PortfolioSummaryHeaderProps {
   profitUah: number;
   profitPercent: number;
   typeDistribution: Record<string, number>;
+  rates?: { USD: number; EUR: number; PLN: number };
 }
 
 export function PortfolioSummaryHeader({
@@ -15,8 +16,11 @@ export function PortfolioSummaryHeader({
   profitUah,
   profitPercent,
   typeDistribution,
+  rates,
 }: PortfolioSummaryHeaderProps) {
   const isProfit = profitUah >= 0;
+  const usdRate = rates?.USD || 44.0;
+  const totalPortfolioUsd = usdRate > 0 ? totalPortfolioUah / usdRate : 0;
 
   return (
     <div className="mb-5 rounded-2xl border border-zinc-800/60 bg-zinc-950/40 p-4">
@@ -25,9 +29,12 @@ export function PortfolioSummaryHeader({
           <span className="text-xs font-medium text-zinc-400">
             Поточна вартість портфеля
           </span>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-2">
             <span className="text-xl font-extrabold text-white tabular-nums sm:text-2xl">
               {Math.round(totalPortfolioUah).toLocaleString()} ₴
+            </span>
+            <span className="text-xs text-zinc-500 tabular-nums">
+              (≈ {Math.round(totalPortfolioUsd).toLocaleString()} $)
             </span>
             <span className="text-xs text-zinc-500 tabular-nums">
               (вкладено {Math.round(totalInvestedUah).toLocaleString()} ₴)

@@ -182,6 +182,7 @@ export const InvestmentsCard = memo(function InvestmentsCard({
         profitUah={profitUah}
         profitPercent={profitPercent}
         typeDistribution={typeDistribution}
+        rates={rates}
       />
 
       {/* Список активів */}

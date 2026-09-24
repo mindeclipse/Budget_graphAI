@@ -18,6 +18,7 @@ export interface CurrencyTotalInfo {
 
 export interface SavingsMetrics {
   totalSavedUahEquivalent: number;
+  totalSavedUsdEquivalent: number;
   totalTargetUahEquivalent: number;
   hasAnyTarget: boolean;
   totalPercent: number;
@@ -86,8 +87,13 @@ export function calculateSavingsMetrics(
       ? (totalSavedUahEquivalent / monthlyBurnRate).toFixed(1)
       : "0";
 
+  const usdRate = rates?.USD || 44.0;
+  const totalSavedUsdEquivalent =
+    usdRate > 0 ? totalSavedUahEquivalent / usdRate : 0;
+
   return {
     totalSavedUahEquivalent,
+    totalSavedUsdEquivalent,
     totalTargetUahEquivalent,
     hasAnyTarget,
     totalPercent,

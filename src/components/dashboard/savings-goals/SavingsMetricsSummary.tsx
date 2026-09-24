@@ -4,12 +4,22 @@ import { SavingsMetrics } from "./types";
 interface SavingsMetricsSummaryProps {
   metrics: SavingsMetrics;
   monthlyBurnRate: number;
+  rates?: { USD: number; EUR: number; PLN: number };
 }
 
 export function SavingsMetricsSummary({
   metrics,
   monthlyBurnRate,
+  rates,
 }: SavingsMetricsSummaryProps) {
+  const usdRate = rates?.USD || 44.0;
+  const totalSavedUsd =
+    metrics.totalSavedUsdEquivalent !== undefined
+      ? metrics.totalSavedUsdEquivalent
+      : usdRate > 0
+        ? metrics.totalSavedUahEquivalent / usdRate
+        : 0;
+
   return (
     <div className="mb-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
       {/* Загальний капітал заощаджень */}
@@ -18,9 +28,12 @@ export function SavingsMetricsSummary({
           <span>Всього в скарбничках</span>
           <ShieldCheck size={14} className="text-emerald-400" />
         </div>
-        <div className="mt-1 flex items-baseline gap-1.5">
+        <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
           <span className="text-base font-extrabold text-white tabular-nums sm:text-lg">
             {Math.round(metrics.totalSavedUahEquivalent).toLocaleString()} ₴
+          </span>
+          <span className="text-xs text-zinc-500 tabular-nums">
+            (≈ {Math.round(totalSavedUsd).toLocaleString()} $)
           </span>
           {metrics.hasAnyTarget && (
             <span className="text-xs font-medium text-zinc-500 tabular-nums">

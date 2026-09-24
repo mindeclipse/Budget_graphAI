@@ -35,6 +35,8 @@ describe("SavingsGoalsCard - calculateSavingsMetrics", () => {
 
     // Еквівалент у гривні: 2 470 * 41.5 = 102 505 грн
     expect(metrics.totalSavedUahEquivalent).toBe(102505);
+    // Еквівалент у доларах: 102 505 / 41.5 = 2 470 $
+    expect(metrics.totalSavedUsdEquivalent).toBe(2470);
 
     // Runway: 102 505 / 294 = ~348.7 міс. (а не 8.4 міс., як було при помилковому діленні без курсу)
     expect(parseFloat(metrics.runwayMonths)).toBeGreaterThan(340);
@@ -123,6 +125,7 @@ describe("SavingsGoalsCard - calculateSavingsMetrics", () => {
 
     expect(metrics.activeCurrencies).toEqual([]);
     expect(metrics.totalSavedUahEquivalent).toBe(0);
+    expect(metrics.totalSavedUsdEquivalent).toBe(0);
     expect(metrics.runwayMonths).toBe("0.0");
   });
 

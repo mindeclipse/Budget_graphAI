@@ -87,6 +87,7 @@ export const SavingsGoalsCard = memo(function SavingsGoalsCard({
       <SavingsMetricsSummary
         metrics={metrics}
         monthlyBurnRate={monthlyBurnRate}
+        rates={rates}
       />
 
       {/* Список цілей */}
