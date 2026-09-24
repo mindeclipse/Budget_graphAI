@@ -1,15 +1,6 @@
-/**
- * Захист від Formula Injection (CSV / Excel Injection)
- * Екранує небезпечні керівні символи (=, +, -, @, табуляція)
- */
-export function sanitizeFormulaInjection(text: string): string {
-  const str = String(text || "");
-  const trimmed = str.trim();
-  if (/^[=+\-@\t\r]/.test(str) || /^[=+\-@\t\r]/.test(trimmed)) {
-    return `'${trimmed}`;
-  }
-  return trimmed;
-}
+import { sanitizeFormulaInjection } from "@/lib/security";
+
+export { sanitizeFormulaInjection };
 
 /**
  * Парсить дату з виписки Inzhur:

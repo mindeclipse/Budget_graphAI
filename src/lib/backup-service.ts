@@ -15,6 +15,7 @@ export interface BackupPayload {
     category_budgets: any[];
     wishlist_items: any[];
     cost_per_use_items: any[];
+    financial_events: any[];
   };
   counts: {
     transactions: number;
@@ -26,6 +27,7 @@ export interface BackupPayload {
     category_budgets: number;
     wishlist_items: number;
     cost_per_use_items: number;
+    financial_events: number;
   };
 }
 
@@ -93,6 +95,7 @@ export async function generateBackupData(): Promise<BackupPayload> {
     category_budgets,
     wishlist_items,
     cost_per_use_items,
+    financial_events,
   ] = await Promise.all([
     fetchAllRowsFromTable(supabase, "transactions", "id", true),
     fetchAllRowsFromTable(supabase, "budget_cycles", "start_date", true),
@@ -103,6 +106,7 @@ export async function generateBackupData(): Promise<BackupPayload> {
     fetchAllRowsFromTable(supabase, "category_budgets", "id", true),
     fetchAllRowsFromTable(supabase, "wishlist_items", "id", true),
     fetchAllRowsFromTable(supabase, "cost_per_use_items", "id", true),
+    fetchAllRowsFromTable(supabase, "financial_events", "id", true),
   ]);
 
   const backupPayload: BackupPayload = {
@@ -119,6 +123,7 @@ export async function generateBackupData(): Promise<BackupPayload> {
       category_budgets,
       wishlist_items,
       cost_per_use_items,
+      financial_events,
     },
     counts: {
       transactions: transactions.length,
@@ -130,6 +135,7 @@ export async function generateBackupData(): Promise<BackupPayload> {
       category_budgets: category_budgets.length,
       wishlist_items: wishlist_items.length,
       cost_per_use_items: cost_per_use_items.length,
+      financial_events: financial_events.length,
     },
   };
 
@@ -170,6 +176,7 @@ export async function sendBackupToTelegram(customCaption?: string): Promise<{
         `• Інвестицій: <b>${backup.counts.investments}</b>`,
         `• Списку бажань: <b>${backup.counts.wishlist_items}</b>`,
         `• Речей (Cost per use): <b>${backup.counts.cost_per_use_items}</b>`,
+        `• Подій календаря: <b>${backup.counts.financial_events}</b>`,
         ``,
         `ℹ️ <i>Файл придатний для миттєвого відновлення через додаток у розділі Налаштування.</i>`,
       ].join("\n");

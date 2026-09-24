@@ -170,6 +170,18 @@ export async function POST(req: Request) {
         restoredSummary.cost_per_use_items = data.cost_per_use_items.length;
     }
 
+    // 10. Відновлення подій фінансового календаря (financial_events)
+    if (
+      Array.isArray(data.financial_events) &&
+      data.financial_events.length > 0
+    ) {
+      const { error } = await supabase
+        .from("financial_events")
+        .upsert(data.financial_events, { onConflict: "id" });
+      if (!error)
+        restoredSummary.financial_events = data.financial_events.length;
+    }
+
     return NextResponse.json({
       success: true,
       message: "Дані успішно відновлено",

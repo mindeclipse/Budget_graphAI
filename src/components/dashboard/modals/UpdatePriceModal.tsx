@@ -6,7 +6,6 @@ import {
   DollarSign,
   X,
   Loader2,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   History,
@@ -29,8 +28,6 @@ export function UpdatePriceModal({
   const [newPrice, setNewPrice] = useState(String(item.estimated_price || ""));
   const [priceNotes, setPriceNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
-  const [fetchMessage, setFetchMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -39,34 +36,6 @@ export function UpdatePriceModal({
   const priceDelta = currentPrice - initialPrice;
   const priceDeltaPct =
     initialPrice > 0 ? (priceDelta / initialPrice) * 100 : 0;
-
-  const handleFetchFromUrl = async () => {
-    if (!item.url) return;
-    setIsFetchingUrl(true);
-    setFetchMessage(null);
-    try {
-      const res = await fetch("/api/wishlist/fetch-price", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: item.url }),
-      });
-      const data = await res.json();
-      if (data.success && data.price) {
-        setNewPrice(String(data.price));
-        setFetchMessage(
-          `✅ Знайдено ціну на сайті: ${data.price} ${data.currency || item.currency}`
-        );
-      } else {
-        setFetchMessage(
-          data.message || "Сайт захищено або ціну не знайдено. Введіть вручну."
-        );
-      }
-    } catch {
-      setFetchMessage("Не вдалося підключитися до сайту. Введіть ціну вручну.");
-    } finally {
-      setIsFetchingUrl(false);
-    }
-  };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +51,7 @@ export function UpdatePriceModal({
           id: item.id,
           action: "update_price",
           new_price: parsedPrice,
-          price_source: fetchMessage?.startsWith("✅") ? "auto" : "manual",
+          price_source: "manual",
           price_notes: priceNotes.trim() || undefined,
         }),
       });
@@ -147,26 +116,9 @@ export function UpdatePriceModal({
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
-                <label className="mb-1 block text-xs font-medium text-slate-300">
-                  Актуальна вартість ({item.currency}) *
-                </label>
-                {item.url && (
-                  <button
-                    type="button"
-                    onClick={handleFetchFromUrl}
-                    disabled={isFetchingUrl}
-                    className="flex items-center gap-1 text-[11px] font-medium text-violet-400 hover:text-violet-300 disabled:opacity-50"
-                  >
-                    {isFetchingUrl ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3 w-3" />
-                    )}
-                    Перевірити на сайті
-                  </button>
-                )}
-              </div>
+              <label className="mb-1 block text-xs font-medium text-slate-300">
+                Актуальна вартість ({item.currency}) *
+              </label>
               <input
                 type="number"
                 step="any"
@@ -175,9 +127,6 @@ export function UpdatePriceModal({
                 onChange={(e) => setNewPrice(e.target.value)}
                 className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2.5 text-base font-semibold text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none sm:text-sm"
               />
-              {fetchMessage && (
-                <p className="mt-1.5 text-xs text-slate-400">{fetchMessage}</p>
-              )}
             </div>
 
             {/* Динаміка ціни */}

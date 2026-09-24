@@ -11,7 +11,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_RLS-21262d?style=for-the-badge&logo=supabase&logoColor=3ecf8e&labelColor=161b22)](https://supabase.com/)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_%7C_3.5_%7C_3.7_Flash-21262d?style=for-the-badge&logo=googlegemini&logoColor=a855f7&labelColor=161b22)](https://ai.google.dev/)
 [![WebAuthn](https://img.shields.io/badge/WebAuthn-FIDO2_%7C_Passkeys-21262d?style=for-the-badge&logo=fido&logoColor=60a5fa&labelColor=161b22)](https://fidoalliance.org/)
-[![Vitest](<https://img.shields.io/badge/Vitest-513_Passed_(51_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
+[![Vitest](<https://img.shields.io/badge/Vitest-517_Passed_(52_Suites)-21262d?style=for-the-badge&logo=vitest&logoColor=4ade80&labelColor=161b22>)](https://vitest.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Offline--First-21262d?style=for-the-badge&logo=pwa&logoColor=fbbf24&labelColor=161b22)](https://web.dev/progressive-web-apps/)
 
 <p align="center">
@@ -33,7 +33,7 @@
 [🧮 FinTech Engine](#-fintech-engine--algorithms) •
 [🤖 AI & Telegram](#-multimodal-ai--telegram-ecosystem) •
 [📁 Directory Structure](#-repository-structure) •
-[🧪 Testing (513 Tests)](#-testing--quality-assurance) •
+[🧪 Testing (517 Tests)](#-testing--quality-assurance) •
 [📡 API Reference](#-key-api-endpoints) •
 [🚀 Quick Start](#-quick-start)
 
@@ -114,9 +114,9 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 - **Offline PIN Cryptographic Engine (`src/lib/offline-pin.ts`):** Client-side authentication via PBKDF2 (100,000 SHA-256 iterations with cryptographic salt). Features an automatic tamper-evident counter that triggers a 5-minute lockout after 5 consecutive failed attempts.
 - **Constant-Time Operations:** Protects against timing attacks via `crypto.timingSafeEqual` across all token and PIN verifications.
 - **In-Memory Sliding Window Rate Limiting:** Enforces granular request throttles on sensitive endpoints with compliant `Retry-After` headers.
-- **Strict Content Security Policy (CSP):** The `connect-src 'self'` directive ensures no session tokens or financial payloads can be exfiltrated by malicious scripts.
+- **Strict Content Security Policy (CSP):** The `connect-src 'self'` directive ensures no session tokens or financial payloads can be exfiltrated, while `'unsafe-eval'` has been completely eliminated from script execution boundaries for hardened runtime execution.
 
-### 🧮 2. Non-Linear Financial Mathematics (FinTech Engine)
+### 🧮 2. Non-Linear Financial Mathematics & Behavioral Finance
 
 - **Cycle-First Architecture (`src/lib/cycle-utils.ts`):** Budgets are synchronized with dynamic paycheck cycles (e.g., 10th to 9th of next month) rather than artificial calendar boundaries.
 - **Weighted Pacing & Burn Rate Simulator (`src/lib/weighted-pacing.ts`):**
@@ -129,6 +129,7 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 
 - **Personal CPI (Personal Inflation Index) (`src/lib/personal-cpi.ts`):** Calculates a Laspeyres-weighted consumer basket inflation rate across expenditure categories compared to previous cycles.
 - **Subscription Leak Radar (`src/lib/subscription-radar/`):** Automated recurring expense detector analyzing cadence intervals and merchant signatures to surface forgotten subscriptions.
+- **Wishlist & Extended Cooling Radar (`src/components/dashboard/wishlist/`):** Behavioral defense against impulsive spending. Features configurable cooling buffers (default 14 days, up to 180 days), target price milestones, manual price revision history tracking, and direct linking to targeted savings goals.
 - **Cost-Per-Use (CPU) Tracker (`src/components/dashboard/modals/AddCostPerUseModal.tsx`):** Quantifies return on investment for major purchases (electronics, gear, clothing) by amortizing cost over usage frequency and ownership lifespan.
 - **Runway & Emergency Fund Simulator:** Calculates financial runway reserves (months of baseline survival upon unexpected income cessation).
 - **Penny-Accurate Transaction Split (`src/components/SplitTransactionModal.tsx`):** Distributes itemized receipts across budget envelopes with exact penny balance enforcement (0.01 ₴).
@@ -144,12 +145,14 @@ Most personal finance trackers suffer from three fundamental structural flaws:
 - **Context-Aware Financial Advisor (`src/components/AIAnalysisDrawer.tsx`):** Conversational advisor aware of complete spending velocity, category limits, and historical trends, providing proactive recommendations and dynamic prompt chips.
 - **Apple Shortcuts Instant Classifier (`/api/classify`):** Low-latency edge route processing transaction push notifications from Apple Pay in under 400ms.
 
-### 📲 4. Full-Duplex Telegram Bot & Dynamic Canvas Generator
+### 📲 4. Full-Duplex Telegram Bot & Mobile Integrations
 
 - **Interactive Telegram Webhook (`/api/webhooks/telegram`):** Inline keyboard actions, rapid expense input, and real-time category balance checks directly from messenger.
 - **Natural Language & Voice Parser:** Transcribes voice notes and parses free-form text (e.g., _"Coffee 85 snacks"_) via heuristics and Gemini models.
 - **"What-If" Simulations & Runway Queries:** Simulates the effect of discretionary purchases on cycle runway before the transaction happens.
 - **Dynamic Image Generator (`src/lib/dashboard-image/generator.tsx`):** Renders crisp serverless visual financial dashboard cards (SVG/Canvas) dispatched directly in Telegram digests.
+- **Native iOS Scriptable Widget (`public/scripts/budgetgraph-widget.js`):** Small and medium desktop glanceable widgets for iPhone home screens consuming `/api/widget/summary` with instant offline caching and Bearer token authentication.
+- **Full-System Resilient Backups (`/api/backup`, `/api/backup/telegram`):** Complete state export & restore across all 10 domain entities (including transactions, investments, and calendar events) with automated Telegram delivery.
 
 ### 🏦 5. Wealth OS & Intelligent Reconciliation
 
@@ -327,7 +330,7 @@ budget-pwa/
 │   ├── sw.js                     # 3-tier Native Service Worker with offline caching
 │   └── manifest.json             # Web App Manifest
 ├── src/
-│   ├── __tests__/                # 47 test suites (484 unit and integration tests)
+│   ├── __tests__/                # 52 test suites (517 unit and integration tests)
 │   │   ├── ai-chat.test.ts
 │   │   ├── bank-statement-parser.test.ts
 │   │   ├── behavioral-finance.test.ts
@@ -335,15 +338,19 @@ budget-pwa/
 │   │   ├── offline-pin-security.test.ts
 │   │   ├── personal-cpi.test.ts
 │   │   ├── telegram-webhook.test.ts
+│   │   ├── wishlist-price-tracking.test.ts
 │   │   └── weighted-pacing.test.ts
 │   ├── app/                      # Next.js 16 App Router
-│   │   ├── api/                  # 34 modular REST & Webhook endpoints
+│   │   ├── api/                  # 36 modular REST & Webhook endpoints
 │   │   │   ├── ai/               # /analyze, /chat (Gemini AI Advisor)
 │   │   │   ├── analytics/        # /budget-pace, /personal-cpi
 │   │   │   ├── auth/             # /auth, /webauthn/login, /webauthn/register
-│   │   │   ├── cron/             # /recurring, /digest, /pacing-alerts
+│   │   │   ├── backup/           # /backup, /backup/telegram (Automated JSON exports)
+│   │   │   ├── cron/             # /recurring, /digest, /pacing-alerts, /calendar-alerts
 │   │   │   ├── transactions/     # /transactions, /split, /restore, /import-csv, /import-inzhur
-│   │   │   └── webhooks/         # /monobank, /telegram
+│   │   │   ├── webhooks/         # /monobank, /telegram
+│   │   │   ├── wishlist/         # /wishlist (Impulse defense & manual price history)
+│   │   │   └── widget/           # /widget/summary (Native iOS Scriptable widget)
 │   │   ├── share-target/         # PWA Web Share Target receipt upload screen
 │   │   ├── layout.tsx            # Root shell with PWA metadata and theme providers
 │   │   └── page.tsx              # Primary executive financial dashboard
@@ -358,7 +365,8 @@ budget-pwa/
 │   │   │   ├── investments/      # Capital allocation, yield metrics, asset breakdown
 │   │   │   ├── mom-comparison/   # Month-over-month trends and Personal CPI
 │   │   │   ├── savings-goals/    # Savings vaults and deposit dialogs
-│   │   │   └── subscription-radar/# Recurring subscription leak detector
+│   │   │   ├── subscription-radar/# Recurring subscription leak detector
+│   │   │   └── wishlist/          # Cooling radar and price tracking cards
 │   │   ├── merchant-rules/       # Custom merchant auto-categorization rules
 │   │   └── split-transaction/    # Multi-category receipt splitting interface
 │   ├── constants/                # Domain constants (categories, icons, color palettes)
@@ -385,7 +393,7 @@ budget-pwa/
 │   ├── proxy.ts                  # Reverse-proxy boundary and security headers
 │   └── types/                    # Domain TypeScript types (Finance, AI, DB, Auth)
 └── supabase/
-    └── migrations/               # 9 production SQL migrations (RLS, indexes, soft-delete, cache, calendar)
+    └── migrations/               # 11 production SQL migrations (RLS, indexes, soft-delete, cache, calendar, coupons, wishlist)
 ```
 
 ---
@@ -412,7 +420,7 @@ budget-pwa/
 BudgetGraph OS maintains **100% test coverage across core financial calculations and security protocols**:
 
 ```bash
-# Run the complete test suite (513 tests)
+# Run the complete test suite (517 tests)
 npm test
 
 # Verify strict TypeScript typing (0 errors)
@@ -425,10 +433,11 @@ npm run format:check
 npm run build
 ```
 
-### Breakdown of the 51 Test Suites:
+### Breakdown of the 52 Test Suites:
 
 - **Cryptography & Security:** Validates PBKDF2 offline PIN hashing, brute-force lockout thresholds, WebAuthn assertion verification, and HMAC session security (`offline-pin-security.test.ts`, `webauthn-speed-security.test.ts`).
 - **Financial Calculus:** Weighted Burn Rate modeling, Personal CPI inflation indexing, dynamic cycle end-date calculations, penny-accurate transaction splits, and round-up savings rules (`burn-rate-cycle.test.ts`, `weighted-pacing.test.ts`, `personal-cpi.test.ts`, `cycle-utils.test.ts`, `split-cascade-rollback.test.ts`).
+- **Behavioral Finance & Wishlist:** Validates 6-month extended cooling buffers, manual price update actions, savings goal linking, and impulse purchase protection schemas (`wishlist-price-tracking.test.ts`, `behavioral-finance.test.ts`).
 - **Investment Portfolio & OVDP Bonds:** Validates bond coupon payout schedules, face value isolation (1 000 ₴/bond), dynamic received-coupon P&L calculation, maturity auto-archiving, and 30-7-3-1 day reminder cadence (`investments-helpers.test.ts`, `calendar-alerts-cron.test.ts`, `capital-transactions.test.ts`).
 - **Capital Transactions & Dual-Mode Flow:** Validates bond coupon inflows, dividend payouts, broker transfers reconciliation, zero living burn-rate distortion, and dual-mode transaction drawer mechanics (`capital-transactions.test.ts`, `inzhur-import.test.ts`).
 - **Financial Calendar & Alerts:** Cross-domain event aggregation, maturity date projections, auto-extension mechanics, and proactive Telegram radar scheduling (`calendar-events.test.ts`, `calendar-alerts-cron.test.ts`).
@@ -460,6 +469,11 @@ npm run build
 | `/api/recurring/radar`            |                `GET`                | Automated subscription leak detection            | Transaction signature pattern engine            |
 | `/api/cron/pacing-alerts`         |                `GET`                | Friday weekend radar & Monday reset alerts       | Vercel Cron Secret, Proactive alert engine      |
 | `/api/cron/digest`                |                `GET`                | Daily evening summary dispatch to Telegram       | Vercel Cron Secret, Canvas graph dispatch       |
+| `/api/wishlist`                   | `GET` / `POST` / `PATCH` / `DELETE` | Cooling-off impulse defense & price tracking     | Session required, Zod schema validation, RLS    |
+| `/api/cost-per-use`               |           `GET` / `POST`            | Cost-Per-Use asset amortization & usage logging  | Session required, Zod schema validation, RLS    |
+| `/api/widget/summary`             |                `GET`                | Glanceable data for native iOS Scriptable widget | Bearer secret or session token, In-memory cache |
+| `/api/backup`                     |           `GET` / `POST`            | Full-system JSON state export & batch restore    | Session required, Chunked batches (250 items)   |
+| `/api/backup/telegram`            |                `GET`                | Automated backup JSON dispatch to Telegram       | Cron secret or session, Telegram Document API   |
 
 ---
 

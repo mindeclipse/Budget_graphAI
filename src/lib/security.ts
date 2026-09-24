@@ -57,3 +57,16 @@ export function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+/**
+ * Захист від Formula Injection (CSV / Excel Injection).
+ * Екранує небезпечні керівні символи (=, +, -, @, Tab, CR).
+ */
+export function sanitizeFormulaInjection(text: string): string {
+  const str = String(text || "");
+  const trimmed = str.trim();
+  if (/^[=+\-@\t\r]/.test(str) || /^[=+\-@\t\r]/.test(trimmed)) {
+    return `'${trimmed}`;
+  }
+  return trimmed;
+}

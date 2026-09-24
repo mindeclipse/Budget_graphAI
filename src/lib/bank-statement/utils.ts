@@ -1,17 +1,7 @@
 import { BankCurrency } from "./types";
+import { sanitizeFormulaInjection } from "@/lib/security";
 
-/**
- * Захист від Formula Injection (CSV/Excel Injection).
- * Екранує небезпечні керівні символи (=, +, -, @, Tab, CR).
- */
-export function sanitizeFormulaInjection(text: string): string {
-  const str = String(text || "");
-  const trimmed = str.trim();
-  if (/^[=+\-@\t\r]/.test(str) || /^[=+\-@\t\r]/.test(trimmed)) {
-    return `'${trimmed}`;
-  }
-  return trimmed;
-}
+export { sanitizeFormulaInjection };
 
 /**
  * Парсить дату/час з виписки банку.

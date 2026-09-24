@@ -2,15 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import {
-  Clock,
-  X,
-  Loader2,
-  Sparkles,
-  PiggyBank,
-  Calendar,
-  Check,
-} from "lucide-react";
+import { Clock, X, Loader2, PiggyBank, Calendar, Check } from "lucide-react";
 import { SavingsGoal } from "@/types/finance";
 
 interface AddWishlistModalProps {
@@ -45,45 +37,11 @@ export function AddWishlistModal({
   const [selectedGoalId, setSelectedGoalId] = useState<string>("");
   const [autoCreateGoal, setAutoCreateGoal] = useState(false);
 
-  // Стан автовитягування цін за посиланням
-  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
-  const [urlFetchMessage, setUrlFetchMessage] = useState<string | null>(null);
-
   useEffect(() => {
     setMounted(true);
   }, []);
 
   if (!isOpen || !mounted) return null;
-
-  const handleFetchPrice = async () => {
-    if (!url.trim()) return;
-    setIsFetchingUrl(true);
-    setUrlFetchMessage(null);
-    try {
-      const res = await fetch("/api/wishlist/fetch-price", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
-      });
-      const data = await res.json();
-      if (data.success && data.price) {
-        setEstimatedPrice(String(data.price));
-        if (data.currency) setCurrency(data.currency);
-        if (data.title && !title) setTitle(data.title);
-        setUrlFetchMessage(
-          `✅ Ціну зчитано: ${data.price} ${data.currency || currency}`
-        );
-      } else {
-        setUrlFetchMessage(
-          data.message || "Сайт захищено або ціну не знайдено. Введіть вручну."
-        );
-      }
-    } catch {
-      setUrlFetchMessage("Не вдалося зчитати сторінку. Введіть ціну вручну.");
-    } finally {
-      setIsFetchingUrl(false);
-    }
-  };
 
   const handleCreateWish = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,28 +176,11 @@ export function AddWishlistModal({
               />
             </div>
 
-            {/* Посилання та автовитягування */}
+            {/* Посилання на товар */}
             <div>
-              <div className="flex items-center justify-between">
-                <label className="mb-1 block text-xs font-medium text-slate-300">
-                  Посилання на товар (опціонально)
-                </label>
-                {url.trim() && (
-                  <button
-                    type="button"
-                    onClick={handleFetchPrice}
-                    disabled={isFetchingUrl}
-                    className="flex items-center gap-1 text-[11px] font-medium text-violet-400 hover:text-violet-300 disabled:opacity-50"
-                  >
-                    {isFetchingUrl ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3 w-3" />
-                    )}
-                    Зчитати ціну з сайту
-                  </button>
-                )}
-              </div>
+              <label className="mb-1 block text-xs font-medium text-slate-300">
+                Посилання на товар (опціонально)
+              </label>
               <input
                 type="url"
                 placeholder="https://rozetka.com.ua/... або stylus.ua/..."
@@ -247,9 +188,6 @@ export function AddWishlistModal({
                 onChange={(e) => setUrl(e.target.value)}
                 className="w-full rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 py-2 text-base text-slate-100 placeholder-slate-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none sm:text-xs"
               />
-              {urlFetchMessage && (
-                <p className="mt-1 text-xs text-slate-400">{urlFetchMessage}</p>
-              )}
             </div>
 
             <div className="grid grid-cols-3 gap-3">
