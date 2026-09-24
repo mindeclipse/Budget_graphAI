@@ -8,10 +8,10 @@ BudgetGraph OS is engineered with a **Zero-Trust & Privacy-First** philosophy. F
 
 We provide security patches, dependency vulnerability remediation, and architectural hardening for the following releases:
 
-| Version / Branch | Supported          | Security Status                     |
-| ---------------- | ------------------ | ----------------------------------- |
-| `main`           | :white_check_mark: | Active Security Updates & Patches   |
-| `< 0.1.0`        | :x:                | Deprecated / Development Milestones |
+| Version / Branch | Supported          | Security Status                   |
+| ---------------- | ------------------ | --------------------------------- |
+| `0.6.x` / `main` | :white_check_mark: | Active Security Updates & Patches |
+| `< 0.6.0`        | :x:                | Deprecated / Upgrade Recommended  |
 
 ---
 
@@ -20,27 +20,36 @@ We provide security patches, dependency vulnerability remediation, and architect
 1. **Hardware-Bound Biometrics (WebAuthn / FIDO2 Passkeys)**:
    - Passwordless authentication leveraging user-presence verification via Touch ID, Face ID, Windows Hello, or hardware security keys (YubiKey).
    - Private keys never leave the secure enclave of the user's physical device.
+   - Stateless HMAC-SHA256 sealed challenge cookies eliminate database round-trips during handshakes with zero server-side state leakage.
    - Resistant to credential stuffing, brute force, and phishing attacks.
 
 2. **Offline-First Cryptography (PBKDF2 + SHA-256)**:
    - Offline authentication verifies PIN codes locally inside Web Crypto API.
    - Key derivation utilizes **PBKDF2 with HMAC-SHA256 (100,000 iterations)** with a cryptographically secure 16-byte random salt.
-   - Exponential rate limiting and exponential lockout mechanisms prevent offline brute-force attempts.
+   - Exponential rate limiting and progressive lockout mechanisms prevent offline brute-force attempts.
 
-3. **Database Isolation & Row Level Security (RLS)**:
+3. **Hardened Content Security Policy & Perimeter Defense**:
+   - Strict Content Security Policy (`connect-src 'self'`, `frame-ancestors 'none'`) with zero `'unsafe-eval'` dynamic script execution.
+   - Origin verification and CSRF blocking on state-modifying requests (`POST`, `PATCH`, `DELETE`).
+   - Constant-time string comparisons (`crypto.timingSafeEqual`) across all API tokens, session cookies, and authentication payloads to defend against timing attacks.
+
+4. **Spreadsheet & Formula Injection Protection**:
+   - Universal sanitization of dangerous formula prefixes (`=`, `+`, `-`, `@`, `\t`, `\r`) in bank statements (Monobank, PrivatBank) and REIT investment reports (Inzhur).
+
+5. **Database Isolation & Row Level Security (RLS)**:
    - All financial ledgers, recurring contracts, investments, and audit logs are isolated per user via Supabase PostgreSQL Row Level Security.
-   - `auth.uid()` checks ensure zero data cross-contamination between accounts.
+   - Direct anonymous access is completely blocked (`lockdown_rls.sql`) with default-deny policies.
 
-4. **Zero PII Exposure in Demo Mode**:
+6. **Zero PII Exposure in Demo Mode**:
    - The interactive demo environment (`/?demo=true`) operates strictly on synthetic, deterministic mock datasets with an in-memory repository layer.
    - No production database, user credentials, or real banking transactions are ever exposed or queried in demo mode.
 
-5. **Telegram Bot Full-Duplex Webhook Security**:
-   - Webhook ingress validates `X-Telegram-Bot-Api-Secret-Token` on every incoming request.
+7. **Telegram Bot Full-Duplex Webhook Security**:
+   - Webhook ingress validates `X-Telegram-Bot-Api-Secret-Token` on every incoming request using constant-time comparison.
    - Strict `chat_id` authorization rejects any unauthorized message or callback dispatch.
 
-6. **Automated Static & Dynamic Quality Assurance**:
-   - 484 automated unit and integration tests across 47 test suites run in isolated Vitest worker threads.
+8. **Automated Static & Dynamic Quality Assurance**:
+   - 517 automated unit and integration tests across 52 test suites run in isolated Vitest worker threads.
    - Continuous verification of cryptographic verification hooks, rollback safety, cascade soft-deletes, and transaction parsing algorithms.
 
 ---
