@@ -1,10 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { calculateBudgetPacing } from "@/lib/analytics-engine";
 import { Transaction } from "@/types/finance";
 
 describe("Analytics Engine - calculateBudgetPacing", () => {
   const mockStartDate = new Date("2026-09-01T00:00:00.000Z");
   const mockEndDate = new Date("2026-09-30T23:59:59.999Z");
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it("коректно обчислює дні, загальні витрати та доходи", () => {
     const transactions: Transaction[] = [
