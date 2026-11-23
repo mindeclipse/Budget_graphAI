@@ -24,9 +24,9 @@ export function useCycleComparison({
 }: UseCycleComparisonProps) {
   const previousCycle = useMemo(() => {
     if (!cycles || cycles.length === 0) return null;
-    const activeIdx = cycles.findIndex(
-      (c: BudgetCycle) => c.id === activeCycle?.id || c.is_active
-    );
+    const activeIdx = activeCycle?.id
+      ? cycles.findIndex((c: BudgetCycle) => c.id === activeCycle.id)
+      : cycles.findIndex((c: BudgetCycle) => c.is_active);
     return activeIdx !== -1 ? cycles[activeIdx + 1] || null : cycles[1] || null;
   }, [cycles, activeCycle]);
 

@@ -171,7 +171,41 @@ export function filterTransactionsByDateRange<T extends { created_at: string }>(
 }
 
 /**
- * Фільтрує транзакції, що входять у ліміт витрат активного циклу (витрати, що не виключені з бюджету).
+ * Знаходить зарплатний цикл, що відповідає обраному календарному місяцю (за датою старту в часовому поясі Києва).
+ */
+export function findCycleForMonth(
+  cycles: BudgetCycle[] | null | undefined,
+  activeCycle: BudgetCycle | null | undefined,
+  selectedDate: Date,
+  now: Date = new Date()
+): BudgetCycle | null {
+  const isCurrentMonth =
+    now.getFullYear() === selectedDate.getFullYear() &&
+    now.getMonth() === selectedDate.getMonth();
+
+  if (isCurrentMonth && activeCycle) {
+    return activeCycle;
+  }
+
+  if (!cycles || cycles.length === 0) {
+    return isCurrentMonth ? activeCycle || null : null;
+  }
+
+  const targetMonthKey = `${selectedDate.getFullYear()}-${String(
+    selectedDate.getMonth() + 1
+  ).padStart(2, "0")}`;
+
+  const matched = cycles.find((c) => {
+    if (!c.start_date) return false;
+    const startKyivIso = getKyivDateIso(new Date(c.start_date));
+    return startKyivIso.slice(0, 7) === targetMonthKey;
+  });
+
+  return matched || null;
+}
+
+/**
+ * Фільтрує транзакції, що входять у ліміт витрат активного або обраного історичного циклу (витрати, що не виключені з бюджету).
  */
 export function filterBudgetTransactions(
   transactions: Transaction[],
@@ -179,7 +213,11 @@ export function filterBudgetTransactions(
   isCurrentMonth: boolean,
   monthTransactions: Transaction[]
 ): Transaction[] {
-  if (!isCurrentMonth || !activeCycle || !activeCycle.start_date) {
+  if (
+    !activeCycle ||
+    !activeCycle.start_date ||
+    (!isCurrentMonth && !activeCycle.end_date)
+  ) {
     return monthTransactions;
   }
 

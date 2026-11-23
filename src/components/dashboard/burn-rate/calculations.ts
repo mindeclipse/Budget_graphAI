@@ -27,7 +27,9 @@ export function calculateBurnRateData({
   const isFutureMonth = new Date(year, monthIndex, 1) > now;
 
   const isCycleMode = Boolean(
-    activeCycle && isCurrentMonth && activeCycle.start_date
+    activeCycle &&
+    activeCycle.start_date &&
+    (isCurrentMonth || Boolean(activeCycle.end_date))
   );
 
   if (isCycleMode && activeCycle) {

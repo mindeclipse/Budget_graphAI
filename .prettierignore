@@ -6,3 +6,4 @@ dist
 public
 .vercel
 package-lock.json
+backups

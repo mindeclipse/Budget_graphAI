@@ -36,6 +36,7 @@ import {
   CostPerUseItem,
 } from "@/types/finance";
 import { getDemoData } from "@/lib/demo-data";
+import { findCycleForMonth } from "@/lib/cycle-utils";
 
 export default function Dashboard() {
   // 1. Автентифікація та сесія
@@ -261,6 +262,15 @@ export default function Dashboard() {
     isSyncing,
   } = useTransactionMutations();
 
+  // Цикл, що відповідає обраному місяцю (активний для поточного місяця або історичний з таблиці budget_cycles)
+  const selectedCycle = useMemo(() => {
+    return findCycleForMonth(
+      effectiveCycles,
+      effectiveActiveCycle,
+      selectedDate
+    );
+  }, [effectiveCycles, effectiveActiveCycle, selectedDate]);
+
   // 7. Розрахунок аналітичних показників
   const {
     selectedMonthKey,
@@ -277,9 +287,12 @@ export default function Dashboard() {
   } = useBudgetMetrics({
     transactions,
     recurring: effectiveRecurring,
-    budgetLimit: effectiveActiveCycle?.budget_limit || 30000,
+    budgetLimit:
+      selectedCycle?.budget_limit ||
+      effectiveActiveCycle?.budget_limit ||
+      35000,
     selectedDate,
-    activeCycle: effectiveActiveCycle,
+    activeCycle: selectedCycle,
     usdRate: commercialRates.USD,
   });
 
@@ -291,7 +304,7 @@ export default function Dashboard() {
     cyclePreviousLabel,
   } = useCycleComparison({
     cycles: effectiveCycles,
-    activeCycle: effectiveActiveCycle,
+    activeCycle: selectedCycle,
     transactions,
     monthTransactions,
     previousMonthTransactions,
@@ -310,7 +323,7 @@ export default function Dashboard() {
     handleRestoreSuccess,
     handleSplitSuccess,
   } = useDashboardOperations({
-    activeCycle,
+    activeCycle: selectedCycle || activeCycle,
     updateActiveCycleLimitOptimistic,
     invalidateCycles,
     updateCategoryBudgetOptimistic,
@@ -335,7 +348,7 @@ export default function Dashboard() {
     aiFinancialContext,
     handleRunAiAnalysis,
   } = useAiAdvisor({
-    activeCycle,
+    activeCycle: selectedCycle,
     effectiveLimit,
     recurringTotal,
     totalSpent,
@@ -530,7 +543,7 @@ export default function Dashboard() {
           recurringTotal={recurringTotal}
           selectedMonthKey={selectedMonthKey}
           commercialRates={commercialRates}
-          activeCycle={effectiveActiveCycle}
+          activeCycle={selectedCycle}
           cycleCurrentTransactions={cycleCurrentTransactions}
           cyclePreviousTransactions={cyclePreviousTransactions}
           cycleCurrentLabel={cycleCurrentLabel}
@@ -564,7 +577,7 @@ export default function Dashboard() {
           onOpenTrash={openTrash}
           onOpenMerchantRules={openMerchantRules}
           onOpenTagProject={setSelectedProjectTag}
-          periodLabel={effectiveActiveCycle?.name || monthLabel}
+          periodLabel={selectedCycle?.name || monthLabel}
         />
       )}
 
